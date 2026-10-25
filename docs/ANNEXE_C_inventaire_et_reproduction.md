@@ -80,3 +80,6 @@ python3 -I e1_analyze.py e1_neuf/e1_cauchy_e1_gcc16 --excerpts > e1_gcc16.txt   
 python3 -I e1_pile_offsets.py e1_neuf/e1_cauchy_e1_gcc16 > pile_offsets_gcc16.tsv  # écritures vers le cadre, proches/lointaines
 ```
 `e1_analyze.py` figure dans le patch 0004 (`test/tail_study/`) ; `e1_pile_offsets.py` est joint à la partie 4. Pour refaire la compilation elle-même (autre compilateur) : `CC=clang SESSION=<étiquette> sh test/run_E1.sh` dans l'arbre du patch 0004 (non encore exécuté avec Clang).
+
+## C.8 Données brutes dans le dépôt (mise à jour du 25 oct. 2026)
+Les archives brutes sont dans `data/raw/` du dépôt https://github.com/LECAUCHY12/mayo-a2-thesis (SHA-256 identiques à ceux de C.1 : S1 `ebc01dfe…dabd`, S2 `b1a69769…c723`, PH1 `e1a88aec…98cc`, CT1 `0506c2b5…92de`). `sh scripts/reproduire_depuis_depot.sh <dossier_neuf>` refait les analyses (9 sur 9 identiques). L'archive E1 est dans `data/e1_gcc16/`.

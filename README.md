@@ -8,12 +8,23 @@ A2 remplace, dans les noyaux AVX2 `P1_times_Vt` et `P1t_times_Vt` de MAYO-C, le 
 | Dossier | Contenu |
 |---|---|
 | `patches/` | quatre patchs `git am` sur `PQCMayo/MAYO-C` commit `74de637a7c4a7f9fafa888183bc05f5cf920cd2d` (0001 prototype A2 ; 0002 sondes de décomposition ; 0003 contrôle des sondes ; 0004 analyse statique E1) |
-| `scripts/` | scripts d'analyse (Python), `run_session_independante.sh` (mesures S1/S2), `reproduire_analyses.sh`, `e1_pile_offsets.py` |
+| `scripts/` | scripts d'analyse (Python), `run_session_independante.sh` (mesures S1/S2), `reproduire_depuis_depot.sh`, `e1_inline_attrib.py`, `e1_modele_quantitatif.py`, `e1_pile_offsets.py` |
 | `analyses/` | sorties d'analyse livrées (reproductibles à l'identique) |
 | `docs/` | note technique v2 (22 oct. 2026), annexes A (comptage des shuffles), B (propriétés de sûreté), C (inventaire et reproduction), synthèse consolidée |
 | `data/e1_gcc16/` | résultat E1 (GCC 16.2.0, machine physique) : archive, SHA-256, analyse, feuille de calcul |
 
-Les données brutes de mesure (S1, S2, PH1, CT1 : ≈ 35 Mo) ne sont pas dans ce dépôt ; leurs SHA-256 sont dans `docs/ANNEXE_C_inventaire_et_reproduction.md`.
+`data/raw/` contient les **données brutes** (≈ 29 Mo) de S1 (4 campagnes), S2, PH1 et CT1, avec `SHA256SUMS.txt`.
+
+## Reproduire les analyses chiffrées à partir des données brutes (une commande)
+Depuis la racine du dépôt (python3 + numpy requis, < 1 minute) :
+```
+sh scripts/reproduire_depuis_depot.sh ../travail_neuf
+```
+Le script vérifie les empreintes des archives brutes, refait les 9 analyses de `analyses/` et affiche `OK` pour chaque sortie identique (9 sur 9 le 25 oct. 2026).
+
+## Documents
+- `docs/NOTE_v2_…` (22 oct.) : état de l'art, résultats E1, plan. 
+- `docs/NOTE_v3_interpretation_E1.md` (25 oct.) : instructions supplémentaires du contexte (origine), lien quantitatif avec l'écart de performance, contribution d'A2. **La note v3 remplace les §3.3–3.5 de la note v2 là où elles diffèrent** (notamment l'identification des boucles officielles de MAYO-5).
 
 ## Reconstituer le code exact
 ```

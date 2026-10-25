@@ -1,0 +1,14 @@
+1) rapports A2/officiel : instructions statiques (P1+P1t) contre temps mesures
+   banc isole                 instr A2/off = 0.864 (gain statique 13.6 %)
+   contexte, toutes sondes    instr A2/off = 0.859 (gain statique 14.1 %)
+   contexte, sans sondes      instr A2/off = 0.961 (gain statique 3.9 %)
+   mesure toutes sondes : P1+P1t  635681 -> 535497  (gain 15.8 %) ; m_calculate 805136 -> 705398 (gain 12.4 %)
+   mesure sans sondes (config mcalc) : m_calculate 936031 -> 916206  (gain 2.1 %)
+
+2) etalonnage sur 'toutes sondes' : 0.251 tick par instruction statique
+   prediction sans sondes : P1+P1t officiel 727587, A2 699504, gain 28082 ticks (mesure : gain m_calculate 19825 ticks)
+
+3) cout des ecritures supplementaires (sans sondes moins toutes sondes), par bras
+   officiel : 365508 instr. en plus (P1+P1t) ; m_calculate +130895 ticks -> 0.358 tick/instr. en plus
+   A2       : 609180 instr. en plus (P1+P1t) ; m_calculate +210808 ticks -> 0.346 tick/instr. en plus
+   (Ut_times_O et m_lambda_times_O ont aussi +37 instr. dans les deux bras ; leur nombre de tours n'est pas connu ici.)
