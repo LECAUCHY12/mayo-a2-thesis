@@ -18,6 +18,7 @@ patch \code{0004} & \sha{9c460d0de2193805f3b0c1716f62bf1390ca543778ccfb0022d995e
 \bottomrule
 \end{longtable}
 \endgroup
+Archive E1b (sorties de compilation, dumps GCC, désassemblages) : \code{e1b_gcc16.tar.gz}, SHA-256 \sha{49452120b1b787ad2aed0f30cbcece4f7584a6063768757d92214e264dcd3faa}.\par
 Archives brutes internes : S1 \code{ebc01dfe}\dots, S2 \code{b1a69769}\dots c723, PH1 \code{e1a88aec}\dots 98cc, CT1 \code{0506c2b5}\dots 92de. Les archives de la phase VM (\code{A2_donnees_et_journaux}, \code{tail_aware_etude}, \code{archive_piste_batch_EF}, etc.) sont de l'\emph{historique} et ne doivent jamais être présentées comme performances matérielles.
 
 \section{Identification exacte du code}
@@ -49,7 +50,7 @@ E1b & \code{python3 -I e1b.py <dossier_E1> <dossier_neuf>}\\\bottomrule
 Chaque \code{machine.txt} enregistre date UTC, noyau, compilateur, microcode, gouverneur, \code{boot_id} et alimentation. La reproduction des \emph{mesures} donnera des valeurs voisines et non identiques.
 
 \chapter{Identification des noyaux dans le code généré (GCC~16.2.0, MAYO-5)}\label{app:ident}
-Identification par le pas d'adresse sur $P_1$ (chapitre~\ref{ch:methodo}). « Écritures » : écritures de 32 octets dans le corps de boucle.
+Identification par le pas d'adresse sur $P_1$ (section~\ref{sec:protocole}). « Écritures » : écritures de 32 octets dans le corps de boucle.
 
 \begin{table}[ht]\centering\small
 \caption{Instructions / écritures de 32 octets des boucles de travail selon la construction.}
@@ -62,14 +63,3 @@ Construction & \code{P1} off. & \code{P1} A2 & \code{P1t} off. & \code{P1t} A2\\
 \end{table}
 Les différences « sans toutes les sondes » moins « toutes sondes » sont : A2 \code{P1} $+30$ (52$-$22), A2 \code{P1t} $+30$, officiel \code{P1t} $+36$ (65$-$29), officiel \code{P1} $0$.
 
-\chapter{Glossaire}
-\begin{description}[leftmargin=2.6cm,labelwidth=2.4cm]
-\item[$m$-vec] vecteur de $m$ éléments de $\mathbb{F}_{16}$, empaqueté à 2 éléments par octet.
-\item[Limbe] mot de 64 bits d'un accumulateur.
-\item[Voie] moitié de 128 bits d'un registre ymm.
-\item[Tick TSC] unité du compteur d'horodatage (\code{rdtscp}) ; non un cycle cœur.
-\item[Processus] unité statistique : une exécution du banc, 3\,001 paires.
-\item[KAT] \emph{known-answer test}.
-\item[SAFE] variante d'A2 qui ne lit rien au-delà de l'entrée de $P_1$.
-\item[E1, E1b] analyses statiques du code généré (E1b : origine des écritures supplémentaires, non encore exécutée).
-\end{description}

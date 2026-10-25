@@ -2,51 +2,24 @@
 \input{preambule}
 \title{Optimisation du traitement des queues de $m$-vecteurs dans les noyaux AVX2 de MAYO-C}
 \author{Marcel Eric Angoah}
-\date{Version provisoire du \today}
-
 \begin{document}
-
-% ----------------------------------------------------------------- page de titre
-\begin{titlepage}
-\centering
-{\large École Nationale Supérieure Polytechnique de Yaoundé (ENSPY)}\\[0.3em]
-{\large Master II}\\[3.5em]
-{\color{muted}\rule{\linewidth}{0.6pt}}\\[1.2em]
-{\Huge\bfseries\color{navy} Optimisation du traitement des queues de $m$-vecteurs dans les noyaux AVX2 de MAYO-C\par}
-\vspace{0.8em}
-{\Large\color{steel} L'approche A2 : un registre 128 bits pour la queue\par}
-\vspace{0.8em}
-{\large Analyse, validation expérimentale sur machine physique et limites}\\[1.2em]
-{\color{muted}\rule{\linewidth}{0.6pt}}\\[3em]
-{\large Présenté par}\\[0.3em]
-{\Large\bfseries Marcel Eric Angoah}\\[2.5em]
-{\large Sous la direction du}\\[0.3em]
-{\Large\bfseries Dr Hervé Talé Kalachi}\\[3em]
-\textbf{Version provisoire (premier jet complet)}\\[0.3em]
-\today
-\vfill
-\begin{minipage}{0.88\linewidth}\small\color{muted}
-Statut du document. Les résultats non établis figurent comme questions ouvertes ou perspectives, jamais comme contributions acquises. Chaque affirmation chiffrée renvoie à des données déposées (dépôt \code{mayo-a2-thesis}, empreintes SHA-256 en annexe~\ref{app:inventaire}).
-\end{minipage}
-\end{titlepage}
-
-\pagenumbering{roman}
-\input{chapitres/resume}
+\input{chapitres/couverture}
+\input{chapitres/avant_propos}
+\clearpage
 \tableofcontents
-\listoffigures
-\listoftables
-\clearpage\pagenumbering{arabic}
-
-\input{chapitres/ch1_introduction}
-\input{chapitres/ch2_etat_de_l_art}
-\input{chapitres/ch3_a2}
-\input{chapitres/ch4_surete}
-\input{chapitres/ch5_methodologie}
-\input{chapitres/ch6_resultats}
-\input{chapitres/ch7_discussion}
+\markboth{}{}
+\clearpage
+\addcontentsline{toc}{chapter}{Liste des figures}\listoffigures\markboth{}{}
+\clearpage
+\addcontentsline{toc}{chapter}{Liste des tableaux}\listoftables
+\clearpage
+\pagenumbering{arabic}
+\input{chapitres/intro}
+\input{chapitres/ch1_fondements}
+\input{chapitres/ch2_methodologie}
+\input{chapitres/ch3_resultats}
 \input{chapitres/ch8_conclusion}
-
+\input{chapitres/biblio}
 \appendix
 \input{chapitres/annexes}
-\input{chapitres/biblio}
 \end{document}

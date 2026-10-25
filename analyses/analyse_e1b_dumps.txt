@@ -1,0 +1,46 @@
+==================== P_none
+(1) tableaux temp/tt declares : {'__m256i temp[36]': 7, '__m256i temp[24]': 2, '__m128i tt[6]': 2}
+    variables temp_I_lsm declarees : 144
+(2) blocs de travail (bb : pshufb256/pshufb128 ; stores temp[]= ; stores tt[]= ; refs _lsm)
+    bb  11 : 24/6 ; temp[]= 24 ; tt[]= 6 ; _lsm 0
+    bb  18 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  26 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  34 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  43 : 36/0 ; temp[]= 36 ; tt[]= 0 ; _lsm 0
+    bb  52 : 24/6 ; temp[]= 24 ; tt[]= 6 ; _lsm 0
+    bb  53 : 24/6 ; temp[]= 24 ; tt[]= 6 ; _lsm 0
+    bb  56 : 24/6 ; temp[]= 24 ; tt[]= 12 ; _lsm 0
+    bb  58 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 0
+    bb  60 : 36/0 ; temp[]= 36 ; tt[]= 0 ; _lsm 0
+    bb  61 : 36/0 ; temp[]= 36 ; tt[]= 0 ; _lsm 0
+    bb  67 : 36/0 ; temp[]= 36 ; tt[]= 0 ; _lsm 0
+    bb  73 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    blocs avec stores de tableau dans le bloc : 8 ; blocs a scalaires _lsm sans store de tableau : 4
+(3) 143t.sra : 'Disqualifying temp' = 12  {'! Disqualifying temp - Address taken in a non-call-argument context.': 8, '! Disqualifying temp - No or inhibitingly overlapping accesses.': 4}
+(3) 041t.esra : 'Disqualifying temp' = 0  {}
+(4) boucle A2 P1 @0x4fa0 : 135 instr, 52 ecritures (42 de 32 octets, 10 de 16 octets)
+    ecritures de 32 octets par region de pile (arrondi 64 Kio) : {'-0x30000': 18, '-0x20000': 24}
+    ecritures de 16 octets : 10, decalages -0x376d0 .. -0x36ce0
+==================== P_all
+(1) tableaux temp/tt declares : {'__m256i temp[36]': 7, '__m256i temp[24]': 2, '__m128i tt[6]': 2}
+    variables temp_I_lsm declarees : 300
+(2) blocs de travail (bb : pshufb256/pshufb128 ; stores temp[]= ; stores tt[]= ; refs _lsm)
+    bb  12 : 24/6 ; temp[]=  0 ; tt[]= 0 ; _lsm 48
+    bb  19 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  27 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  34 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  43 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  53 : 24/6 ; temp[]=  0 ; tt[]= 0 ; _lsm 48
+    bb  54 : 24/6 ; temp[]= 24 ; tt[]= 6 ; _lsm 0
+    bb  57 : 24/6 ; temp[]= 24 ; tt[]= 6 ; _lsm 0
+    bb  59 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 0
+    bb  61 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  62 : 36/0 ; temp[]= 36 ; tt[]= 0 ; _lsm 0
+    bb  68 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    bb  74 : 36/0 ; temp[]=  0 ; tt[]= 0 ; _lsm 72
+    blocs avec stores de tableau dans le bloc : 3 ; blocs a scalaires _lsm sans store de tableau : 9
+(3) 143t.sra : 'Disqualifying temp' = 12  {'! Disqualifying temp - Address taken in a non-call-argument context.': 8, '! Disqualifying temp - No or inhibitingly overlapping accesses.': 4}
+(3) 041t.esra : 'Disqualifying temp' = 0  {}
+(4) boucle A2 P1 @0x7688 : 105 instr, 22 ecritures (18 de 32 octets, 4 de 16 octets)
+    ecritures de 32 octets par region de pile (arrondi 64 Kio) : {'-0x30000': 18}
+    ecritures de 16 octets : 4, decalages -0x376d0 .. -0x374f0

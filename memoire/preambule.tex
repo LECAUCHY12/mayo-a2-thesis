@@ -44,14 +44,23 @@
 
 \usepackage[colorlinks=true,linkcolor=steel,citecolor=steel,urlcolor=steel]{hyperref}
 
+\setcounter{secnumdepth}{3}\setcounter{tocdepth}{3}
 \titleformat{\chapter}[display]{\normalfont\huge\bfseries\color{navy}}{\chaptertitlename\ \thechapter}{14pt}{\Huge}
+\titleformat{name=\chapter,numberless}[block]{\normalfont\Large\scshape\color{navy}\raggedleft}{}{0pt}{}
+\titlespacing*{\chapter}{0pt}{60pt}{36pt}
 \titleformat{\section}{\normalfont\Large\bfseries\color{steel}}{\thesection}{0.8em}{}
 \titleformat{\subsection}{\normalfont\large\bfseries\color{navy}}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\normalfont\normalsize\bfseries\color{navy}}{\thesubsubsection}{0.8em}{}
+\newcommand{\usection}[1]{\section*{#1}\addcontentsline{toc}{section}{#1}}
 \pagestyle{fancy}\fancyhf{}
-\fancyhead[L]{\small\color{muted}\nouppercase{\leftmark}}
-\fancyhead[R]{}
+\renewcommand{\chaptermark}[1]{\markboth{\textsc{#1}}{}}
+\renewcommand{\sectionmark}[1]{\markright{#1}}
+\fancyhead[L]{\small\color{navy}\nouppercase{\leftmark}}
+\fancyhead[R]{\small\color{navy}\nouppercase{\rightmark}}
 \fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\headrule}{{\color{navy}\hrule width\headwidth height\headrulewidth}}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\thepage}\renewcommand{\headrulewidth}{0pt}}
 
 % ---- code et statuts epistemiques
 \newcommand{\code}[1]{\texttt{\detokenize{#1}}}

@@ -1,0 +1,57 @@
+\pagenumbering{roman}
+\chapter*{Dédicace}
+\addcontentsline{toc}{chapter}{Dédicace}
+\markboth{Dédicace}{Dédicace}
+\vspace*{3cm}
+\begin{center}\Large\color{navy}\emph{(à compléter)}\end{center}
+
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+\markboth{Remerciements}{Remerciements}
+Ce travail n'aurait pas été possible sans l'accompagnement de plusieurs personnes, à qui j'exprime ma sincère gratitude :
+\begin{itemize}
+\item \textbf{Dr Hervé Talé Kalachi}, mon encadrant, pour ses relectures exigeantes et les consignes méthodologiques qui ont structuré ce travail ;
+\item \emph{(à compléter : membres du jury, enseignants du Département de Génie Informatique, collègues, famille, amis.)}
+\end{itemize}
+
+\input{chapitres/resume}
+
+\chapter*{Liste des abréviations}
+\addcontentsline{toc}{chapter}{Liste des abréviations}
+\markboth{Liste des abréviations}{Liste des abréviations}
+\begin{itemize}[leftmargin=1.2cm,itemsep=2pt]
+\item[\textbf{AVX2 :}] \emph{Advanced Vector Extensions 2} (instructions SIMD 256 bits)
+\item[\textbf{CT :}] \emph{Constant Time} (temps constant)
+\item[\textbf{DSE :}] \emph{Dead Store Elimination} (passe de GCC)
+\item[\textbf{FRE :}] \emph{Full Redundancy Elimination} (passe de GCC)
+\item[\textbf{GCC :}] \emph{GNU Compiler Collection}
+\item[\textbf{GFNI :}] \emph{Galois Field New Instructions}
+\item[\textbf{IC95 :}] intervalle de confiance à 95\,\%
+\item[\textbf{KAT :}] \emph{Known-Answer Test}
+\item[\textbf{LIM :}] \emph{Loop Invariant Motion} (passe de GCC)
+\item[\textbf{MAYO :}] schéma de signature multivariée de type Oil-and-Vinegar
+\item[\textbf{NIST :}] \emph{National Institute of Standards and Technology}
+\item[\textbf{OV, UOV :}] \emph{(Unbalanced) Oil and Vinegar}
+\item[\textbf{PRE :}] \emph{Partial Redundancy Elimination} (passe de GCC)
+\item[\textbf{SIMD :}] \emph{Single Instruction, Multiple Data}
+\item[\textbf{SRA :}] \emph{Scalar Replacement of Aggregates} (passe de GCC)
+\item[\textbf{TSC :}] \emph{Time Stamp Counter}
+\end{itemize}
+
+\chapter*{Glossaire}
+\addcontentsline{toc}{chapter}{Glossaire}
+\markboth{Glossaire}{Glossaire}
+\begin{itemize}[leftmargin=0.5cm,itemsep=3pt]
+\item \textbf{$m$-vec :} vecteur de $m$ éléments de $\mathbb{F}_{16}$, empaqueté à deux éléments par octet.
+\item \textbf{Limbe :} mot de 64 bits d'un accumulateur.
+\item \textbf{Voie (\emph{lane}) :} moitié de 128 bits d'un registre ymm.
+\item \textbf{Table de multiplication (multab) :} table de 16 octets donnant, pour une paire de scalaires, les deux produits par un quartet.
+\item \textbf{Queue :} fin d'un $m$-vec qui ne remplit pas un registre complet de 32 octets.
+\item \textbf{Recouvrement :} chargement reculé du dernier registre, qui retraite des octets déjà traités.
+\item \textbf{SAFE :} variante d'A2 qui ne lit rien au-delà de l'entrée de $P_1$.
+\item \textbf{Tick TSC :} unité du compteur d'horodatage (\code{rdtscp}) ; ce n'est pas un cycle cœur.
+\item \textbf{Processus :} unité statistique : une exécution du banc, 3\,001 paires.
+\item \textbf{Doublon :} écritures de 32 octets supplémentaires par accumulateur dans le code généré, selon la construction.
+\item \textbf{E1, E1b :} analyses statiques du code généré (E1b : origine du doublon, exécutée le 25 octobre 2026 sous GCC~16.2.0).
+\item \textbf{Fait, inférence, hypothèse :} statuts des énoncés, notés \F{}, \I{}, \Hy{}.
+\end{itemize}

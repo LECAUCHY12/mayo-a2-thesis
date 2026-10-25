@@ -1,0 +1,193 @@
+# CONTROLE P_none : code de sign_signature_internal identique a celui de E1 (ctx_phases_none_M5) : OUI
+P_none  base      instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+          GIMPLE optimise (P_none) : lignes mentionnant 'temp' = 857, dont references memoire (MEM/tableau) = 393
+P_none  dump      instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+P_none  nosra     instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=1
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab6 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82fe : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a63 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa488 : 123 instr,  29 ecritures de 32 octets
+P_none  noipasra  instr(sign_signature_internal)=6241  hors boucles de travail=4993  distance mnemoniques hors boucles vs base=1
+          boucle P1       A2       adresse 0x4fc8 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55d8 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5ed8 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6af7 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73e0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a88 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x832f : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a9a : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa4c8 : 123 instr,  29 ecritures de 32 octets
+P_none  nodse     instr(sign_signature_internal)=5795  hors boucles de travail=4547  distance mnemoniques hors boucles vs base=412
+          boucle P1       A2       adresse 0x51b0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x57b8 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x60a0 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ca4 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7588 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7c38 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x84d5 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9e2e : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa878 : 123 instr,  29 ecritures de 32 octets
+P_none  nopre     instr(sign_signature_internal)=6212  hors boucles de travail=4964  distance mnemoniques hors boucles vs base=17
+          boucle P1       A2       adresse 0x50f0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x5700 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5fd8 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6bec : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x74d0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7b70 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8414 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9b50 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa570 : 123 instr,  29 ecritures de 32 octets
+P_none  nofre     instr(sign_signature_internal)=5085  hors boucles de travail=4282  distance mnemoniques hors boucles vs base=357
+          boucle P1       A2       adresse 0xb228 : 135 instr,  52 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xbe56 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0xc630 : 161 instr,  36 ecritures de 32 octets
+          boucle autre    officiel adresse 0xcd0f : 183 instr,  58 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xe486 : 185 instr,  58 ecritures de 32 octets
+# CONTROLE P_all : code de sign_signature_internal identique a celui de E1 (ctx_phases_M5) : OUI
+P_all   base      instr(sign_signature_internal)=4887  hors boucles de travail=3809  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x7688 : 105 instr,  22 ecritures de 32 octets
+          boucle P1       officiel adresse 0x7d40 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x86d0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8eb0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x9759 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xade2 : 109 instr,  22 ecritures de 32 octets
+          boucle autre    officiel adresse 0xb638 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xc4e0 : 126 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0xce50 : 123 instr,  29 ecritures de 32 octets
+          GIMPLE optimise (P_all) : lignes mentionnant 'temp' = 1264, dont references memoire (MEM/tableau) = 333
+P_all   dump      instr(sign_signature_internal)=4887  hors boucles de travail=3809  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x7688 : 105 instr,  22 ecritures de 32 octets
+          boucle P1       officiel adresse 0x7d40 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x86d0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8eb0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x9759 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xade2 : 109 instr,  22 ecritures de 32 octets
+          boucle autre    officiel adresse 0xb638 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xc4e0 : 126 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0xce50 : 123 instr,  29 ecritures de 32 octets
+P_all   nosra     instr(sign_signature_internal)=4885  hors boucles de travail=3807  distance mnemoniques hors boucles vs base=3
+          boucle P1       A2       adresse 0x7688 : 105 instr,  22 ecritures de 32 octets
+          boucle P1       officiel adresse 0x7d40 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x86d0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8eb0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x975f : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xade2 : 109 instr,  22 ecritures de 32 octets
+          boucle autre    officiel adresse 0xb638 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xc4dd : 126 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0xce50 : 123 instr,  29 ecritures de 32 octets
+P_all   noipasra  instr(sign_signature_internal)=2892  hors boucles de travail=2892  distance mnemoniques hors boucles vs base=1181
+P_all   nodse     instr(sign_signature_internal)=4970  hors boucles de travail=3892  distance mnemoniques hors boucles vs base=45
+          boucle P1       A2       adresse 0x6b10 : 105 instr,  22 ecritures de 32 octets
+          boucle P1       officiel adresse 0x71d0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7b58 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8328 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8bda : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xa2a7 : 109 instr,  22 ecritures de 32 octets
+          boucle autre    officiel adresse 0xaaf0 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xbba6 : 126 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0xc538 : 123 instr,  29 ecritures de 32 octets
+P_all   nopre     instr(sign_signature_internal)=4880  hors boucles de travail=3802  distance mnemoniques hors boucles vs base=5
+          boucle P1       A2       adresse 0x7758 : 105 instr,  22 ecritures de 32 octets
+          boucle P1       officiel adresse 0x7e18 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x87b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8f90 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x9837 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xaec2 : 109 instr,  22 ecritures de 32 octets
+          boucle autre    officiel adresse 0xb710 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xc5c4 : 126 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0xcf38 : 123 instr,  29 ecritures de 32 octets
+P_all   nofre     instr(sign_signature_internal)=4858  hors boucles de travail=4399  distance mnemoniques hors boucles vs base=876
+          boucle P1       A2       adresse 0xd1a0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xe692 : 139 instr,  52 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xf707 : 185 instr,  58 ecritures de 32 octets
+# CONTROLE TAB : code de sign_signature_internal identique a celui de E1 (ctx_ab_M5) : OUI
+TAB     base      instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+          GIMPLE optimise (TAB) : lignes mentionnant 'temp' = 857, dont references memoire (MEM/tableau) = 393
+TAB     dump      instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+TAB     nosra     instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=1
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab6 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82fe : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a63 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa488 : 123 instr,  29 ecritures de 32 octets
+TAB     noipasra  instr(sign_signature_internal)=6241  hors boucles de travail=4993  distance mnemoniques hors boucles vs base=1
+          boucle P1       A2       adresse 0x4fc8 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55d8 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5ed8 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6af7 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73e0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a88 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x832f : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a9a : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa4c8 : 123 instr,  29 ecritures de 32 octets
+TAB     nodse     instr(sign_signature_internal)=5795  hors boucles de travail=4547  distance mnemoniques hors boucles vs base=412
+          boucle P1       A2       adresse 0x51b0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x57b8 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x60a0 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ca4 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7588 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7c38 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x84d5 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9e2e : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa878 : 123 instr,  29 ecritures de 32 octets
+TAB     nopre     instr(sign_signature_internal)=6212  hors boucles de travail=4964  distance mnemoniques hors boucles vs base=17
+          boucle P1       A2       adresse 0x50f0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x5700 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5fd8 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6bec : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x74d0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7b70 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8414 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9b50 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa570 : 123 instr,  29 ecritures de 32 octets
+TAB     nofre     instr(sign_signature_internal)=5085  hors boucles de travail=4282  distance mnemoniques hors boucles vs base=357
+          boucle P1       A2       adresse 0xb228 : 135 instr,  52 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xbe56 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0xc630 : 161 instr,  36 ecritures de 32 octets
+          boucle autre    officiel adresse 0xcd0f : 183 instr,  58 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xe486 : 185 instr,  58 ecritures de 32 octets
