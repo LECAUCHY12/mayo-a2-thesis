@@ -1,0 +1,26 @@
+\chapter*{Conclusion générale}
+\addcontentsline{toc}{chapter}{Conclusion générale}
+\markboth{Conclusion}{Conclusion}
+
+\section*{Contributions effectives}
+Ce mémoire a étudié, sur MAYO-C, le traitement des queues de $m$-vecteurs dans les noyaux AVX2 \code{P1_times_Vt} et \code{P1t_times_Vt}. Les contributions établies sont les suivantes.
+\begin{enumerate}
+\item Un \textbf{comptage rigoureux} dans un modèle défini : borne $\lceil m/32\rceil$, schéma officiel $2\lceil m/64\rceil$, et caractérisation exacte des $m$ pour lesquels un gain de \vpshufb{} est possible ($0<m\bmod64\le32$). MAYO-1 et MAYO-5 en bénéficient, MAYO-2 et MAYO-3 non.
+\item Une \textbf{réalisation} (A2) pour les queues d'au plus 16 éléments, avec une variante SAFE qui ne lit rien au-delà de l'entrée de $P_1$, et un ensemble de propriétés de lecture, d'écriture, de tables et de bourrage, avec leurs preuves de code et leurs tests.
+\item Des \textbf{gains mesurés} sur machine physique avec une unité statistique explicitée : 12--29\,\% sur les noyaux, 10,3\,\% sur \code{mayo_sign} de MAYO-1, 1,3\,\% sur celui de MAYO-5, reproduits sur deux démarrages.
+\item La \textbf{localisation} de la perte de gain de MAYO-5 dans \code{m_calculate} en contexte de signature, et la mise en évidence d'écritures supplémentaires asymétriques dans le code généré par GCC~16.2.0, concordantes avec la perte.
+\item Un \textbf{dépôt reproductible} (scripts, données brutes, empreintes) dont les neuf analyses se reproduisent à l'identique.
+\end{enumerate}
+
+\section*{Limites}
+Le gain de signature de MAYO-5 est faible et dépend de la décision du compilateur. Le lien causal entre écritures supplémentaires et perte de gain n'est pas établi et le modèle quantitatif le surestime d'environ 40\,\%. Les mesures proviennent d'une machine et d'un compilateur ; elles sont en ticks TSC. Le temps constant n'est étayé que par des indicateurs. La variante pour queues de 17 à 32 éléments n'est pas implémentée. Aucune nouveauté absolue n'est revendiquée.
+
+\section*{Questions ouvertes et perspectives}\label{sec:persp}
+\begin{description}
+\item[Q1 -- Origine des écritures.] Exécuter E1b avec GCC~16.2.0 (statique, sans mesure) et en tirer les conclusions autorisées par le tableau~\ref{tab:e1b-issues}, sans attribuer à SRA une disparition des écritures avant d'avoir écarté les autres changements de code.
+\item[Q2 -- Causalité.] Si, et seulement si, un moyen de supprimer le doublon sans autre modification de code est identifié, comparer les temps avec et sans doublon à code constant. Les expériences E2 à E5 initialement envisagées restent suspendues jusqu'à la décision de l'encadrant.
+\item[Q3 -- Robustesse.] Reproduire l'analyse statique avec Clang et d'autres versions de GCC ; mesurer sur une seconde machine, idéalement avec compteurs matériels et en cycles cœur (hypothèse de performance H-P).
+\item[Q4 -- Extension.] Implémenter et valider la variante pour $16<r\le32$ ; examiner les paramètres hors de la famille actuelle.
+\item[Q5 -- Assurance.] Vérification formelle ou outillée du temps constant du binaire.
+\item[Q6 -- Intégration.] Décision en fonction des réponses ci-dessus et des critères de l'encadrant.
+\end{description}

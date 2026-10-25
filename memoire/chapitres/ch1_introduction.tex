@@ -1,0 +1,61 @@
+\chapter{Introduction générale}
+\label{ch:intro}
+
+\section{Contexte}
+L'algorithme de Shor~\cite{shor} rend les signatures fondées sur la factorisation et le logarithme discret vulnérables à un ordinateur quantique de grande taille. Le NIST a publié en 2024 les premières normes post-quantiques (FIPS~203, 204 et 205~\cite{nistfips}) et poursuit un appel à signatures additionnelles~\cite{nistadd}, dans lequel figurent des schémas multivariés. Parmi eux, MAYO~\cite{mayo} construit une signature de type Oil-and-Vinegar (OV)~\cite{patarin,kipnisshamir,uov} à clé publique compacte : l'application publique est une application quadratique d'un petit espace d'huile, « fouettée » (\emph{whipped}) pour produire une application plus grande. L'intérêt pratique du schéma est la petite taille des clés et des signatures ; son coût de calcul est dominé par de l'arithmétique sur $\mathbb{F}_{16}$.
+
+Les schémas multivariés ont connu des cryptanalyses marquantes~\cite{beullensrainbow}, ce qui impose une lecture prudente de toute affirmation de sécurité ; ce mémoire ne traite pas de sécurité algébrique. Il traite de \emph{performance d'implémentation} et de \emph{propriétés d'implémentation} (correction, accès mémoire, temps constant) d'une optimisation locale du code C officiel.
+
+\section{Parcours du travail et recentrage}
+Le travail a débuté par une implémentation autonome (arithmétique $\mathbb{F}_{16}$ à tables, étude d'une fuite par canal auxiliaire de cache sur les tables, élimination de Gauss--Jordan à temps constant), documentée dans des chapitres antérieurs et motivée par les attaques temporelles de cache~\cite{kocher,bernstein}. À la demande de l'encadrant, le travail a ensuite été recentré sur l'implémentation C \emph{officielle} (MAYO-C) pour mesurer des gains qui soient comparables à l'existant. Ce mémoire porte exclusivement sur cette seconde phase. L'étude préliminaire n'est pas reprise, sauf quand un résultat négatif de cette phase éclaire une décision (chapitre~\ref{ch:discussion}).
+
+\section{Problématique}
+Dans l'implémentation AVX2 officielle, un $m$-vecteur de $\mathbb{F}_{16}$ est stocké à deux éléments par octet ($m/2$ octets) et multiplié par des scalaires à l'aide de \vpshufb{} : une instruction effectue 32 recherches dans une table de 16 octets et fournit, pour chaque élément, les produits par \emph{deux} scalaires à la fois. Un registre de 256 bits couvre donc 64 éléments. Quand $m$ n'est pas un multiple de 64, le code officiel couvre la fin du vecteur par un chargement de 32 octets reculé qui \emph{recouvre} le précédent. Ce recouvrement est documenté dans l'article d'optimisation~\cite{nibbling} pour $m=96$ (MAYO-3) : il « duplique » des opérations.
+
+Pour les paramètres considérés ici, la duplication est importante : 48 éléments recalculés sur 128 pour MAYO-1 ($m=80$, soit 37,5\,\%) et 50 sur 192 pour MAYO-5 ($m=142$, soit 26\,\%). La question centrale est :
+
+\begin{encadre}
+\textbf{Question centrale.} La duplication de calcul due au recouvrement en fin de $m$-vecteur peut-elle être réduite par un traitement dédié de la queue, quelle en est la limite exacte en nombre de \vpshufb{}, et ce gain se traduit-il, de façon robuste et démontrable, en gain sur le temps de signature complet ?
+\end{encadre}
+
+Cette formulation sépare trois choses souvent confondues : (i) une \emph{borne de comptage} (mathématique, dans un modèle précis), (ii) sa \emph{réalisation} par un algorithme (à montrer et à tester) et (iii) l'\emph{effet sur le temps} (expérimental, dépendant du compilateur et de la machine).
+
+\section{Questions de recherche et objectifs}
+\begin{description}[leftmargin=2.2cm,labelwidth=2cm]
+\item[QR1] Quel est le nombre minimal de \vpshufb{} par paire de scalaires pour un $m$-vecteur, dans la classe des traitements à tables de 16 octets, et pour quels $m$ le code officiel est-il déjà optimal ?
+\item[QR2] Existe-t-il une réalisation sûre (sans lecture hors de l'entrée, sans dépendance au secret dans les adresses) de cette borne pour MAYO-1 et MAYO-5 ?
+\item[QR3] Quel gain mesure-t-on sur les noyaux \code{P1_times_Vt} et \code{P1t_times_Vt}, puis sur \code{mayo_sign}, sur une machine physique, avec un protocole dont les limites sont quantifiées ?
+\item[QR4] Si le gain en contexte diffère du gain isolé, que montre l'analyse du code généré, et qu'est-ce qui reste à démontrer ?
+\end{description}
+
+Les objectifs en découlent : \textbf{O1} formaliser le comptage (borne, réalisation, limite) ; \textbf{O2} documenter la conception d'A2 et les propriétés dont dépend sa correction ; \textbf{O3} mesurer avec un protocole reproductible ; \textbf{O4} caractériser l'écart entre gain isolé et gain en contexte ; \textbf{O5} situer le travail par rapport aux implémentations existantes sans revendiquer plus que ce que les sources consultées permettent.
+
+\section{Contributions : établies et ouvertes}
+Conformément à la règle de rédaction adoptée, le tableau~\ref{tab:contrib} sépare ce qui est acquis de ce qui reste ouvert.
+
+\begin{table}[ht]\centering\small
+\caption{Statut des contributions.}\label{tab:contrib}
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+ & Contribution & Statut\\\midrule
+C1 & Comptage : borne $\lceil m/32\rceil$, schéma officiel $2\lceil m/64\rceil$, écart $\Delta(m)$ (prop.~\ref{prop:borne}--\ref{prop:real}) & établi (preuve)\\
+C2 & Réalisation A2 (queue $\le 16$ éléments) pour MAYO-1 et MAYO-5, variante SAFE sans lecture hors de P1 & établi (code, KAT, tests)\\
+C3 & Gains sur noyaux isolés (12--29\,\%) et sur \code{mayo_sign} (MAYO-1 : 10,3\,\% ; MAYO-5 : 1,3\,\%) sur une machine, un compilateur & établi, avec limites\\
+C4 & Localisation de la perte de gain de MAYO-5 dans \code{m_calculate} en contexte de signature & établi (mesure directe)\\
+C5 & Écritures supplémentaires asymétriques dans le code généré par GCC~16.2.0, cohérentes avec C4 & fait statique établi ; causalité \emph{non} établie\\
+C6 & Dépôt public de scripts, données brutes et empreintes, reproduisant les analyses (9/9) & établi\\\midrule
+Q1 & Cause de ces écritures dans GCC (passe responsable, rôle de \code{temp[]}) & \emph{ouvert} (analyse E1b à exécuter)\\
+Q2 & Lien causal écritures $\to$ perte de gain, avec un modèle qui n'en surestime pas l'effet & \emph{ouvert}\\
+Q3 & Variante pour queues de 17 à 32 éléments ; autres compilateurs, autres microarchitectures & \emph{ouvert} (non implémenté)\\
+Q4 & Temps constant au sens fort (preuve formelle) & \emph{non fourni}\\\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Périmètre et exclusions}
+Le travail est limité aux noyaux \code{P1_times_Vt} et \code{P1t_times_Vt} pour MAYO-1 et MAYO-5. MAYO-2 ($m=64$) et MAYO-3 ($m=108$) servent de témoins : pour eux, aucun gain n'est possible dans la classe étudiée (proposition~\ref{prop:borne}). Aucune autre optimisation n'est proposée, les noyaux optimisés ne sont pas modifiés pendant l'analyse, et la décision d'intégration dans MAYO-C est volontairement différée. L'absence d'une technique dans les sources consultées ne prouve pas qu'elle n'existe pas ailleurs : aucune nouveauté absolue n'est revendiquée.
+
+\section{Conventions de rédaction}
+Les énoncés portant sur des résultats sont étiquetés : \F{} \emph{fait} (lu dans le code généré ou dans des mesures déposées), \I{} \emph{inférence} tirée des faits, \Hy{} \emph{hypothèse} non testée. Les propriétés de sûreté du chapitre~\ref{ch:surete} utilisent \Pc{} (justifiée par le code) et \Pe{} (vérifiée expérimentalement) ; une propriété \Pe{} seule n'est pas une démonstration. Les durées sont en ticks du compteur TSC (rdtscp), non en cycles cœur.
+
+\section{Plan}
+Le chapitre~\ref{ch:etat} présente MAYO, l'arithmétique par \vpshufb{} et les implémentations existantes, et situe A2. Le chapitre~\ref{ch:a2} formalise le comptage et décrit A2. Le chapitre~\ref{ch:surete} établit les propriétés de correction et de sûreté. Le chapitre~\ref{ch:methodo} détaille la méthode expérimentale pour qu'elle soit reproductible. Le chapitre~\ref{ch:resultats} présente les résultats ; le chapitre~\ref{ch:discussion} les discute en séparant faits, inférences et hypothèses. La conclusion récapitule contributions, limites et perspectives.

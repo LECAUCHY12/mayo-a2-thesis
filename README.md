@@ -43,3 +43,6 @@ python3 -I ../scripts/e1_pile_offsets.py e1_<hote>_<etiquette>
 ```
 ## Licence
 Les patchs modifient `PQCMayo/MAYO-C` (Apache-2.0) ; ils sont publiés sous la même licence. Les scripts d'analyse sont publiés sous Apache-2.0.
+
+## Mémoire (premier jet complet)
+`memoire/` : sources LaTeX (compiler `main.tex` avec pdflatex sur Overleaf, ou xelatex) et `memoire_v1.pdf`. `scripts/e1b.py` : analyse statique E1b (compilation seule, non encore exécutée sous GCC 16.2.0). `analyses/identification_noyaux_gcc16.txt` : identification des noyaux par le pas d'adresse.

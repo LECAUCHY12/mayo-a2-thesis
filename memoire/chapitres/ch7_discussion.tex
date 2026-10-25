@@ -1,0 +1,52 @@
+\chapter{Discussion critique}
+\label{ch:discussion}
+
+Ce chapitre sépare ce qui est établi, ce qui est inféré et ce qui reste hypothèse, puis discute les limites et les pistes écartées.
+
+\section{Bilan épistémique}
+\begin{table}[ht]\centering\small
+\caption{Établi, inféré, hypothétique.}\label{tab:bilan}
+\begin{tabularx}{\linewidth}{@{}lXl@{}}\toprule
+Statut & Énoncé & Appui\\\midrule
+\F{} & Nombre de \code{vpshufb} par entrée : 20$\to$15 (MAYO-1), 36$\to$30 (MAYO-5) & assembleur, preuve (prop.~\ref{prop:real})\\
+\F{} & Gains de noyaux 12--29\,\% ; \code{mayo_sign} 10,3\,\% (MAYO-1), 1,3\,\% (MAYO-5) sur cette machine et ce compilateur & S1, S2, PH1, CT1\\
+\F{} & Le reste de la signature est identique entre bras ; la différence est dans \code{m_calculate} en contexte & mesure directe (\code{mcalc})\\
+\F{} & Avec toutes les sondes, le gain de MAYO-5 est 7,3\,\% ; sans, 1,3\,\% & CT1\\
+\F{} & GCC~16.2.0 émet une écriture de 32 octets supplémentaire par accumulateur en contexte sans toutes les sondes, asymétrique entre bras & désassemblage E1\\
+\I{} & L'asymétrie de ces écritures (+60 pour A2, +36 pour l'officiel sur P1+P1t) explique l'essentiel de la perte de gain de MAYO-5 en contexte & concordance statique/mesure\\
+\Hy{} & Le coût passe par le débit des écritures plutôt que par les dépendances écriture--lecture ou conflits d'adresses & non testé\\
+\Hy{} & Le tableau \code{temp[]} indexé par la variable de boucle est conservé en mémoire en plus des emplacements scalaires & E1b à exécuter\\
+\Hy{} & Les sondes modifient la structure du code et donc la décision de GCC & cohérent avec E1, non démontré\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Pourquoi le gain se dilue}
+Le gain d'un noyau ne se reporte sur la signature qu'au prorata de son poids. Pour MAYO-5 sans sondes, \code{m_calculate} pèse environ $931\,453/1\,504\,741\approx62$\,\% de la signature et son gain en contexte est de $18\,406$ ticks, soit $1{,}2$\,\% de la signature : c'est, à la précision des mesures, le gain de 1,3\,\% observé. Pour MAYO-1, le rapport entre gain de signature (10,3\,\%) et gain de \code{m_calculate} (18,9\,\%) donne un poids implicite d'environ 54\,\% \I{}. La question n'est donc pas la fraction de la signature occupée par \code{m_calculate}, mais pourquoi son gain tombe de 11,7\,\% (isolé) à 2,0\,\% (en contexte sans sondes) pour MAYO-5, alors qu'il reste de 18,9\,\% pour MAYO-1 \F{}.
+
+\section{Ce que la concordance statique/dynamique prouve et ne prouve pas}
+Le désassemblage donne un fait solide : le nombre d'instructions de la boucle diffère selon la construction, de façon asymétrique. Les temps varient dans le même sens. Trois précautions s'imposent.
+\begin{enumerate}
+\item \textbf{Un modèle à un paramètre qui surestime de 40\,\%} le gain ne peut pas servir de validation ; son accord sur le coût par écriture entre les deux bras (0,358 contre 0,346) est un contrôle de cohérence, non une preuve.
+\item \textbf{Corrélation, non causalité} : les constructions qui diffèrent par le doublon diffèrent aussi par la présence de \code{lfence} entre sous-étapes, par la taille de la fonction et par l'allocation de la pile. Seule une expérience qui supprime le doublon \emph{sans autre changement de code} permettrait de conclure (cf.\ la conclusion générale).
+\item \textbf{Ticks et non cycles} : le « coût par écriture » de 0,35 tick équivaut, à une fréquence soutenue non mesurée de 3,5--4,5 GHz pour un TSC de 2,4 GHz, à un ordre de grandeur de 0,5--0,65 cycle ; la compatibilité avec un débit d'une écriture par cycle est une remarque \Hy{}, pas un résultat.
+\end{enumerate}
+Plusieurs raisons possibles d'une surestimation du modèle sont envisageables (toutes \Hy{}) : le coût des instructions n'est pas homogène (un \code{vpshufb} et une écriture n'ont pas le même coût) ; des boucles hors P1/P1t portent aussi un doublon (\code{Ut_times_O}, \code{m_lambda_times_O}) dont les nombres de tours ne sont pas connus ici ; les chargements sur la même ligne de cache peuvent se recouvrir.
+
+\section{Pourquoi MAYO-1 et MAYO-5 se comportent différemment}
+\I{} Pour MAYO-1, le doublon ne touche que \code{P1t_times_Vt} dans les deux bras à un rapport voisin (71/91 $=0{,}78$ contre 56/71 $=0{,}79$ dans le banc) : l'avantage statique est conservé (0,770 banc, 0,774 contexte), en accord avec un gain de signature qui ne s'effondre pas. Pour MAYO-5, le doublon touche les deux noyaux d'A2 mais un seul de l'officiel. Cette lecture est compatible avec les faits mais elle reste une inférence, pour la raison donnée ci-dessus.
+
+\section{Pistes explorées puis écartées}
+Les pistes suivantes ont été explorées dans la VM avant la machine physique ; elles sont consignées comme hypothèses éliminées (avec leurs limites).
+
+\paragraph{Fusion de \code{P1_times_Vt} et \code{P1t_times_Vt} en un seul parcours.} Idée : lire $P_1$ une fois au lieu de deux. Le nombre de lectures d'entrées est bien divisé par deux (MAYO-1 : 6\,480 $\to$ 3\,240 ; MAYO-5 : 20\,306 $\to$ 10\,153) mais, avec accumulateurs simultanés (option 1), le temps de \code{mayo_sign} augmente de 4,9 à 10,4\,\% (MAYO-1) et de 5,3 à 7,0\,\% (MAYO-5) ; avec fermeture immédiate (option 2), de 67 à 78\,\% (MAYO-1, MAYO-3, MAYO-5). L'option 1 exige $V_{\max}$ accumulateurs, soit +49 Kio (MAYO-1) à +159 Kio (MAYO-5) de pile. Correction vérifiée (KAT et 5\,000 essais indépendants par paramètre sans écart). Interprétation : le travail SIMD est inchangé et la pression mémoire des accumulateurs dispersés l'emporte sur la réduction des lectures. Piste close ; mesures dans la VM uniquement.
+
+\paragraph{Transposée de $P_1$.} Un diagnostic sur la représentation et le motif d'accès à $P_1$ conclut que la disposition joue un rôle important dans les 29--31\,\% de gain théorique maximal observés sur MAYO-3 et MAYO-5, sans attribution quantitative au cache (pas de compteurs matériels), et que le coût de construction l'emporte sur le gain. Piste close.
+
+\paragraph{Traitement par lots dans EF.} Piste fermée ; patch, banc et données archivés. Une anomalie de dérive entre processus sur MAYO-2 a été documentée : l'amplitude d'un rapport à un seul niveau dépend du régime du processus, ce qui impose de lire les rapports avec la dérive de la phase correspondante.
+
+\section{Limites de la validation}
+Une seule machine ; un seul compilateur sur la machine physique ; trois démarrages ; S2 sur cinq processus ; gain de MAYO-5 proche du critère de 1\,\% ; sondes complètes qui modifient le comportement ; pas de cycles cœur ; pas de compteurs matériels ; Clang non examiné ; aucune preuve formelle de temps constant ; les propriétés de bourrage reposent sur une énumération des consommateurs de \code{Pv}. Par ailleurs l'article n'a été lu intégralement que dans les parties pertinentes (§5.1 et code AVX2).
+
+\section{Sur l'intégration dans MAYO-C}
+Aucune décision d'intégration n'est prise ici. Les éléments à peser sont : le gain de 10,3\,\% pour MAYO-1 (robuste sur deux démarrages) ; le gain de 1,3\,\% pour MAYO-5 (proche du critère, dépendant du code généré) ; les préconditions (voies égales, $m\in\{80,142\}$) ; l'état de la preuve de temps constant (indicateurs seulement) ; la dépendance au compilateur. Un jugement d'intégration plus solide exigerait au moins une seconde machine ou un second compilateur.

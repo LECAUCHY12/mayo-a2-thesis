@@ -1,0 +1,60 @@
+\chapter{Méthodologie expérimentale}
+\label{ch:methodo}
+
+L'objectif est qu'un lecteur disposant du dépôt, des archives et d'une machine comparable puisse refaire chaque analyse et, à des variations de bruit près, chaque mesure. Les commandes figurent à l'annexe~\ref{app:inventaire}.
+
+\section{Plateforme}
+\paragraph{Machine physique (toutes les mesures citées au chapitre~\ref{ch:resultats}).} Portable Intel Core i9-9880H (8 cœurs, 16 threads, microcode \code{0x104}) ; \code{systemd-detect-virt} = \code{none}, drapeau hyperviseur = 0 ; Kali 7.1.5 (démarrage sur disque, double amorçage) ; GCC 16.2.0 (Debian 16.2.0-3), cmake 4.3.4, Python 3.14.8, numpy 2.4.6. Gouverneur \code{performance}, turbo actif, SMT actif, secteur branché. Processus épinglé sur le cœur 1 (\code{taskset}). La fréquence instantanée du cœur n'est enregistrée qu'au lancement (de 800 MHz au repos à 4\,540 MHz selon les sessions) ; elle n'est pas une fréquence soutenue. Horloge du portable à UTC+2 ; les journaux \code{machine.txt} sont en UTC.
+
+\paragraph{Environnement virtuel (historique, non utilisé pour les résultats de performance).} VM KVM à 2 cœurs, GCC 13.3.0, cmake 3.28.3. Les mesures de cette VM (qui ont orienté les décisions de conception) ne sont jamais présentées comme performances matérielles.
+
+\paragraph{Compilation.} Options de la bibliothèque : \code{-O3 -funroll-loops -march=haswell -maes}, identiques pour les deux versions comparées. Pour l'analyse statique, la commande exacte de chaque objet est lue dans \code{compile_commands.json}.
+
+\section{Code comparé}
+Base amont : dépôt officiel \code{PQCMayo/MAYO-C}, commit \code{74de637a7c4a7f9fafa888183bc05f5cf920cd2d}. Les modifications sont appliquées par \code{git am} dans l'ordre : \code{0001} (prototype A2), \code{0002} (sondes de décomposition, inertes par défaut), \code{0003} (contrôle de l'effet des sondes), \code{0004} (analyse statique E1, aucun noyau modifié). Les identifiants de commit changent avec \code{git am} ; les arbres, non (annexe~\ref{app:inventaire}). L'arbre des mesures S1/S2 est celui après \code{0001} ; celui de PH1/CT1 après \code{0003}. Les noyaux optimisés n'ont pas été modifiés pendant la phase d'analyse.
+
+\section{Protocole de mesure apparié}
+Pour chaque niveau mesuré (\code{P1_times_Vt}, \code{P1t_times_Vt}, \code{m_calculate}, \code{mayo_sign}), un processus exécute des paires (officiel, A2) en ordre \emph{aléatoire}, avec la même graine et le même message dans les deux bras. Le temps est lu par \code{rdtscp} (ticks TSC) ; l'ordre d'exécution de chaque paire est enregistré (\code{xmm_first}). Un processus comprend 3\,001 paires. Les signatures des deux bras sont comparées octet à octet et le nombre de tentatives de signature est vérifié.
+
+\section{Unité statistique et intervalles}
+Les 3\,001 paires d'un même processus ne sont pas des répétitions indépendantes (même état de la machine, même fréquence) : l'IC95 « naïf » calculé sur les paires est de l'ordre de $\pm0{,}0001$ pour \code{mayo_sign}, alors que la dispersion entre processus est 5 à 15 fois plus grande. \textbf{L'unité statistique est le processus.} Pour chaque niveau et chaque processus on calcule la médiane du rapport A2/officiel ; la valeur rapportée est la médiane de ces médianes, avec un IC95 \emph{bootstrap sur les processus}. Une seule différence entre sessions est testée (S2$-$S1) : avec deux démarrages, la composante « entre sessions » n'est pas estimable séparément ; on donne l'écart et son IC bootstrap.
+
+\paragraph{Effet d'ordre.} Pour chaque processus : médiane du rapport sur les paires « A2 en premier » et sur les paires « officiel en premier » ; l'effet d'ordre est la différence, avec IC bootstrap sur les processus ; il est jugé relativement au gain.
+
+\section{Sessions}
+\begin{table}[ht]\centering\small
+\caption{Sessions de mesure sur machine physique (dates UTC).}\label{tab:sessions}
+\begin{tabularx}{\linewidth}{@{}lXXX@{}}\toprule
+Session & Date, démarrage & Plan & Objet\\\midrule
+S1 & 19 oct. 21:58--22:43 ; un démarrage & 4 campagnes $\times$ 5 processus $\times$ 3\,001 paires (graines 1--20) & gains\\
+S2 & 20 oct. 12:10 ; nouveau démarrage & 5 processus (graines 21--25) & reproductibilité\\
+PH1 & 21 oct. 19:13 ; nouveau démarrage & MAYO-5 : 10 processus ; MAYO-1, MAYO-2 : 5 & décomposition instrumentée\\
+CT1 & 21 oct. 19:28 ; même démarrage que PH1 & 5 configurations $\times$ 10 processus (graines 41--50) & effet des sondes\\\bottomrule
+\end{tabularx}
+\end{table}
+Les scripts de lancement refusent d'écraser un dossier ou une archive existants ; aucune campagne n'écrase la précédente. S1 et S2 comparent deux démarrages distincts avec le même code, la même machine et le même compilateur. Temps absolus : S2 est environ 7\,\% plus lent que S1 pour tous les niveaux, témoins compris ; la cause n'est pas mesurée et les rapports ne sont pas affectés.
+
+\section{Instrumentation de décomposition}
+Des sondes (\code{rdtscp} précédé d'un \code{lfence}) mesurent, pour chaque signature et chaque bras, le temps total, le nombre de tentatives et, pour chaque phase, le temps et le nombre d'appels. Elles sont inertes par défaut : sans la macro correspondante, le code objet de \code{mayo.c} et \code{arithmetic.c} est identique à l'original (vérifié par \code{cmp} et \code{objdump}). Le patch \code{0003} ajoute un masque de sondes pour activer individuellement chaque sonde ; les cinq configurations de CT1 sont : \code{plain} (bibliothèque d'origine, aucune sonde), \code{none} (sondes compilées, toutes désactivées), \code{esk} (sonde sur \code{expand_sk_internal} seule), \code{mcalc} (sonde sur \code{m_calculate_M_and_VPV} seule), \code{all} (toutes les sondes).
+
+\section{Analyse statique du code généré (E1)}
+Pour chaque construction, l'objet est recompilé par la commande enregistrée, désassemblé (\code{objdump -d -M intel}) et les boucles de travail sont repérées par leur nombre de \code{vpshufb} (36 ymm pour l'officiel de MAYO-5 ; 24 ymm + 6 xmm pour A2). Les comptes sont normalisés par le facteur de déroulage de boucle (ici $u=1$). Le noyau est identifié par le \emph{pas d'adresse sur $P_1$} : \code{add reg,0x47} (entrées de 71 octets, pas d'une entrée) pour \code{P1_times_Vt}, \code{imul ...,0x47} pour \code{P1t_times_Vt} ; les marqueurs de débogage de GCC ne sont pas fiables (les corps identiques sont fusionnés et étiquetés \code{P1_times_O}). Toute attribution d'une différence de code à une cause exige d'avoir écarté les autres modifications du code (section~\ref{sec:e1b}).
+
+\section{Protocole E1b (analyse statique de l'origine des écritures)}\label{sec:e1b}
+E1b recompile \code{src/mayo.c} avec \emph{la commande exacte} de E1 plus une seule option supplémentaire, sans aucune mesure de temps. Constructions : \code{P_none} (sans sondes), \code{P_all} (toutes sondes), \code{TAB} (construction des mesures S1/S2). Variantes : \code{base} (contrôle : doit redonner exactement le code de E1) ; \code{dump} (sorties \code{-fdump-tree-optimized}, \code{-fdump-tree-sra-details}, \code{-fdump-tree-esra-details}, \code{-fdump-rtl-expand}, \code{-fdump-rtl-ira}, \code{-fopt-info-inline-optimized} ; contrôle : code identique) ; \code{nosra} (\code{-fno-tree-sra}) ; \code{noipasra} (\code{-fno-ipa-sra}) ; \code{nodse} ; \code{nopre} ; \code{nofre}.
+
+Pour chaque variante, le rapport donne : les boucles de travail avec nombre d'instructions et d'écritures de 32 octets ; le nombre d'instructions de \code{sign_signature_internal} \emph{hors boucles de travail} ; la distance entre histogrammes de mnémoniques hors boucles par rapport à \code{base} ; le nombre de lignes GIMPLE mentionnant \code{temp}. \textbf{Règle d'interprétation :} la disparition des écritures dans une variante n'est jamais lue seule ; elle n'est attribuée à une passe que si la distance hors boucles est faible, c'est-à-dire si rien d'autre n'a changé.
+
+\section{Traçabilité et reproduction}
+Les données brutes (S1, S2, PH1, CT1) sont déposées avec leurs empreintes SHA-256 (annexe~\ref{app:inventaire}). Le script de reproduction réextrait les archives, vérifie les empreintes, relance les neuf analyses et compare les sorties : \textbf{9 analyses sur 9 identiques} lors de la dernière exécution. La reproduction des \emph{analyses} est exacte ; celle des \emph{mesures} donnera des valeurs voisines mais non identiques (ticks TSC, fréquence, bruit).
+
+\section{Menaces à la validité identifiées a priori}
+\begin{itemize}
+\item \textbf{Une machine, un compilateur sur machine physique}, trois démarrages ; S2 sur 5 processus.
+\item \textbf{Ticks TSC, non cycles cœur} : la fréquence d'exécution réelle est inconnue ; aucune conclusion sur le débit des unités d'exécution n'est possible.
+\item \textbf{Effet d'ordre} documenté (section~\ref{sec:ordre}).
+\item \textbf{Les sondes modifient le code} : mesures instrumentées $\ne$ mesures sans sonde.
+\item \textbf{Pas de compteurs matériels} disponibles dans l'environnement d'analyse.
+\item \textbf{Première exécution de la campagne s3 de S1} : CSV bruts non archivés (seule la seconde exécution l'est).
+\item \textbf{Comparaison VM/physique} : le gain de MAYO-5 sur \code{mayo_sign} était de 7,1\,\% dans la VM (GCC 13.3.0) ; l'écart avec la machine physique mêle machine et compilateur et n'est pas expliqué.
+\end{itemize}

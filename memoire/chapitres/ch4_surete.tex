@@ -1,0 +1,53 @@
+\chapter{Correction et propriétés de sûreté}
+\label{ch:surete}
+
+Ce chapitre répond à la partie « sûreté » de QR2. Chaque propriété porte son étiquette : \Pc{} (déduite du code et de ses invariants, par relecture et assertions de compilation), \Pe{} (vérifiée expérimentalement) ou \Hy{} (hypothèse sur la machine ou le compilateur). Une propriété \Pe{} seule n'est pas une démonstration. Notation : $n_y=\lfloor m/64\rfloor$ (1 pour MAYO-1, 2 pour MAYO-5), $T_{\mathrm{OFF}}=32n_y$ (32 ; 64), $T_{\mathrm{LIMB}}=4n_y$ (4 ; 8).
+
+\section{Bornes de lecture de $P_1$}
+L'entrée $e$ occupe les octets $[eb,(e+1)b)$.
+\begin{itemize}
+\item \Pc{} Les $n_y$ chargements ymm lisent $[eb+32g,eb+32g+32)$, $g<n_y$ ; comme $32n_y\le b$ ($32\le40$ ; $64\le71$) ils restent dans l'entrée.
+\item \Pc{} MAYO-1 : la queue lit $[eb+32,eb+40)$, exactement la fin de l'entrée.
+\item \Pc{} MAYO-5, SAFE : la queue lit $[eb+63,eb+71)$ puis décale de 8 bits ; toute lecture reste dans l'entrée.
+\item \Pc{} (variante par défaut, non retenue) MAYO-5 lit $[eb+64,eb+72)$ : un octet au-delà. Pour $e<N_{\mathrm{ent}}-1$, c'est le premier octet de l'entrée suivante ; pour la dernière, c'est l'octet 720\,863 du tampon, alloué (zone de $8\cdot$\code{P1_LIMBS_MAX}$=731\,016$ octets). Des \code{_Static_assert} imposent $N_{\mathrm{ent}}b+\text{OVERREAD}\le8\cdot$\code{P1_LIMBS_MAX} et OVERREAD$\le1$.
+\item \Pe{} Test « garde-page » (fin de $P_1$ collée à une page interdite, marge 0) : l'officiel et A2 par défaut déclenchent SIGSEGV en MAYO-5 ; A2 SAFE non ; MAYO-1 : aucun des trois. Ce test contrôle la propriété ci-dessus sans la démontrer.
+\end{itemize}
+Le noyau officiel de MAYO-5 lit lui aussi 1 octet au-delà (dernier ymm sur les octets 40--71) et celui de MAYO-3 en lit 2 (second ymm sur $[24,56)$ pour $b=54$). A2 SAFE ne dépend d'aucune marge.
+
+\section{Bornes d'écriture}
+Pour la ligne $r$, l'accumulateur est à $\mathrm{acc}+rKL$ (limbes) ; le vecteur $k$ occupe $[kL,(k+1)L)$.
+\begin{itemize}
+\item \Pc{} Les stockages ymm écrivent les limbes $[kL+4g,kL+4g+4)$, $g<n_y$, jamais au-delà du limbe $4n_y-1\le L-1$.
+\item \Pc{} La queue lit-modifie-écrit un seul limbe de 64 bits, d'indice $T_{\mathrm{LIMB}}=L-1$, pour $k<K$ (et $k+1<K$ pour le second, garde explicite). Toutes les écritures sont donc dans les $VKL$ limbes de \code{acc}. Le noyau officiel écrit un ymm à $L-4$ : même étendue.
+\item \Pe{} Un « canari » placé après \code{acc} n'est pas modifié ; $P_1$, passé en \code{const}, n'est pas modifié (copie de l'entrée inchangée).
+\end{itemize}
+
+\section{Invariant des deux voies des tables}
+A2 lit la \emph{voie basse} de chaque table et suppose qu'elle égale la voie haute.
+\begin{lemme}\label{lem:voies}\Pc{} Pour tout $i$, \code{V_multabs[i]} a ses deux voies de 128 bits égales.
+\end{lemme}
+\emph{Justification.} (i) Chacune des quatre lignes de 32 octets de \code{__gf16_mulbase} répète deux fois la même suite de 16 octets (constantes lues dans \code{arithmetic_common.h}, lignes 12--17) ; (ii) \code{tbl32_gf16_multab2(b)} est un OU exclusif de ET entre ces lignes et des masques obtenus par \code{_mm256_set1_epi16(b & 0xf)} décalé et comparé, opérations agissant par élément de 16 bits donc par voie, avec des masques identiques dans les deux voies ; (iii) \code{mayo_V_multabs} combine deux telles tables par \code{^} et \code{_mm256_slli_epi16(.,4)}, également par voie. Par induction l'égalité est conservée.
+
+\Pe{} 272 tables vérifiées par le mode \code{MAYO_TAIL_XMM_CHECK} (arrêt en cas d'écart) sur les tables passées aux noyaux. C'est une \emph{précondition} d'A2 : si les tables étaient construites autrement (autre routine, autre backend), l'invariant devrait être revérifié.
+
+\section{Influence des quartets de bourrage}\label{sec:bourrage}
+Seul MAYO-5 a des quartets de bourrage (positions 142 et 143 ; MAYO-1 : $80=5\cdot16$).
+\begin{itemize}
+\item \Pc{} \emph{Indépendance positionnelle.} La sortie à la position $j$ ne dépend que des entrées à la position $j$ de chaque $m$-vec : une recherche lit un index et une table, jamais un autre index ; les décalages \code{srli/slli_epi16} mélangent deux octets voisins mais chaque résultat est suivi d'un ET avec \code{0x0f} (ou provient d'un registre déjà masqué).
+\item \Pc{} Les deux seules différences entre officiel et A2 aux positions de bourrage sont : officiel : produits de l'octet 71 (premier octet de l'entrée suivante) ; A2 SAFE : 0.
+\item \Pc{} Les noyaux alimentent \code{Pv}, puis \code{Vt_times_Pv} produit \code{VP1V}, consommé par \code{compute_rhs}, premier consommateur qui mélange des positions ; il annule les quartets de bourrage avant usage (\code{src/mayo.c}, lignes 50--60, masque $(1\ll((m\bmod16)\cdot4))-1$). Entre les noyaux et \code{compute_rhs}, les opérations sont positionnelles.
+\item \Pe{} Tests unitaires (20\,000 cas par taille, 8 familles d'entrées) : 0 écart sur les $M/2$ octets utiles et sur les limbes complets après masquage ; sur 30\,010 signatures appariées de MAYO-5 (15\,005 pour MAYO-1 et MAYO-2), 0 signature différente.
+\end{itemize}
+\textbf{Limite.} Cette propriété suppose que \code{Pv} n'est consommé que par les chemins énumérés, par recherche dans le source du backend AVX2 ; une modification future qui lirait le bourrage de \code{Pv} devrait être réexaminée.
+
+\section{Temps constant : ce qui est établi et ce qui ne l'est pas}
+\begin{itemize}
+\item \Pc{} Bornes de boucle ($V$, $K$) et adresses de chargement ($eb$) ne dépendent que de paramètres publics ; les tables dérivées du vinaigre sont des opérandes de données de \vpshufb{}, jamais des adresses ni des conditions. L'officiel a la même structure.
+\item \Pc{}$\to$à vérifier sur le binaire : A2 introduit, au réassemblage de la queue, deux \code{vmovq} d'un registre vectoriel vers un registre général (\code{ar[...] ^= (uint64_t)_mm_cvtsi128_si64(...)}) : des données dérivées du secret transitent par un registre général, uniquement comme opérande d'un XOR vers la mémoire. L'inspection de l'assembleur (script \code{inspect_asm.py}) ne trouve aucun usage non conforme (adresse, branche, drapeau) : résultat pour \emph{une} version de GCC, pas une garantie générale.
+\item \Pe{} (indicateur) Valgrind en mode temps constant (données secrètes marquées indéfinies), dans la VM seulement ; il détecte branches et adresses dépendant de données marquées sur les exécutions testées.
+\item \Hy{} Les instructions \vpshufb{}, \code{vpxor}, \code{vpand}, décalages, chargements et stockages ont un temps indépendant des données sur les microarchitectures visées (documentation constructeur, non vérifiée ici).
+\end{itemize}
+\textbf{Aucune preuve formelle de temps constant n'est fournie.} La réussite des KAT et l'absence de différence fonctionnelle ne démontrent pas le temps constant.
+
+\section{Correction fonctionnelle}
+KAT officiels réussis pour MAYO-1, 2, 3 et 5 (toutes les sessions), tests de schéma réussis, tests unitaires précédents, zéro signature différente dans toutes les paires A/B, nombre de tentatives de signature identique. La correction est donc établie \emph{sur les entrées testées} ; l'argument général repose sur les propriétés \Pc{} ci-dessus.

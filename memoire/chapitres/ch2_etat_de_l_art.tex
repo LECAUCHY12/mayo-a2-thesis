@@ -1,0 +1,84 @@
+\chapter{Contexte, état de l'art et positionnement}
+\label{ch:etat}
+
+\section{Le schéma MAYO et ses noyaux de calcul}
+\subsection{Structure}
+MAYO~\cite{mayo} dérive d'un schéma UOV~\cite{uov} dont l'espace d'huile est volontairement petit, ce qui réduit la clé publique ; la sécurité est restaurée en composant $k$ copies de l'application publique (« fouettage »). Les paramètres de ce mémoire sont ceux de l'arbre officiel de référence (annexe~\ref{app:inventaire}). Les grandeurs utiles à l'étude des noyaux sont données au tableau~\ref{tab:params}.
+
+\begin{table}[ht]\centering\small
+\caption{Paramètres des noyaux étudiés. $m$ : longueur du $m$-vecteur ; $b=m/2$ : octets par $m$-vecteur ; $L$ : limbes de 64 bits d'un accumulateur ; $K$ : nombre de vecteurs de $V$ ; $V$ : dimension de la partie vinaigre ; $N_{\mathrm{ent}}=V(V+1)/2$ : nombre d'entrées de $P_1$.}\label{tab:params}
+\begin{tabular}{@{}lrrrrrrr@{}}\toprule
+Paramètre & $m$ & $b$ & $L$ & $K$ & $V$ & $N_{\mathrm{ent}}$ & $m \bmod 64$\\\midrule
+MAYO-1 & 80 & 40 & 5 & 10 & 80 & 3\,240 & 16\\
+MAYO-2 & 64 & 32 & 4 & -- & 73 & -- & 0\\
+MAYO-3 & 108 & 54 & -- & -- & -- & -- & 44\\
+MAYO-5 & 142 & 71 & 9 & 12 & 142 & 10\,153 & 14\\\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Rôle de $P_1$}
+$P_1$ est une matrice triangulaire supérieure de $m$-vecteurs de $\mathbb{F}_{16}^m$ ; elle est stockée à plat, une entrée après l'autre, à la position $e\cdot b$ pour l'entrée numéro $e$ (disposition empaquetée du flux de clé). Les noyaux \code{P1_times_Vt} et \code{P1t_times_Vt} accumulent, pour chaque entrée de $P_1$ et chaque vecteur de $V$, le produit d'un scalaire de $\mathbb{F}_{16}$ par le $m$-vecteur de l'entrée, dans un accumulateur de $L$ limbes ; le premier traite $P_1\cdot V^{t}$, le second la contribution transposée. Leurs bornes de boucle ($V$, $K$) et les adresses de chargement ($e\cdot b$) ne dépendent que de paramètres publics. Ces deux noyaux sont appelés par \code{m_calculate_M_and_VPV}, elle-même appelée par la signature (chapitre~\ref{ch:resultats} pour leur poids).
+
+\section{Arithmétique $\mathbb{F}_{16}$ par \vpshufb}
+\subsection{Principe}
+Avec des éléments de 4 bits, la multiplication d'un vecteur par un scalaire $c$ est une recherche dans une table de 16 entrées $x\mapsto c\cdot x$. L'instruction \vpshufb{} (\code{_mm256_shuffle_epi8}) réalise, pour chaque octet d'un registre d'index, une recherche dans une table de 16 octets (celle de la voie de 128 bits qui contient l'octet) ; si le bit 7 de l'index est nul, l'indice est le quartet bas, sinon la sortie est 0. C'est la méthode des « quatre Russes »~\cite{russes} à $t=1$ (voir aussi~\cite{albrecht2011} pour $\mathbb{F}_2$).
+
+\subsection{Deux produits par recherche}
+Pour une paire de scalaires $(c_{2p},c_{2p+1})$, la table $T_p[x]=(c_{2p}x)\oplus\big((c_{2p+1}x)\ll4\big)$ fournit \emph{les deux} produits dans un seul octet. Le code stocke $T_p$ dans un registre 256 bits dont les deux voies sont égales (lemme~\ref{lem:voies}). Un registre de données de 32 octets contient 64 éléments ; il faut séparer les quartets impairs et pairs (ET avec \code{0x0f}, décalage de 4) et donc deux \vpshufb{} par registre et par paire. Les accumulateurs impairs et pairs sont maintenus séparés et ne sont « désintriqués » qu'à la fin de la ligne, technique décrite dans l'article \emph{Nibbling MAYO}~\cite{nibbling}.
+
+\subsection{Recouvrement en fin de vecteur}
+Pour $m\le64$, $64<m\le128$ et $128<m\le192$, le code officiel utilise respectivement 1, 2 et 3 chargements de 32 octets, le dernier étant \emph{reculé} pour finir à l'octet $b$ (adresse \code{vec + M_VEC_LIMBS_MAX - 4} limbes) ; les octets en commun sont donc traités deux fois et les stockages finaux se recouvrent avec des valeurs identiques. Le décompte pour MAYO-5 est le suivant : chargements $[0,32)$, $[32,64)$ et $[40,72)$, soit 192 éléments calculés pour 142 utiles ; le dernier chargement lit un octet au-delà de l'entrée de $P_1$ (figure~\ref{fig:charge}).
+
+\begin{figure}[ht]\centering
+\begin{tikzpicture}[x=0.105cm,y=1cm,>=Stealth,font=\small]
+ \def\h{0.45}
+ % echelle : 1 unite = 1 octet, entree de 71 octets : 0..71
+ \node[anchor=east] at (-2,4.2) {Entrée de $P_1$ (71 octets)};
+ \fill[ice] (0,4) rectangle (71,4.5); \draw (0,4) rectangle (71,4.5);
+ \foreach \x in {0,32,64,71}{\draw[muted] (\x,3.9)--(\x,4.6); \node[font=\scriptsize,muted] at (\x,4.85) {\x};}
+ % officiel
+ \node[anchor=east] at (-2,3) {Officiel : 3 ymm};
+ \fill[steel!35] (0,2.8) rectangle (32,3.25); \draw (0,2.8) rectangle (32,3.25);
+ \fill[steel!55] (32,2.8) rectangle (64,3.25); \draw (32,2.8) rectangle (64,3.25);
+ \fill[alert!40] (40,2.25) rectangle (72,2.7); \draw (40,2.25) rectangle (72,2.7);
+ \node[font=\scriptsize] at (16,3.02) {$[0,32)$}; \node[font=\scriptsize] at (48,3.02) {$[32,64)$}; \node[font=\scriptsize] at (56,2.47) {$[40,72)$ : recouvre $[40,64)$, lit 1 octet de trop};
+ % A2
+ \node[anchor=east] at (-2,1.2) {A2 SAFE : 2 ymm + 1 xmm};
+ \fill[steel!35] (0,1) rectangle (32,1.45); \draw (0,1) rectangle (32,1.45);
+ \fill[steel!55] (32,1) rectangle (64,1.45); \draw (32,1) rectangle (64,1.45);
+ \fill[ok!40] (63,0.45) rectangle (71,0.9); \draw (63,0.45) rectangle (71,0.9);
+ \node[font=\scriptsize] at (16,1.22) {$[0,32)$}; \node[font=\scriptsize] at (48,1.22) {$[32,64)$};
+ \node[font=\scriptsize,anchor=east] at (62,0.67) {queue $[63,71)$, puis décalage de 8 bits};
+\end{tikzpicture}
+\caption{Chargements pour une entrée de $P_1$ de MAYO-5 (octets). Le noyau officiel recouvre l'intervalle $[40,64)$ et dépasse l'entrée d'un octet ; A2 SAFE lit exactement $[0,71)$.}\label{fig:charge}
+\end{figure}
+
+\section{Implémentations existantes}
+\begin{description}[leftmargin=0.5cm]
+\item[Référence C.] Arithmétique scalaire, sans \vpshufb{}.
+\item[AVX2 officiel (MAYO-C).] Fichier \code{src/AVX2/shuffle_arithmetic.h} : macros \code{MULTIPLY_ACCUMULATE_M_VEC} et \code{DISENTANGLE_AND_ACCUMULATE_M_VECS}, recouvrement décrit plus haut. Base de ce travail : commit amont \code{74de637}~\cite{mayoc}.
+\item[\emph{Nibbling MAYO}~\cite{nibbling}.] Implémentation AVX2 et Cortex-M4 optimisée avec représentation en quartets ; §5.1 : un \vpshufb{} fournit 64 multiplications, accumulation séparée impair/pair, et, pour $m=96$ (MAYO-3 de l'époque), un recouvrement qui « duplique 32 opérations » ; débit d'un \vpshufb{} par cycle sur Skylake, deux sur Ice Lake. Le code artefact (\code{shuffle_arithmetic_\{64,96,128\}.h}) charge à des positions de limbes 0 et 2 (octets $[0,32)$ et $[16,48)$) et utilise quatre \vpshufb{} par paire pour $m=96$.
+\item[Backend GFNI.] Utilise \code{vgf2p8affineqb} et lit en pleine largeur dans une marge (\code{MAYO_MVEC_SLACK}) ; hors du cadre de ce mémoire.
+\end{description}
+
+\section{Positionnement d'A2}
+Le tableau~\ref{tab:etat} sépare ce qui était connu, ce qui est postérieur à l'article et ce qu'A2 fait différemment, dans les sources consultées (article §5.1 lu en entier et les parties AVX2 du code ; historique complet de \code{shuffle_arithmetic.h} dans le dépôt officiel, commits \code{3c9be9e}, \code{d81b689}, \code{11ff0f0}, \code{4b7cd94}, \code{fef05b5} et tête de \code{main} \code{74de637}).
+
+\begin{table}[ht]\centering\small
+\caption{Situation d'A2 par rapport aux sources consultées.}\label{tab:etat}
+\begin{tabularx}{\linewidth}{@{}lXX@{}}\toprule
+Catégorie & Élément & Source\\\midrule
+Connu avant A2 & \vpshufb{} à $t=1$, deux produits par octet ; séparation impair/pair ; désintrication tardive & \cite{nibbling}\\
+Connu avant A2 & Recouvrement de registres pour $m$ non multiple de 64 (MAYO-3, $m=96$) & \cite{nibbling}\\
+Postérieur à l'article & Généralisation par chargements reculés pour tout $m\le192$ & code officiel (Round~2)\\
+Différent dans A2 & Queue $\le16$ éléments regroupée dans \emph{un} xmm ([bas$\mid$haut] des quartets), \emph{un} \vpshufb{} xmm sur la voie basse de la table & ce travail\\
+Différent dans A2 & Variante SAFE pour $m=142$ : charge $[63,71)$ puis décale, aucune lecture hors de l'entrée & ce travail\\
+Différent dans A2 & Propriétés vérifiées de la queue (chapitre~\ref{ch:surete}) & ce travail\\
+Non revendiqué & Recouvrement, séparation impair/pair, désintrication tardive, schéma $t=1$, nouveauté absolue & --\\\bottomrule
+\end{tabularx}
+\end{table}
+
+Aucun \code{vpshufb} xmm sur une queue n'a été trouvé dans l'artefact de l'article, ni dans l'historique officiel jusqu'à la tête de \code{main} : les \code{__m128i} qui apparaissent à partir de \code{fef05b5} (lignes 548--606) concernent la transposition par décalage de bits de $m$-vecs et le chargement d'une table de 16 octets diffusée sur 256 bits. \textbf{Limite :} l'article n'a été lu intégralement que dans sa section 5.1 et ses parties AVX2 pertinentes ; l'absence de la technique dans ces sources ne prouve pas qu'elle n'existe pas ailleurs.
+
+\section{Canaux auxiliaires et temps constant}
+Les attaques temporelles~\cite{kocher} et de cache~\cite{bernstein} imposent que les adresses et les branches ne dépendent pas de données secrètes. Dans les noyaux, les tables de multiplication dérivées du vinaigre ne sont que des opérandes de données de \vpshufb{} : ni adresses, ni conditions. A2 doit conserver cette propriété ; l'état de la preuve est discuté au chapitre~\ref{ch:surete}.

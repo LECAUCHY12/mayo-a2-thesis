@@ -1,0 +1,82 @@
+% ============================================================
+% preambule.tex -- commun a tout le memoire.
+% Compile avec pdflatex (Overleaf : babel francais) ou xelatex/lualatex (polyglossia).
+% ============================================================
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{mathpazo}
+  \usepackage[french]{babel}
+\else
+  \usepackage{fontspec}
+  \usepackage{polyglossia}
+  \setmainlanguage{french}
+  \setmainfont{TeX Gyre Pagella}
+  \setmonofont{DejaVu Sans Mono}[Scale=0.85]
+\fi
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs,longtable,array,tabularx}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{placeins}
+\usepackage[table]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,patterns,decorations.pathreplacing}
+\usepackage{pgfplots}\pgfplotsset{compat=1.16}
+\usepackage[a4paper,margin=2.6cm]{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\emergencystretch=3em
+\setlength{\parskip}{0.4em}
+\setlength{\parindent}{0pt}
+
+% ---- palette
+\definecolor{navy}{HTML}{0B1D3A}
+\definecolor{steel}{HTML}{3A6EA5}
+\definecolor{ice}{HTML}{E7EEF6}
+\definecolor{alert}{HTML}{D62839}
+\definecolor{ok}{HTML}{2E8B57}
+\definecolor{muted}{HTML}{6B7B8C}
+\definecolor{amber}{HTML}{B7791F}
+
+\usepackage[colorlinks=true,linkcolor=steel,citecolor=steel,urlcolor=steel]{hyperref}
+
+\titleformat{\chapter}[display]{\normalfont\huge\bfseries\color{navy}}{\chaptertitlename\ \thechapter}{14pt}{\Huge}
+\titleformat{\section}{\normalfont\Large\bfseries\color{steel}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries\color{navy}}{\thesubsection}{0.8em}{}
+\pagestyle{fancy}\fancyhf{}
+\fancyhead[L]{\small\color{muted}\nouppercase{\leftmark}}
+\fancyhead[R]{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.3pt}
+
+% ---- code et statuts epistemiques
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\F}{\textcolor{ok}{\textbf{[F]}}}      % fait lu dans le code ou les mesures deposees
+\newcommand{\I}{\textcolor{amber}{\textbf{[I]}}}   % inference
+\newcommand{\Hy}{\textcolor{alert}{\textbf{[H]}}}  % hypothese non testee
+\newcommand{\Pc}{\textcolor{ok}{\textbf{[C]}}}     % propriete justifiee par le code
+\newcommand{\Pe}{\textcolor{amber}{\textbf{[E]}}}  % propriete verifiee experimentalement
+\newcommand{\ie}{c.-à-d.\ }
+\newcommand{\gf}{\mathbb{F}_{16}}
+\newcommand{\vpshufb}{\code{vpshufb}}
+
+% ---- theoremes
+\theoremstyle{plain}
+\newtheorem{proposition}{Proposition}[chapter]
+\newtheorem{lemme}[proposition]{Lemme}
+\newtheorem{corollaire}[proposition]{Corollaire}
+\theoremstyle{definition}
+\newtheorem{definition}[proposition]{Définition}
+\theoremstyle{remark}
+\newtheorem{remarque}[proposition]{Remarque}
+
+\usepackage{framed}
+\colorlet{shadecolor}{ice}
+\newenvironment{encadre}{\begin{shaded}\small}{\end{shaded}}
+
+\usepackage{seqsplit}
+\newcommand{\sha}[1]{{\ttfamily\scriptsize\seqsplit{#1}}}
