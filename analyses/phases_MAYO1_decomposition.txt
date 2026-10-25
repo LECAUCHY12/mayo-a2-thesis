@@ -1,0 +1,175 @@
+
+=== toutes signatures : 5 processus, 15005 signatures ===
+total mayo_sign (avec sondes) : officiel 293916  A2 264252  rapport 0.8983 [0.8981-0.8993] IC95 entre processus [0.8981;0.8993] ; tentatives/signature 1.072
+phase                                      appels/sig   officiel         A2   med(x-b)   moy(x-b) part de la moy(x-b) totale
+hash_message(shake256)                           1.00        984        986          0          3                      -0.0%
+hash_salt(shake256)                              1.00        928        924          0          0                      -0.0%
+hash_t(shake256)                                 1.00        904        904          0         10                      -0.0%
+derive_lambda                                    1.00       2104       2104          0         -6                       0.0%
+shake_V(per-attempt)                             1.07       3148       3146          0         12                      -0.0%
+decode_V(per-attempt)                            1.07         76         76          0         -0                       0.0%
+m_calculate_M_and_VPV(per-attempt)               1.07     152622     122844     -29812     -32321                      99.3%
+compute_rhs(per-attempt)                         1.07       1472       1484         10          1                      -0.0%
+compute_A(per-attempt)                           1.07      11550      11558          6          8                      -0.0%
+sample_solution(per-attempt)                     1.07      39726      39728         10        -91                       0.3%
+m_compute_s+encode(final)                        1.00        838        836         -2          2                      -0.0%
+expand_sk_internal                               1.00      57692      57694          0         80                      -0.2%
+esk.shake_seed_O                                 1.00       2460       2460          2          3                      -0.0%
+esk.decode_O                                     1.00         50         50          0         -0                       0.0%
+esk.expand_P1_P2                                 1.00      55028      55032          0         87                      -0.3%
+esk.PK_PRF(in expand_P1_P2)                      1.00      54970      54974          0         87                      -0.3%
+mcm.V_multabs                                    1.07       3400       3400          0         14                      -0.0%
+mcm.P1_times_Vt                                  1.07      41162      32330      -8812      -9551                      29.3%
+mcm.vkt_add_lambda                               1.07        460        454         -4         -4                       0.0%
+mcm.Vt_times_Pv                                  1.07      10930      10948          2        -12                       0.0%
+mcm.O_multabs                                    1.07       2788       2780         -4         -0                       0.0%
+mcm.P1t_times_Vt                                 1.07      68848      47930     -21002     -22720                      69.8%
+mcm.Ut_times_O                                   1.07      12874      12856         -4        -84                       0.3%
+mcm.Vt_times_L                                   1.07       9090       9106          8        -49                       0.1%
+mcm.lambda_oil                                   1.07         66         60          0         -2                       0.0%
+cA.acc(whip)                                     1.07       3154       3164          0          2                      -0.0%
+cA.transpose                                     1.07       1590       1590          0         15                      -0.0%
+cA.f_tail                                        1.07       2568       2570          0          8                      -0.0%
+cA.decode                                        1.07       3922       3920          0         -3                       0.0%
+[reste non attribue = total - somme des 12 sondes de niveau 1]                 21702      21696                    13                      -0.0%
+[total mayo_sign : moyenne de (x-b)]                                                       -32562
+
+=== tentatives == 1 : 5 processus, 14003 signatures ===
+total mayo_sign (avec sondes) : officiel 293870  A2 264198  rapport 0.8984 [0.8982-0.8994] IC95 entre processus [0.8982;0.8994] ; tentatives/signature 1.000
+phase                                      appels/sig   officiel         A2   med(x-b)   moy(x-b) part de la moy(x-b) totale
+hash_message(shake256)                           1.00        984        986          0          3                      -0.0%
+hash_salt(shake256)                              1.00        928        924          0          0                      -0.0%
+hash_t(shake256)                                 1.00        904        904          0         10                      -0.0%
+derive_lambda                                    1.00       2104       2104          0         -8                       0.0%
+shake_V(per-attempt)                             1.00       3146       3146          0          4                      -0.0%
+decode_V(per-attempt)                            1.00         76         76          0          0                      -0.0%
+m_calculate_M_and_VPV(per-attempt)               1.00     152568     122820     -29776     -30294                     100.9%
+compute_rhs(per-attempt)                         1.00       1470       1480         10          2                      -0.0%
+compute_A(per-attempt)                           1.00      11546      11554          6         -6                       0.0%
+sample_solution(per-attempt)                     1.00      39716      39720         12        -33                       0.1%
+m_compute_s+encode(final)                        1.00        838        836         -2          2                      -0.0%
+expand_sk_internal                               1.00      57692      57694          0         33                      -0.1%
+esk.shake_seed_O                                 1.00       2460       2462          2          2                      -0.0%
+esk.decode_O                                     1.00         50         50          0         -0                       0.0%
+esk.expand_P1_P2                                 1.00      55028      55032          0         42                      -0.1%
+esk.PK_PRF(in expand_P1_P2)                      1.00      54970      54974          0         42                      -0.1%
+mcm.V_multabs                                    1.00       3398       3396          0         26                      -0.1%
+mcm.P1_times_Vt                                  1.00      41154      32320      -8802      -9007                      30.0%
+mcm.vkt_add_lambda                               1.00        460        454         -4         -4                       0.0%
+mcm.Vt_times_Pv                                  1.00      10922      10944          2          2                      -0.0%
+mcm.O_multabs                                    1.00       2784       2776         -4        -15                       0.0%
+mcm.P1t_times_Vt                                 1.00      68816      47908     -20972     -21196                      70.6%
+mcm.Ut_times_O                                   1.00      12864      12850         -4        -54                       0.2%
+mcm.Vt_times_L                                   1.00       9082       9100          8        -66                       0.2%
+mcm.lambda_oil                                   1.00         62         58          0         -2                       0.0%
+cA.acc(whip)                                     1.00       3150       3160          0          2                      -0.0%
+cA.transpose                                     1.00       1590       1588          0         16                      -0.1%
+cA.f_tail                                        1.00       2568       2568          0          9                      -0.0%
+cA.decode                                        1.00       3920       3920          0         11                      -0.0%
+[reste non attribue = total - somme des 12 sondes de niveau 1]                 21694      21686                    24                      -0.1%
+[total mayo_sign : moyenne de (x-b)]                                                       -30024
+
+=== tentatives >= 2 : 5 processus, 1002 signatures ===
+total mayo_sign (avec sondes) : officiel 499583  A2 440036  rapport 0.8805 [0.8800-0.8818] IC95 entre processus [0.8800;0.8818] ; tentatives/signature 2.072
+phase                                      appels/sig   officiel         A2   med(x-b)   moy(x-b) part de la moy(x-b) totale
+hash_message(shake256)                           1.00        988        988          2          2                      -0.0%
+hash_salt(shake256)                              1.00        932        924          0          1                      -0.0%
+hash_t(shake256)                                 1.00        904        906          0          2                      -0.0%
+derive_lambda                                    1.00       2100       2102          0          3                      -0.0%
+shake_V(per-attempt)                             2.07       6492       6490          1          8                      -0.0%
+decode_V(per-attempt)                            2.07        154        154          0         -0                       0.0%
+m_calculate_M_and_VPV(per-attempt)               2.07     305486     245679     -59674     -62406                      99.5%
+compute_rhs(per-attempt)                         2.07       2944       2968         23         19                      -0.0%
+compute_A(per-attempt)                           2.07      23018      23048         14        115                      -0.2%
+sample_solution(per-attempt)                     2.07      75574      75574        -12        205                      -0.3%
+m_compute_s+encode(final)                        1.00        838        836         -1         -2                       0.0%
+expand_sk_internal                               1.00      57692      57686          8       -267                       0.4%
+esk.shake_seed_O                                 1.00       2460       2454          4          7                      -0.0%
+esk.decode_O                                     1.00         50         50          0         -0                       0.0%
+esk.expand_P1_P2                                 1.00      55029      55027          0       -236                       0.4%
+esk.PK_PRF(in expand_P1_P2)                      1.00      54971      54970          0       -235                       0.4%
+mcm.V_multabs                                    2.07       6790       6790          0          1                      -0.0%
+mcm.P1_times_Vt                                  2.07      82338      64704     -17582     -18645                      29.7%
+mcm.vkt_add_lambda                               2.07        928        926         -2         -1                       0.0%
+mcm.Vt_times_Pv                                  2.07      21876      21925          1        -36                       0.1%
+mcm.O_multabs                                    2.07       5582       5568        -16        -20                       0.0%
+mcm.P1t_times_Vt                                 2.07     137967      96035     -41956     -44153                      70.4%
+mcm.Ut_times_O                                   2.07      25736      25724         -6       -385                       0.6%
+mcm.Vt_times_L                                   2.07      18217      18235          9        154                      -0.2%
+mcm.lambda_oil                                   2.07        128        124          0         -0                       0.0%
+cA.acc(whip)                                     2.07       6262       6288          2         19                      -0.0%
+cA.transpose                                     2.07       3176       3178          0          1                      -0.0%
+cA.f_tail                                        2.07       5134       5134          0          1                      -0.0%
+cA.decode                                        2.07       7872       7844          2        -34                       0.1%
+[reste non attribue = total - somme des 12 sondes de niveau 1]                 22432      22418                  -145                       0.2%
+[total mayo_sign : moyenne de (x-b)]                                                       -62712
+
+=== A2 execute en premier : 5 processus, 7570 signatures ===
+total mayo_sign (avec sondes) : officiel 293874  A2 264290  rapport 0.8989 [0.8981-0.8999] IC95 entre processus [0.8981;0.8999] ; tentatives/signature 1.072
+phase                                      appels/sig   officiel         A2   med(x-b)   moy(x-b) part de la moy(x-b) totale
+hash_message(shake256)                           1.00        984        984          2          3                      -0.0%
+hash_salt(shake256)                              1.00        926        924          0          6                      -0.0%
+hash_t(shake256)                                 1.00        904        904          0          5                      -0.0%
+derive_lambda                                    1.00       2106       2100          0          1                      -0.0%
+shake_V(per-attempt)                             1.07       3146       3146          0         29                      -0.1%
+decode_V(per-attempt)                            1.07         76         76          0         -0                       0.0%
+m_calculate_M_and_VPV(per-attempt)               1.07     152579     122864     -29838     -32372                     100.4%
+compute_rhs(per-attempt)                         1.07       1474       1482          6         12                      -0.0%
+compute_A(per-attempt)                           1.07      11548      11562         10         25                      -0.1%
+sample_solution(per-attempt)                     1.07      39720      39742         30          0                      -0.0%
+m_compute_s+encode(final)                        1.00        838        836         -2          3                      -0.0%
+expand_sk_internal                               1.00      57682      57698         20        185                      -0.6%
+esk.shake_seed_O                                 1.00       2448       2466         14         16                      -0.0%
+esk.decode_O                                     1.00         50         50          0          0                      -0.0%
+esk.expand_P1_P2                                 1.00      55028      55026          2         46                      -0.1%
+esk.PK_PRF(in expand_P1_P2)                      1.00      54972      54970          0         46                      -0.1%
+mcm.V_multabs                                    1.07       3400       3400          0         43                      -0.1%
+mcm.P1_times_Vt                                  1.07      41158      32332      -8798      -9537                      29.6%
+mcm.vkt_add_lambda                               1.07        460        454         -4         -4                       0.0%
+mcm.Vt_times_Pv                                  1.07      10928      10954         -2        -17                       0.1%
+mcm.O_multabs                                    1.07       2790       2778         -6         30                      -0.1%
+mcm.P1t_times_Vt                                 1.07      68842      47958     -20958     -23005                      71.4%
+mcm.Ut_times_O                                   1.07      12872      12856         -4        -55                       0.2%
+mcm.Vt_times_L                                   1.07       9084       9098         -6        -62                       0.2%
+mcm.lambda_oil                                   1.07         66         60          0          0                      -0.0%
+cA.acc(whip)                                     1.07       3152       3166          2         14                      -0.0%
+cA.transpose                                     1.07       1590       1590          2          3                      -0.0%
+cA.f_tail                                        1.07       2568       2570          2         18                      -0.1%
+cA.decode                                        1.07       3920       3920          2         13                      -0.0%
+[reste non attribue = total - somme des 12 sondes de niveau 1]                 21702      21696                     0                      -0.0%
+[total mayo_sign : moyenne de (x-b)]                                                       -32234
+
+=== officiel execute en premier : 5 processus, 7435 signatures ===
+total mayo_sign (avec sondes) : officiel 293978  A2 264206  rapport 0.8982 [0.8974-0.8988] IC95 entre processus [0.8974;0.8988] ; tentatives/signature 1.071
+phase                                      appels/sig   officiel         A2   med(x-b)   moy(x-b) part de la moy(x-b) totale
+hash_message(shake256)                           1.00        984        988          0         -1                       0.0%
+hash_salt(shake256)                              1.00        926        926          0         -6                       0.0%
+hash_t(shake256)                                 1.00        904        904          0         -0                       0.0%
+derive_lambda                                    1.00       2102       2106          0         34                      -0.1%
+shake_V(per-attempt)                             1.07       3148       3146          0          0                      -0.0%
+decode_V(per-attempt)                            1.07         76         76          0          0                      -0.0%
+m_calculate_M_and_VPV(per-attempt)               1.07     152664     122826     -29844     -32446                      98.9%
+compute_rhs(per-attempt)                         1.07       1470       1484         14         17                      -0.1%
+compute_A(per-attempt)                           1.07      11552      11556          0         34                      -0.1%
+sample_solution(per-attempt)                     1.07      39732      39718        -26       -247                       0.8%
+m_compute_s+encode(final)                        1.00        840        836         -4          1                      -0.0%
+expand_sk_internal                               1.00      57702      57684        -14         30                      -0.1%
+esk.shake_seed_O                                 1.00       2468       2452        -14        -60                       0.2%
+esk.decode_O                                     1.00         50         50          0         -0                       0.0%
+esk.expand_P1_P2                                 1.00      55028      55036          0         43                      -0.1%
+esk.PK_PRF(in expand_P1_P2)                      1.00      54970      54978          0         44                      -0.1%
+mcm.V_multabs                                    1.07       3398       3400          2         26                      -0.1%
+mcm.P1_times_Vt                                  1.07      41166      32324      -8828      -9605                      29.3%
+mcm.vkt_add_lambda                               1.07        460        454         -4         -5                       0.0%
+mcm.Vt_times_Pv                                  1.07      10930      10946        -10        -11                       0.0%
+mcm.O_multabs                                    1.07       2786       2782         -8        -32                       0.1%
+mcm.P1t_times_Vt                                 1.07      68856      47900     -21030     -22671                      69.1%
+mcm.Ut_times_O                                   1.07      12874      12858         -2        -98                       0.3%
+mcm.Vt_times_L                                   1.07       9074       9112        -10        -11                       0.0%
+mcm.lambda_oil                                   1.07         66         60          0         -2                       0.0%
+cA.acc(whip)                                     1.07       3154       3164          0         -3                       0.0%
+cA.transpose                                     1.07       1590       1590          0          3                      -0.0%
+cA.f_tail                                        1.07       2570       2568         -2         -8                       0.0%
+cA.decode                                        1.07       3922       3922         -2          3                      -0.0%
+[reste non attribue = total - somme des 12 sondes de niveau 1]                 21702      21694                    25                      -0.1%
+[total mayo_sign : moyenne de (x-b)]                                                       -32819

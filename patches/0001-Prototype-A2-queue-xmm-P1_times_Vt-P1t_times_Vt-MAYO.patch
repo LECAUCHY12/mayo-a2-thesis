@@ -1,0 +1,1060 @@
+From e72d407a436530c83e791b96e3d5637e4c8ce048 Mon Sep 17 00:00:00 2001
+From: Marcel Eric Angoah <marcelericangoah@gmail.com>
+Date: Mon, 12 Oct 2026 15:03:56 +0100
+Subject: [PATCH] Prototype A2 "queue xmm" (P1_times_Vt / P1t_times_Vt, MAYO-1
+ et MAYO-5) porte sur la base amont 74de637
+
+Meme contenu que la branche experiment/tail-xmm-a2 (sans les sondes de profilage ni les etudes
+diagnostiques) : seul le prototype, ses tests et ses outils de verification. Le code officiel n'est
+modifie que par l'aiguillage MAYO_CALL_P1_VT / MAYO_CALL_P1T_VT, identique a l'officiel sans
+-DMAYO_TAIL_XMM. Options : MAYO_TAIL_SAFE (aucune lecture au-dela de l'entree), MAYO_TAIL_CHECK.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013EN1pV7V5FE6tBx9nkRL6J
+---
+ src/AVX2/shuffle_arithmetic.h        | 187 +++++++++++
+ src/CMakeLists.txt                   |  22 ++
+ src/arithmetic.c                     |   4 +
+ src/arithmetic.h                     |  21 +-
+ test/CMakeLists.txt                  |  16 +
+ test/run_physical_tail.sh            |  98 ++++++
+ test/tail_ab.c                       | 453 +++++++++++++++++++++++++++
+ test/tail_study/aggregate_tail_ab.py |  40 +++
+ test/tail_study/inspect_asm.py       |  48 +++
+ test/tail_study/loop_stats.py        |  38 +++
+ 10 files changed, 925 insertions(+), 2 deletions(-)
+ create mode 100644 test/run_physical_tail.sh
+ create mode 100644 test/tail_ab.c
+ create mode 100644 test/tail_study/aggregate_tail_ab.py
+ create mode 100644 test/tail_study/inspect_asm.py
+ create mode 100644 test/tail_study/loop_stats.py
+
+diff --git a/src/AVX2/shuffle_arithmetic.h b/src/AVX2/shuffle_arithmetic.h
+index 837c849..7584e69 100644
+--- a/src/AVX2/shuffle_arithmetic.h
++++ b/src/AVX2/shuffle_arithmetic.h
+@@ -370,6 +370,193 @@ inline void P1t_times_Vt(const uint64_t *P1, __m256i *V_multabs, uint64_t *acc){
+     mayo_secure_clear(temp, sizeof(temp));
+ }
+ 
++
++/* ------------------------------------------------------------------------------------
++   Variante "queue xmm" (experimentale, -DMAYO_TAIL_XMM ; MAYO-1 (m=80) et MAYO-5 (m=142)
++   seulement ; specialisation de P1_times_Vt / P1t_times_Vt UNIQUEMENT : la macro
++   MULTIPLY_ACCUMULATE_M_VEC et tous les autres chemins restent inchanges).
++
++   Disposition de P1 en memoire (PINV) : P1 reste dans la disposition EMPAQUETEE du flux de cle,
++   M_MAX/2 octets par m-vec (40 octets pour m=80, 71 pour m=142), sans bourrage entre entrees.
++   Les M_MAX/2 octets sont suivis, dans le meme tableau sk->p (P1_LIMBS_MAX + P2_LIMBS_MAX +
++   MAYO_MVEC_SLACK limbes), de la suite du tampon : P1 occupe NENT*(M_MAX/2) octets et la zone
++   reservee a P1 en occupe 8*P1_LIMBS_MAX (720 863 contre 731 016 octets pour MAYO-5) ; l'octet
++   qui suit P1 empaquete est le premier octet du flux de cle de P2 (ecrit par AES-128-CTR, donnee
++   publique) que unpack_m_vecs n'ecrase jamais (il ecrit a partir de l'octet 8*P1_LIMBS_MAX).
++
++   Un m-vec = M_MAX/2 octets. Les 32*MTX_NM premiers octets sont traites comme avant par
++   MTX_NM registres ymm SANS recouvrement (aucun chargement recouvrant). Les 8 octets
++   suivants (la queue, 16 nibbles : 16 utiles pour m=80, 14 utiles + 2 de bourrage pour
++   m=142) sont lus par un chargement de 8 octets, mis sous la forme
++   [nibbles bas (8 octets) | nibbles hauts (8 octets)] dans un xmm, multiplies par un
++   vpshufb xmm avec la moitie basse du multab deja charge, et accumules dans un xmm.
++
++   Etendue de lecture par entree : [0, 32*MTX_NM+8) = 40 octets (m=80, egale a l'entree) et
++   72 octets (m=142, soit 1 octet de plus que l'entree de 71 octets). Le noyau officiel lit la
++   meme etendue (dernier chargement ymm a M_VEC_LIMBS_MAX-4 limbes = octets 40..71). Pour m=142 :
++   - pour toute entree sauf la derniere, l'octet 71 est le premier octet de l'entree suivante ;
++   - pour la derniere entree de P1, il tombe sur l'octet NENT*71 du tableau sk->p (flux de cle de
++     P2, cf. ci-dessus), toujours alloue : voir les _Static_assert ci-dessous ;
++   - cet octet n'alimente que les nibbles de bourrage 142 et 143 (octet 7 du limbe 8 de
++     l'accumulateur), jamais un des m = 142 elements utiles (vpshufb, decalages et XOR operent
++     nibble par nibble).
++   Variante MAYO_TAIL_XMM_SAFE : la queue est lue aux octets [63, 71) puis decalee de 8 bits ;
++   aucune lecture au-dela de l'entree (une instruction de plus par entree) ; l'octet de bourrage
++   de l'accumulateur vaut alors 0 au lieu d'une donnee voisine. */
++#if defined(MAYO_TAIL_XMM) && !defined(ENABLE_PARAMS_DYNAMIC) && (M_MAX == 80 || M_MAX == 142)
++#define MAYO_TAIL_XMM_ACTIVE 1
++#define MTX_KP ((K_MAX + 1) / 2)
++#define MTX_NM (M_MAX / 64)                 /* registres ymm pleins : 1 (m=80), 2 (m=142) */
++#define MTX_TOFF (32 * MTX_NM)              /* octet de debut de la queue */
++#define MTX_TLIMB (4 * MTX_NM)              /* limbe de debut de la queue dans l'accumulateur */
++#define MTX_NENT ((size_t) V_MAX * (V_MAX + 1) / 2)
++#if defined(MAYO_TAIL_XMM_SAFE) && (M_MAX / 2 < MTX_TOFF + 8)
++#define MTX_SAFE_ACTIVE 1
++#define MTX_OVERREAD 0                      /* octets lus apres l'entree */
++#else
++#define MTX_OVERREAD (MTX_TOFF + 8 > M_MAX / 2 ? MTX_TOFF + 8 - M_MAX / 2 : 0)
++#endif
++/* Garanties d'acces (verifiees a la compilation) : la derniere lecture de queue se termine a
++   (NENT-1)*(M_MAX/2) + M_MAX/2 + MTX_OVERREAD octets du debut de P1 ; elle doit rester dans la zone
++   reservee a P1 (8*P1_LIMBS_MAX octets), elle-meme incluse dans sk->p / pk->p. */
++_Static_assert(MTX_NENT * (M_MAX / 2) + MTX_OVERREAD <= 8 * (size_t) P1_LIMBS_MAX,
++               "queue xmm : la derniere lecture sort de la zone reservee a P1");
++_Static_assert(M_MAX / 2 <= MTX_TOFF + 8, "queue xmm : la queue de 8 octets doit couvrir la fin de l'entree");
++_Static_assert(MTX_OVERREAD <= 1, "queue xmm : au plus 1 octet lu au-dela de l'entree");
++
++#ifdef MAYO_TAIL_XMM_CHECK
++/* Mode de verification (jamais en production) : la precondition "les deux voies de 128 bits de
++   chaque multab sont identiques" est testee sur les tables REELLEMENT passees aux noyaux ; abort()
++   sinon. Le compte des tables verifiees est affiche en fin de programme. */
++#include <stdlib.h>
++#include <stdio.h>
++static unsigned long long mtx_checked = 0;
++__attribute__((destructor)) static void mtx_report(void) {
++    if (mtx_checked) fprintf(stderr, "[MAYO_TAIL_XMM_CHECK] M_MAX=%d : %llu multabs verifiees, voies de 128 bits identiques\n", M_MAX, mtx_checked);
++}
++static inline void mtx_check_multabs(const __m256i *mt) {
++    for (size_t i = 0; i < (size_t) MTX_KP * V_MAX; i++) {
++        const __m256i d = _mm256_xor_si256(mt[i], _mm256_permute2x128_si256(mt[i], mt[i], 1));
++        if (!_mm256_testz_si256(d, d)) { fprintf(stderr, "multab %zu : voies de 128 bits differentes\n", i); abort(); }
++    }
++    mtx_checked += (unsigned long long) MTX_KP * V_MAX;
++}
++#define MTX_CHECK(mt) mtx_check_multabs(mt)
++#else
++#define MTX_CHECK(mt) ((void) 0)
++#endif
++
++static inline __m128i mtx_tail_prep(const uint8_t *e) {
++    const __m128i m = _mm_set1_epi8(0x0f);
++#if defined(MTX_SAFE_ACTIVE)
++    __m128i x  = _mm_srli_epi64(_mm_loadl_epi64((const __m128i *) (e + MTX_TOFF - 1)), 8);
++#else
++    __m128i x  = _mm_loadl_epi64((const __m128i *) (e + MTX_TOFF));
++#endif
++    __m128i xh = _mm_srli_epi16(x, 4);
++    return _mm_and_si128(_mm_unpacklo_epi64(x, xh), m);
++}
++
++#define MTX_STEP(vec, mt_base, tt)                                                             \
++    {                                                                                          \
++        __m256i in_o[MTX_NM], in_e[MTX_NM];                                                    \
++        for (int g = 0; g < MTX_NM; g++) {                                                     \
++            in_o[g] = _mm256_loadu_si256((const __m256i *) ((vec) + 4 * g));                   \
++            in_e[g] = _mm256_and_si256(_mm256_srli_epi16(in_o[g], 4), low_nibble_mask);        \
++            in_o[g] = _mm256_and_si256(in_o[g], low_nibble_mask);                              \
++        }                                                                                      \
++        const __m128i tl = mtx_tail_prep((const uint8_t *) (vec));                             \
++        for (int p = 0; p < MTX_KP; p++) {                                                     \
++            const __m256i mt = (mt_base)[p];                                                   \
++            for (int g = 0; g < MTX_NM; g++) {                                                 \
++                temp[(p * MTX_NM + g) * 2]     ^= _mm256_shuffle_epi8(mt, in_o[g]);            \
++                temp[(p * MTX_NM + g) * 2 + 1] ^= _mm256_shuffle_epi8(mt, in_e[g]);            \
++            }                                                                                  \
++            (tt)[p] = _mm_xor_si128((tt)[p], _mm_shuffle_epi8(_mm256_castsi256_si128(mt), tl));\
++        }                                                                                      \
++    }
++
++/* reassemblage : meme formule que DISENTANGLE_AND_ACCUMULATE_M_VECS, sans recouvrement ;
++   les chargements de acc precedent tous les stockages d'une paire de sorties */
++static inline void mtx_disentangle(const __m256i *temp, const __m128i *tt, uint64_t *ar, const __m256i low_nibble_mask) {
++    const __m128i m128 = _mm_set1_epi8(0x0f);
++    for (int p = 0; p < MTX_KP; p++) {
++        const int k = 2 * p;
++        for (int g = 0; g < MTX_NM; g++) {
++            const __m256i o = temp[(p * MTX_NM + g) * 2], e = temp[(p * MTX_NM + g) * 2 + 1];
++            const __m256i t = _mm256_and_si256(_mm256_xor_si256(e, _mm256_srli_epi16(o, 4)), low_nibble_mask);
++            uint64_t *a0 = ar + (size_t) k * M_VEC_LIMBS_MAX + 4 * g;
++            _mm256_storeu_si256((__m256i *) a0, _mm256_xor_si256(_mm256_loadu_si256((__m256i *) a0),
++                                _mm256_xor_si256(o, _mm256_slli_epi16(t, 4))));
++            if (k + 1 < K_MAX) {
++                uint64_t *a1 = ar + (size_t) (k + 1) * M_VEC_LIMBS_MAX + 4 * g;
++                _mm256_storeu_si256((__m256i *) a1, _mm256_xor_si256(_mm256_loadu_si256((__m256i *) a1),
++                                    _mm256_xor_si256(e, t)));
++            }
++        }
++        {   /* queue : [impairs | pairs] */
++            const __m128i o = tt[p];
++            const __m128i e = _mm_unpackhi_epi64(o, o);
++            const __m128i t = _mm_and_si128(_mm_xor_si128(e, _mm_srli_epi16(o, 4)), m128);
++            ar[(size_t) k * M_VEC_LIMBS_MAX + MTX_TLIMB] ^= (uint64_t) _mm_cvtsi128_si64(_mm_xor_si128(o, _mm_slli_epi16(t, 4)));
++            if (k + 1 < K_MAX)
++                ar[(size_t) (k + 1) * M_VEC_LIMBS_MAX + MTX_TLIMB] ^= (uint64_t) _mm_cvtsi128_si64(_mm_xor_si128(e, t));
++        }
++    }
++}
++
++static
++inline void P1_times_Vt_xmm(const uint64_t *P1, __m256i *V_multabs, uint64_t *acc){
++    MTX_CHECK(V_multabs);
++    const __m256i low_nibble_mask = _mm256_set1_epi8(0x0f);
++    size_t cols_used = 0;
++    for (size_t r = 0; r < V_MAX; r++)
++    {
++        __m256i temp[MTX_KP * 2 * MTX_NM];
++        __m128i tt[MTX_KP];
++        for (int i = 0; i < MTX_KP * 2 * MTX_NM; i++) temp[i] = _mm256_setzero_si256();
++        for (int i = 0; i < MTX_KP; i++) tt[i] = _mm_setzero_si128();
++        for (size_t c = r; c < V_MAX; c++)
++        {
++            const uint64_t *v = PINV(P1, cols_used);
++            MTX_STEP(v, V_multabs + MTX_KP * c, tt)
++            cols_used += 1;
++        }
++        mtx_disentangle(temp, tt, acc + r * K_MAX * M_VEC_LIMBS_MAX, low_nibble_mask);
++    }
++}
++
++static
++inline void P1t_times_Vt_xmm(const uint64_t *P1, __m256i *V_multabs, uint64_t *acc){
++    MTX_CHECK(V_multabs);
++    const __m256i low_nibble_mask = _mm256_set1_epi8(0x0f);
++    __m256i temp[MTX_KP * 2 * MTX_NM];
++    __m128i tt[MTX_KP];
++    size_t row_start = 0;
++    for (size_t r = 0; r < V_MAX; r++)
++    {
++        for (int i = 0; i < MTX_KP * 2 * MTX_NM; i++) temp[i] = _mm256_setzero_si256();
++        for (int i = 0; i < MTX_KP; i++) tt[i] = _mm_setzero_si128();
++        size_t pos = r;
++        for (size_t c = 0; c < r; c++)
++        {
++            const uint64_t *v = PINV(P1, pos);
++            MTX_STEP(v, V_multabs + MTX_KP * c, tt)
++            pos += (V_MAX - c - 1);
++        }
++        {
++            const uint64_t *v = PINV(P1, row_start);
++            MTX_STEP(v, V_multabs + MTX_KP * r, tt)
++        }
++        mtx_disentangle(temp, tt, acc + r * K_MAX * M_VEC_LIMBS_MAX, low_nibble_mask);
++        row_start += (V_MAX - r);
++    }
++    /* comme P1t_times_Vt officiel : les produits (derives de V, secret) sont effaces */
++    mayo_secure_clear(temp, sizeof(temp));
++    mayo_secure_clear(tt, sizeof(tt));
++}
++#endif
++
+ // P1*S1 -> P1: v x v, S1: v x k // P1 upper triangular
+ static
+ inline void S1t_times_PS1(const uint64_t *_PS1, __m256i *S1_multabs, uint64_t *_acc){
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 5d74e19..1c70f9a 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -92,6 +92,28 @@ else()
+         target_include_directories(${MVARIANT_LOWER}_test PUBLIC ../include . PRIVATE common ${INC_PLATFORM})
+         target_compile_definitions(${MVARIANT_LOWER} PUBLIC MAYO_VARIANT=${MVARIANT})
+         target_compile_definitions(${MVARIANT_LOWER}_test PUBLIC MAYO_VARIANT=${MVARIANT})
++
++        # Variante experimentale "queue xmm" (A2) de P1_times_Vt / P1t_times_Vt (m = 80, 142) :
++        #  - _tailxmm : noyaux A2 en permanence (KAT / tests / CT) ;
++        #  - _tailab  : choix a l'execution officiel / A2 (banc A/B, jamais en production).
++        add_library(${MVARIANT_LOWER}_tailxmm ${SOURCE_FILES_MAYO})
++        target_link_libraries(${MVARIANT_LOWER}_tailxmm PUBLIC mayo_common_test)
++        target_include_directories(${MVARIANT_LOWER}_tailxmm PUBLIC ../include . PRIVATE common ${INC_PLATFORM})
++        target_compile_definitions(${MVARIANT_LOWER}_tailxmm PUBLIC MAYO_VARIANT=${MVARIANT} MAYO_TAIL_XMM)
++        add_library(${MVARIANT_LOWER}_tailab ${SOURCE_FILES_MAYO})
++        target_link_libraries(${MVARIANT_LOWER}_tailab PUBLIC mayo_common_test)
++        target_include_directories(${MVARIANT_LOWER}_tailab PUBLIC ../include . PRIVATE common ${INC_PLATFORM})
++        target_compile_definitions(${MVARIANT_LOWER}_tailab PUBLIC MAYO_VARIANT=${MVARIANT} MAYO_TAIL_XMM MAYO_TAIL_AB)
++        # -DMAYO_TAIL_CHECK=ON : verifie la precondition des multabs a l'execution (abort sinon)
++        if (MAYO_TAIL_CHECK)
++            target_compile_definitions(${MVARIANT_LOWER}_tailxmm PUBLIC MAYO_TAIL_XMM_CHECK)
++            target_compile_definitions(${MVARIANT_LOWER}_tailab PUBLIC MAYO_TAIL_XMM_CHECK)
++        endif()
++        # -DMAYO_TAIL_SAFE=ON : variante sans lecture au-dela de l'entree (queue lue aux octets [63,71) puis decalee)
++        if (MAYO_TAIL_SAFE)
++            target_compile_definitions(${MVARIANT_LOWER}_tailxmm PUBLIC MAYO_TAIL_XMM_SAFE)
++            target_compile_definitions(${MVARIANT_LOWER}_tailab PUBLIC MAYO_TAIL_XMM_SAFE)
++        endif()
+     ENDFOREACH()
+ 
+     foreach(MVARIANT ${MVARIANT_S})
+diff --git a/src/arithmetic.c b/src/arithmetic.c
+index 1a5b5e5..ddcc6f7 100644
+--- a/src/arithmetic.c
++++ b/src/arithmetic.c
+@@ -11,6 +11,10 @@
+ #include <valgrind/memcheck.h>
+ #endif
+ 
++#ifdef MAYO_TAIL_AB
++int mayo_tail_use_xmm = 0; /* banc A/B seulement */
++#endif
++
+ void m_upper(const mayo_params_t* p, const uint64_t *in, uint64_t *out, int size) {
+     #ifndef ENABLE_PARAMS_DYNAMIC
+     (void) p;
+diff --git a/src/arithmetic.h b/src/arithmetic.h
+index 447c7e1..29795e1 100644
+--- a/src/arithmetic.h
++++ b/src/arithmetic.h
+@@ -256,6 +256,23 @@ static inline void m_lambda_o_correction(const mayo_params_t *p, const uint64_t
+ 
+ #ifdef MAYO_HAVE_MULTAB_SIGN
+ 
++/* Aiguillage des deux noyaux specialises "queue xmm" (experimental, MAYO_TAIL_XMM ;
++   actifs seulement pour m = 80 et m = 142 sur le moteur shuffle AVX2). Par defaut :
++   noyaux officiels, inchanges. MAYO_TAIL_AB : choix a l'execution (banc A/B). */
++#if defined(MAYO_TAIL_XMM_ACTIVE)
++#if defined(MAYO_TAIL_AB)
++extern int mayo_tail_use_xmm;
++#define MAYO_CALL_P1_VT(P1, M, ACC)  do { if (mayo_tail_use_xmm) P1_times_Vt_xmm(P1, M, ACC);  else P1_times_Vt(P1, M, ACC);  } while (0)
++#define MAYO_CALL_P1T_VT(P1, M, ACC) do { if (mayo_tail_use_xmm) P1t_times_Vt_xmm(P1, M, ACC); else P1t_times_Vt(P1, M, ACC); } while (0)
++#else
++#define MAYO_CALL_P1_VT(P1, M, ACC)  P1_times_Vt_xmm(P1, M, ACC)
++#define MAYO_CALL_P1T_VT(P1, M, ACC) P1t_times_Vt_xmm(P1, M, ACC)
++#endif
++#else
++#define MAYO_CALL_P1_VT(P1, M, ACC)  P1_times_Vt(P1, M, ACC)
++#define MAYO_CALL_P1T_VT(P1, M, ACC) P1t_times_Vt(P1, M, ACC)
++#endif
++
+ /* One attempt's M into Mtmp and all v_i P v_j into VPV, with lambda folded in:
+    Lambda(v_i) reaches column 0 of VPV through VKtmp, and block 0 of Mtmp picks
+    up O^t lambda_vin + lambda_oil. */
+@@ -273,7 +290,7 @@ static inline void m_calculate_M_and_VPV(const mayo_params_t *p,
+     mayo_V_multabs(Vdec, V_multabs);
+ 
+     MAYO_ACC_INIT(VKtmp); // P1_times_Vt accumulates into it
+-    P1_times_Vt(P1, V_multabs, VKtmp);
++    MAYO_CALL_P1_VT(P1, V_multabs, VKtmp);
+ 
+     /* lambda into column 0 of P1 * V^t. Vt_times_Pv runs on both paths, so
+        Lambda(v_i) reaches VPV[i][0] for free either way. With L implicit,
+@@ -299,7 +316,7 @@ static inline void m_calculate_M_and_VPV(const mayo_params_t *p,
+         // implicit L: Mtmp = V * ((P1 + P1^t) * O + P2), reusing P1 * V^t.
+         // VKtmp = (P1 + P1^t) * V^t; the diagonal cancels in characteristic two.
+         mayo_O_multabs(O, O_multabs);
+-        P1t_times_Vt(P1, V_multabs, VKtmp);
++        MAYO_CALL_P1T_VT(P1, V_multabs, VKtmp);
+         Ut_times_O(VKtmp, O_multabs, Mtmp);
+         Vt_times_L(P2_or_L, V_multabs, Mtmp);
+     }
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index 1e1935c..efd6ee8 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -45,6 +45,22 @@ else()
+         add_test(${MVARIANT}_SELFTEST mayo_test_scheme_${MVARIANT} ${MVARIANT})
+         add_test(${MVARIANT}_VARIOUS mayo_test_various_${MVARIANT} ${MVARIANT})
+         add_test(${MVARIANT}_SAMPLE_SOLUTION mayo_test_sample_solution_${MVARIANT})
++
++        # Prototype "queue xmm" (A2) : memes tests officiels contre ${MVARIANT_LOWER}_tailxmm, + differentiel noyaux et banc A/B
++        add_executable(mayo_test_kat_tailxmm_${MVARIANT} test_kat.c)
++        target_link_libraries(mayo_test_kat_tailxmm_${MVARIANT} ${MVARIANT_LOWER}_tailxmm)
++        add_executable(mayo_test_scheme_tailxmm_${MVARIANT} test_mayo.c)
++        target_link_libraries(mayo_test_scheme_tailxmm_${MVARIANT} ${MVARIANT_LOWER}_tailxmm)
++        target_include_directories(mayo_test_scheme_tailxmm_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
++        add_executable(mayo_test_various_tailxmm_${MVARIANT} test_various.c)
++        target_link_libraries(mayo_test_various_tailxmm_${MVARIANT} ${MVARIANT_LOWER}_tailxmm)
++        target_include_directories(mayo_test_various_tailxmm_${MVARIANT} PUBLIC ../src/common ../src/generic ${INC_PLATFORM})
++        add_executable(mayo_tail_ab_${MVARIANT} tail_ab.c)
++        target_link_libraries(mayo_tail_ab_${MVARIANT} ${MVARIANT_LOWER}_tailab)
++        target_link_libraries(mayo_tail_ab_${MVARIANT} m)
++        target_include_directories(mayo_tail_ab_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
++        target_include_directories(mayo_tail_ab_${MVARIANT} PRIVATE ../src ../src/AVX2 ../src/generic ../src/common)
++        target_compile_definitions(mayo_tail_ab_${MVARIANT} PRIVATE MAYO_AVX)
+     ENDFOREACH()
+ 
+ endif()
+diff --git a/test/run_physical_tail.sh b/test/run_physical_tail.sh
+new file mode 100644
+index 0000000..471e861
+--- /dev/null
++++ b/test/run_physical_tail.sh
+@@ -0,0 +1,98 @@
++#!/bin/sh
++# Validation sur machine PHYSIQUE de la variante "queue xmm" (A2) de P1_times_Vt / P1t_times_Vt
++# (MAYO-1 et MAYO-5) contre le code officiel, memes options de compilation, A/B apparie a ordre
++# aleatoire dans un meme processus. MAYO-2 et MAYO-3 servent de temoins nuls (aucun noyau A2).
++#
++# Deux variantes sont construites et mesurees contre l'officiel :
++#   default : queue lue aux octets [64,72) (1 octet au-dela de P1 empaquete pour MAYO-5, cf. note)
++#   safe    : queue lue aux octets [63,71) puis decalee (aucune lecture au-dela de l'entree)
++#
++# Usage : sh test/run_physical_tail.sh [coeur_cpu=1] [paires=3001] [graines="1 2 3 4 5"]
++# Variables : SESSION=<etiquette de session> (defaut : horodatage) ; OUT=<repertoire de sortie>
++# Prerequis : gcc, cmake, make, taskset ; CPU avec AVX2 (Haswell ou plus recent).
++# Optionnels : python3 + numpy (agregation, inspection de l'assembleur), objdump.
++# Ne modifie aucun reglage de la machine ; il les enregistre. Mesure propre : machine au repos,
++# gouverneur "performance", turbo/DVFS notes (machine.txt). Pour la reproductibilite entre SESSIONS,
++# relancer le script (autre jour / autre demarrage) puis agreger : voir test/tail_study/aggregate_tail_ab.py
++# (accepte plusieurs repertoires de session).
++set -e
++ROOT=$(cd "$(dirname "$0")/.." && pwd)
++CORE=${1:-1}; PAIRS=${2:-3001}; SEEDS=${3:-"1 2 3 4 5"}
++SESSION=${SESSION:-$(date +%Y%m%d_%H%M%S)}
++OUT=${OUT:-$ROOT/physical_tail_$(hostname)_$SESSION}
++mkdir -p "$OUT"
++grep -q avx2 /proc/cpuinfo || { echo "AVX2 absent : arret"; exit 1; }
++{
++  echo "== session"; echo "$SESSION"
++  echo "== date"; date -u; echo "== uname"; uname -a; echo "== lscpu"; lscpu
++  echo "== hypervisor flag (0 attendu sur machine physique)"; grep -c hypervisor /proc/cpuinfo || true
++  echo "== systemd-detect-virt"; (systemd-detect-virt 2>/dev/null || echo "n/a")
++  echo "== governor"; cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_governor 2>/dev/null || echo "n/a"
++  echo "== no_turbo"; cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo "n/a"
++  echo "== boost (cpufreq)"; cat /sys/devices/system/cpu/cpufreq/boost 2>/dev/null || echo "n/a"
++  echo "== MHz cpu$CORE"; awk -v c=$CORE '/^processor/{p=$3} p==c && /cpu MHz/{print; exit}' /proc/cpuinfo
++  echo "== SMT"; cat /sys/devices/system/cpu/smt/active 2>/dev/null || echo "n/a"
++  echo "== charge (uptime)"; uptime
++  echo "== gcc"; gcc --version | head -1; echo "== cmake"; cmake --version | head -1
++  echo "== python3 / numpy"; (python3 --version; python3 -c 'import numpy; print("numpy", numpy.__version__)') 2>&1 || true
++  echo "== valgrind"; (valgrind --version 2>/dev/null || echo "absent")
++  echo "== commit"; (cd "$ROOT" && git log -1 --format=%H 2>/dev/null || echo "(archive sans git)")
++  echo "== branche"; (cd "$ROOT" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "n/a")
++  echo "== arguments"; echo "coeur=$CORE paires=$PAIRS graines=$SEEDS"
++} > "$OUT/machine.txt" 2>&1
++ln -sfn "$ROOT/KAT" "$OUT/KAT" 2>/dev/null || true
++
++build() { # $1 = nom, $2.. = options cmake
++  name=$1; shift
++  mkdir -p "$OUT/build_$name"; cd "$OUT/build_$name"
++  cmake "$ROOT" -DMAYO_BUILD_TYPE=avx2 "-DMAYO_MARCH=-march=haswell -maes" "$@" > cmake.log 2>&1
++  T=""; for v in 1 2 3 5; do T="$T mayo_tail_ab_MAYO_$v mayo_test_kat_tailxmm_MAYO_$v mayo_test_scheme_tailxmm_MAYO_$v mayo_test_various_tailxmm_MAYO_$v"; done
++  make -j"$(nproc)" $T > make.log 2>&1
++  { echo "== options effectives ($name)"; cat test/CMakeFiles/mayo_tail_ab_MAYO_1.dir/flags.make src/CMakeFiles/mayo_1_tailab.dir/flags.make; } >> "$OUT/machine.txt"
++}
++build default -DMAYO_TAIL_SAFE=OFF
++build safe    -DMAYO_TAIL_SAFE=ON
++build check   -DMAYO_TAIL_CHECK=ON     # verifie a l'execution la precondition des multabs (abort sinon)
++
++# --- correction et surete memoire (variante default puis safe) ---
++for name in default safe; do
++  cd "$OUT/build_$name/test"
++  for v in 1 2 3 5; do
++    ./mayo_test_kat_tailxmm_MAYO_$v > "$OUT/kat_${name}_$v.txt" 2>&1 && echo "KAT MAYO-$v ($name) : PASSED" || { echo "KAT MAYO-$v ($name) : ECHEC"; exit 1; }
++    ./mayo_test_scheme_tailxmm_MAYO_$v MAYO_$v > "$OUT/scheme_${name}_$v.txt" 2>&1 && echo "scheme MAYO-$v ($name) : ok" || { echo "scheme MAYO-$v ($name) : ECHEC"; exit 1; }
++  done
++  for v in 1 5; do
++    ./mayo_tail_ab_MAYO_$v unit 20000 | tee "$OUT/unit_${name}_$v.txt"
++    ./mayo_tail_ab_MAYO_$v guard      | tee "$OUT/guard_${name}_$v.txt"
++    ./mayo_tail_ab_MAYO_$v layout     | tee "$OUT/layout_${name}_$v.txt"
++    ./mayo_tail_ab_MAYO_$v multab     | tee "$OUT/multab_${name}_$v.txt"
++  done
++done
++cd "$OUT/build_check/test"
++for v in 1 5; do
++  ./mayo_test_kat_tailxmm_MAYO_$v     > "$OUT/check_kat_$v.txt"    2>&1 && echo "KAT MAYO-$v (verification multab) : PASSED" || { echo "KAT MAYO-$v (check) : ECHEC"; exit 1; }
++  ./mayo_test_scheme_tailxmm_MAYO_$v MAYO_$v > "$OUT/check_scheme_$v.txt" 2>&1 && echo "scheme MAYO-$v (verification multab) : ok" || { echo "scheme MAYO-$v (check) : ECHEC"; exit 1; }
++done
++
++# --- assembleur (optionnel) ---
++if command -v objdump >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
++  for name in default safe; do for v in 1 5; do
++    python3 -I "$ROOT/test/tail_study/inspect_asm.py" "$OUT/build_$name/test/mayo_tail_ab_MAYO_$v" P1_times_Vt P1t_times_Vt P1_times_Vt_xmm P1t_times_Vt_xmm > "$OUT/asm_inspect_${name}_$v.txt" 2>&1 || true
++    python3 -I "$ROOT/test/tail_study/loop_stats.py"  "$OUT/build_$name/test/mayo_tail_ab_MAYO_$v" P1_times_Vt P1_times_Vt_xmm P1t_times_Vt P1t_times_Vt_xmm > "$OUT/asm_loops_${name}_$v.txt" 2>&1 || true
++  done; done
++fi
++
++# --- mesures A/B (ordre des variantes et des graines melange par bloc) ---
++for name in default safe; do
++  mkdir -p "$OUT/csv_$name"
++  cd "$OUT/build_$name/test"
++  for s in $SEEDS; do for v in 1 2 3 5; do
++    echo "#### $name MAYO-$v graine=$s"
++    EF_AB_CSV="$OUT/csv_$name/m${v}_s${s}" taskset -c "$CORE" ./mayo_tail_ab_MAYO_$v bench "$PAIRS" "$s" | tee -a "$OUT/resultats_$name.txt"
++  done; done
++  if command -v python3 >/dev/null 2>&1 && python3 -c 'import numpy' 2>/dev/null; then
++    python3 -I "$ROOT/test/tail_study/aggregate_tail_ab.py" "$OUT/csv_$name" > "$OUT/agregat_$name.txt" 2>&1 || true
++  fi
++done
++tar czf "$OUT.tar.gz" --exclude='build_*' -C "$(dirname "$OUT")" "$(basename "$OUT")"
++echo "Resultats : $OUT.tar.gz"
+diff --git a/test/tail_ab.c b/test/tail_ab.c
+new file mode 100644
+index 0000000..6a71284
+--- /dev/null
++++ b/test/tail_ab.c
+@@ -0,0 +1,453 @@
++// SPDX-License-Identifier: Apache-2.0
++//
++// Prototype "queue xmm" (A2) de P1_times_Vt / P1t_times_Vt (MAYO-1 m=80, MAYO-5 m=142) :
++// differentiel contre les noyaux officiels, securite memoire, constant-time, banc A/B.
++// Compile contre la bibliotheque *_tailab (MAYO_TAIL_XMM + MAYO_TAIL_AB).
++//
++//   tail_ab unit [n]             differentiel noyaux officiel / xmm : accumulateurs COMPLETS
++//                                (tous les limbes, bourrage compris + canari apres la fin),
++//                                entrees de 8 familles, accumulateur initial aleatoire ;
++//                                invariance des elements utiles vis-a-vis des octets
++//                                lus apres la fin de P1
++//   tail_ab guard                lecture au bord d'une page PROT_NONE : l'etendue de lecture
++//                                des deux noyaux est la meme (fork, un enfant par cas)
++//   tail_ab ct [0|1|2]           Valgrind (ENABLE_CT_TESTING) : P1 et multabs INDEFINIS ;
++//                                0 officiel, 1 xmm, 2 temoin positif
++//   tail_ab bench [paires] [graine]
++//                                A/B apparie a ordre aleatoire, 4 niveaux :
++//                                P1_times_Vt, P1t_times_Vt, m_calculate_M_and_VPV, mayo_sign
++//                                (EF_AB_CSV=<prefixe> ecrit les paires brutes)
++
++#include <mayo.h>
++#include <arithmetic.h>
++#include <shuffle_arithmetic.h>
++#include <arithmetic_common.h>
++#include <randombytes.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <math.h>
++#include <signal.h>
++#include <unistd.h>
++#include <sys/mman.h>
++#include <sys/wait.h>
++#include <x86intrin.h>
++#include <aes_ctr.h>
++#include <fips202.h>
++#ifdef ENABLE_CT_TESTING
++#include <valgrind/memcheck.h>
++#endif
++
++#define KP ((K_MAX + 1) / 2)
++#define MLIM M_VEC_LIMBS_MAX
++#define NENT ((size_t) V_MAX * (V_MAX + 1) / 2)
++#define ACC_LIMBS ((size_t) V_MAX * K_MAX * MLIM)
++#define CANARY 16
++#ifdef MAYO_TAIL_XMM_ACTIVE
++#define HAVE_XMM 1
++#else
++#define HAVE_XMM 0
++#endif
++
++static uint64_t rs = 0x9E3779B97F4A7C15ull;
++static uint64_t rnd(void) { rs ^= rs << 13; rs ^= rs >> 7; rs ^= rs << 17; return rs; }
++static void *amalloc(size_t n) { void *p; if (posix_memalign(&p, 64, (n + 63) / 64 * 64)) abort(); return p; }
++
++typedef void (*kern_t)(const uint64_t *, __m256i *, uint64_t *);
++__attribute__((unused)) static __attribute__((noinline)) void off_p1(const uint64_t *P1, __m256i *M, uint64_t *acc) { P1_times_Vt(P1, M, acc); }
++__attribute__((unused)) static __attribute__((noinline)) void off_p1t(const uint64_t *P1, __m256i *M, uint64_t *acc) { P1t_times_Vt(P1, M, acc); }
++#if HAVE_XMM
++static __attribute__((noinline)) void xmm_p1(const uint64_t *P1, __m256i *M, uint64_t *acc) { P1_times_Vt_xmm(P1, M, acc); }
++static __attribute__((noinline)) void xmm_p1t(const uint64_t *P1, __m256i *M, uint64_t *acc) { P1t_times_Vt_xmm(P1, M, acc); }
++#endif
++
++static void fill_p1(uint8_t *P1, size_t nbytes, int kind) {
++    for (size_t i = 0; i < nbytes; i++) {
++        uint8_t r = (uint8_t) rnd();
++        switch (kind) {
++        case 0: break;                                   /* aleatoire */
++        case 1: r = 0; break;                            /* zeros */
++        case 2: r = 0xff; break;                         /* tous les nibbles = 15 */
++        case 3: r = (rnd() % 8 == 0) ? r : 0; break;     /* creux */
++        case 4: r &= 0x0f; break;                        /* nibbles hauts nuls */
++        case 5: r &= 0xf0; break;                        /* nibbles bas nuls */
++        case 6: r = (uint8_t) (0x11 * (rnd() & 15)); break; /* nibbles egaux */
++        case 7: r = (uint8_t) (i * 37); break;           /* motif deterministe */
++        }
++        P1[i] = r;
++    }
++}
++__attribute__((unused)) static void fill_mt(__m256i *mt, int kind) {
++    for (size_t i = 0; i < (size_t) KP * V_MAX; i++) {
++        if (kind == 0)   /* comme build reel : deux scalaires */
++            mt[i] = _mm256_xor_si256(tbl32_gf16_multab2(rnd() & 15), _mm256_slli_epi16(tbl32_gf16_multab2(rnd() & 15), 4));
++        else {           /* octets quelconques */
++            /* octets quelconques MAIS les deux lanes de 128 bits identiques : precondition de la
++               variante xmm (elle lit la lane basse seule) ; mayo_V_multabs (tbl32_gf16_multab2)
++               produit toujours des lanes identiques */
++            uint8_t b[32]; for (int j = 0; j < 16; j++) b[j] = b[j + 16] = (uint8_t) rnd();
++            mt[i] = _mm256_loadu_si256((const __m256i *) b);
++        }
++    }
++}
++
++/* variante SAFE : l'octet de bourrage de l'accumulateur (octet M_MAX/2 de chaque m-vec) vaut 0 au lieu
++   d'une donnee voisine ; il n'est pas compare (hors des M_MAX elements) */
++__attribute__((unused)) static void mask_pad_n(uint64_t *a, size_t nvec) {
++#ifdef MTX_SAFE_ACTIVE
++    for (size_t v = 0; v < nvec; v++) ((uint8_t *) (a + v * MLIM))[M_MAX / 2] = 0;
++#else
++    (void) a; (void) nvec;
++#endif
++}
++__attribute__((unused)) static void mask_pad(uint64_t *a) { mask_pad_n(a, (size_t) V_MAX * K_MAX); }
++
++#if HAVE_XMM
++static int unit(long n) {
++    const size_t stride = M_MAX / 2;
++    const size_t p1bytes = NENT * stride;
++    uint8_t *P1 = amalloc(p1bytes + 64), *P1c = amalloc(p1bytes + 64);
++    __m256i *mt = amalloc(sizeof(__m256i) * KP * V_MAX);
++    const size_t tot = ACC_LIMBS + CANARY;
++    uint64_t *a0 = amalloc(8 * tot), *a1 = amalloc(8 * tot), *ai = amalloc(8 * tot);
++    long bad_full[2] = {0, 0}, bad_valid[2] = {0, 0}, bad_inp = 0, bad_trail[2] = {0, 0};
++    long per_kind[8] = {0};
++    for (long t = 0; t < n; t++) {
++        const int kind = (int) (t % 8);
++        per_kind[kind]++;
++        fill_p1(P1, p1bytes + 64, kind);
++        memcpy(P1c, P1, p1bytes + 64);
++        fill_mt(mt, (t / 8) % 4 == 3 ? 1 : 0);
++        for (size_t i = 0; i < tot; i++) ai[i] = rnd();
++        for (int w = 0; w < 2; w++) {
++            kern_t fo = w ? off_p1t : off_p1, fx = w ? xmm_p1t : xmm_p1;
++            memcpy(a0, ai, 8 * tot); memcpy(a1, ai, 8 * tot);
++            fo((const uint64_t *) P1, mt, a0);
++            fx((const uint64_t *) P1, mt, a1);
++            mask_pad(a0); mask_pad(a1);
++            if (memcmp(a0, a1, 8 * tot) != 0) bad_full[w]++;     /* limbes complets + canari */
++            /* elements utiles seulement : M_MAX/2 octets par m-vec */
++            int bv = 0;
++            for (size_t v = 0; v < (size_t) V_MAX * K_MAX; v++)
++                if (memcmp((uint8_t *) (a0 + v * MLIM), (uint8_t *) (a1 + v * MLIM), M_MAX / 2) != 0) bv = 1;
++            bad_valid[w] += bv;
++            /* octets lus apres la fin de P1 (au plus 1) : ne doivent changer que les nibbles de bourrage */
++            memcpy(a1, ai, 8 * tot);
++            memset(P1 + p1bytes, 0xA5 ^ (int) (t & 255), 64);
++            fx((const uint64_t *) P1, mt, a1);
++            int bt = 0;
++            for (size_t v = 0; v < (size_t) V_MAX * K_MAX; v++)
++                if (memcmp((uint8_t *) (a0 + v * MLIM), (uint8_t *) (a1 + v * MLIM), M_MAX / 2) != 0) bt = 1;
++            bad_trail[w] += bt;
++            memcpy(P1 + p1bytes, P1c + p1bytes, 64);
++        }
++        if (memcmp(P1, P1c, p1bytes) != 0) bad_inp++;
++    }
++    printf("unit M_MAX=%d : %ld cas (", M_MAX, n);
++    for (int k = 0; k < 8; k++) printf("%s%ld", k ? "/" : "", per_kind[k]);
++    printf(" par famille)\n  P1_times_Vt  : %ld ecarts (limbes complets+canari), %ld ecarts (octets utiles), %ld (octets apres la fin de P1)\n"
++           "  P1t_times_Vt : %ld ecarts (limbes complets+canari), %ld ecarts (octets utiles), %ld (octets apres la fin de P1)\n  entree modifiee : %ld\n",
++           bad_full[0], bad_valid[0], bad_trail[0], bad_full[1], bad_valid[1], bad_trail[1], bad_inp);
++    return bad_full[0] + bad_full[1] + bad_valid[0] + bad_valid[1] + bad_trail[0] + bad_trail[1] + bad_inp != 0;
++}
++
++/* un enfant par cas : le noyau lit P1 place a `slack` octets avant une page PROT_NONE */
++static int guard_child(int which, int slack) {
++    const size_t stride = M_MAX / 2, p1bytes = NENT * stride, ps = 4096;
++    const size_t npg = (p1bytes + slack + ps - 1) / ps;
++    uint8_t *base = mmap(0, (npg + 1) * ps, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++    if (base == MAP_FAILED) return 99;
++    if (mprotect(base + npg * ps, ps, PROT_NONE)) return 98;
++    uint8_t *P1 = base + npg * ps - slack - p1bytes;
++    fill_p1(P1, p1bytes, 0);
++    __m256i *mt = amalloc(sizeof(__m256i) * KP * V_MAX); fill_mt(mt, 0);
++    uint64_t *acc = amalloc(8 * (ACC_LIMBS + CANARY)); memset(acc, 0, 8 * (ACC_LIMBS + CANARY));
++    switch (which) {
++    case 0: off_p1((const uint64_t *) P1, mt, acc); break;
++    case 1: off_p1t((const uint64_t *) P1, mt, acc); break;
++    case 2: xmm_p1((const uint64_t *) P1, mt, acc); break;
++    default: xmm_p1t((const uint64_t *) P1, mt, acc); break;
++    }
++    return 0;
++}
++static int guard(void) {
++    const char *nm[4] = {"officiel P1_times_Vt ", "officiel P1t_times_Vt", "xmm      P1_times_Vt ", "xmm      P1t_times_Vt"};
++    printf("guard M_MAX=%d : P1 = %zu entrees de %d octets, fin de P1 a `slack` octets d'une page PROT_NONE\n", M_MAX, NENT, M_MAX / 2);
++    int mismatch = 0, res[4][3];
++    for (int w = 0; w < 4; w++) {
++        printf("  %s :", nm[w]);
++        for (int sl = 0; sl < 3; sl++) {
++            fflush(stdout);
++            pid_t pid = fork();
++            if (pid == 0) { signal(SIGSEGV, SIG_DFL); _exit(guard_child(w, sl)); }
++            int st = 0; waitpid(pid, &st, 0);
++            res[w][sl] = WIFSIGNALED(st) ? -WTERMSIG(st) : WEXITSTATUS(st);
++            printf("  slack=%d %s", sl, res[w][sl] == 0 ? "ok" : (res[w][sl] == -SIGSEGV ? "SIGSEGV" : "autre"));
++        }
++        printf("\n");
++    }
++    int subset = 1;   /* xmm fautif => officiel fautif (l'etendue de xmm est incluse dans celle de l'officiel) */
++    for (int sl = 0; sl < 3; sl++) {
++        if (res[0][sl] != res[2][sl] || res[1][sl] != res[3][sl]) mismatch = 1;
++        if ((res[2][sl] != 0 && res[0][sl] == 0) || (res[3][sl] != 0 && res[1][sl] == 0)) subset = 0;
++    }
++    printf("  etendue de lecture officiel == xmm : %s ; etendue xmm incluse dans celle de l'officiel : %s\n", mismatch ? "NON" : "OUI", subset ? "OUI" : "NON");
++#ifdef MTX_SAFE_ACTIVE
++    return !subset;     /* variante SAFE : etendue strictement plus petite attendue */
++#else
++    return mismatch;
++#endif
++}
++#else
++static int unit(long n) { (void) n; printf("unit : sans objet pour M_MAX=%d (noyau xmm inactif)\n", M_MAX); return 0; }
++static int guard(void) { printf("guard : sans objet pour M_MAX=%d\n", M_MAX); return 0; }
++#endif
++
++#ifdef ENABLE_CT_TESTING
++static int ct(int which) {
++    const size_t p1bytes = NENT * (M_MAX / 2);
++    uint8_t *P1 = amalloc(p1bytes + 64);
++    __m256i *mt = amalloc(sizeof(__m256i) * KP * V_MAX);
++    uint64_t *acc = amalloc(8 * (ACC_LIMBS + CANARY));
++    for (int kind = 0; kind < 8; kind++) {
++        fill_p1(P1, p1bytes + 64, kind); fill_mt(mt, kind & 1); memset(acc, 0, 8 * (ACC_LIMBS + CANARY));
++        VALGRIND_MAKE_MEM_UNDEFINED(P1, p1bytes);
++        VALGRIND_MAKE_MEM_UNDEFINED(mt, sizeof(__m256i) * KP * V_MAX);
++        if (which == 2) { volatile int s = 0; if (P1[3 + kind]) s = 1; (void) s; }
++#if HAVE_XMM
++        else if (which == 1) { xmm_p1((const uint64_t *) P1, mt, acc); xmm_p1t((const uint64_t *) P1, mt, acc); }
++#endif
++        else { off_p1((const uint64_t *) P1, mt, acc); off_p1t((const uint64_t *) P1, mt, acc); }
++        VALGRIND_MAKE_MEM_DEFINED(acc, 8 * (ACC_LIMBS + CANARY));
++        VALGRIND_MAKE_MEM_DEFINED(P1, p1bytes);
++        VALGRIND_MAKE_MEM_DEFINED(mt, sizeof(__m256i) * KP * V_MAX);
++    }
++    printf("ct %s : 8 familles passees sous memcheck (P1 et multabs indefinis)\n", which == 2 ? "temoin positif" : which == 1 ? "xmm" : "officiel");
++    return 0;
++}
++#endif
++
++/* ---------------- mesure ---------------- */
++static inline uint64_t tick(void) { unsigned a; _mm_lfence(); uint64_t t = __rdtscp(&a); _mm_lfence(); return t; }
++static int cmp_d(const void *a, const void *b) { double x = *(const double *) a, y = *(const double *) b; return (x > y) - (x < y); }
++static double med(const double *v, int n) {
++    double *c = malloc(sizeof(double) * n); memcpy(c, v, sizeof(double) * n); qsort(c, n, sizeof(double), cmp_d);
++    double r = (n & 1) ? c[n / 2] : 0.5 * (c[n / 2 - 1] + c[n / 2]); free(c); return r;
++}
++static void report(const char *name, uint64_t *tb, uint64_t *tx, unsigned char *ord, int n) {
++    double *r = malloc(sizeof(double) * n), *vb = malloc(sizeof(double) * n), *vx = malloc(sizeof(double) * n), *tmp = malloc(sizeof(double) * n);
++    for (int i = 0; i < n; i++) { r[i] = (double) tx[i] / (double) tb[i]; vb[i] = (double) tb[i]; vx[i] = (double) tx[i]; }
++    const char *pre = getenv("EF_AB_CSV");
++    if (pre) {
++        char fn[512]; snprintf(fn, sizeof fn, "%s_%s.csv", pre, name);
++        FILE *f = fopen(fn, "w");
++        if (f) { fprintf(f, "i,xmm_first,t_base,t_xmm\n"); for (int i = 0; i < n; i++) fprintf(f, "%d,%d,%llu,%llu\n", i, ord[i], (unsigned long long) tb[i], (unsigned long long) tx[i]); fclose(f); }
++    }
++    const int B = 2000; double *bs = malloc(sizeof(double) * B);
++    for (int b = 0; b < B; b++) { for (int i = 0; i < n; i++) tmp[i] = r[rnd() % (uint64_t) n]; bs[b] = med(tmp, n); }
++    qsort(bs, B, sizeof(double), cmp_d);
++    printf("%-14s n=%5d  base=%10.0f  xmm=%10.0f  rapport mediane(r)=%.4f  IC95=[%.4f ; %.4f]\n", name, n, med(vb, n), med(vx, n), med(r, n), bs[(int) (0.025 * B)], bs[(int) (0.975 * B)]);
++    free(r); free(vb); free(vx); free(tmp); free(bs);
++}
++
++/* Disposition reelle de P1 dans sk->p apres l'expansion de la cle (chemin de signature) :
++   P1 empaquete (M_MAX/2 octets par m-vec), octet suivant = flux de cle AES-CTR (P2), jamais ecrase. */
++static int layout(void) {
++    const mayo_params_t *p = 0;
++    unsigned char *csk = calloc(PARAM_csk_bytes(p), 1);
++    for (int i = 0; i < PARAM_csk_bytes(p); i++) csk[i] = (unsigned char) rnd();
++    sk_t *esk = amalloc(sizeof(sk_t));
++    memset(esk, 0xA7, sizeof(sk_t));
++    if (mayo_expand_sk(p, csk, esk) != MAYO_OK) { fprintf(stderr, "expand_sk a echoue\n"); return 1; }
++    unsigned char S[PK_SEED_BYTES_MAX + O_BYTES_MAX];
++    shake256(S, PARAM_pk_seed_bytes(p) + PARAM_O_bytes(p), csk, PARAM_sk_seed_bytes(p));
++    const size_t nks = (size_t) PARAM_P1_bytes(p) + PARAM_P2_bytes(p);
++    unsigned char *ks = malloc(nks);
++    AES_128_CTR(ks, nks, S, PARAM_pk_seed_bytes(p));
++    const size_t p1b = PARAM_P1_bytes(p), stride = M_MAX / 2;
++    const size_t last_end = (NENT - 1) * stride + stride + (stride < 32 * (M_MAX / 64) + 8 ? 32 * (M_MAX / 64) + 8 - stride : 0);
++    int ok_p1 = !memcmp((uint8_t *) esk->p, ks, p1b), ok_gap = ((uint8_t *) esk->p)[p1b] == ks[p1b];
++    printf("layout M_MAX=%d : m-vec empaquete = %zu octets ; P1 empaquete = %zu octets (PARAM_P1_bytes = %zu)\n", M_MAX, stride, NENT * stride, p1b);
++    printf("  zone reservee a P1 = 8*P1_LIMBS_MAX = %zu octets ; sk->p = %zu octets ; fin de la derniere lecture de queue (relative au debut de P1) = %zu\n",
++           (size_t) 8 * P1_LIMBS_MAX, sizeof(esk->p), last_end);
++    printf("  octets lus au-dela de P1 empaquete = %zu ; marge restante dans la zone P1 = %zu octets ; dans sk->p = %zu octets\n",
++           last_end - NENT * stride, (size_t) 8 * P1_LIMBS_MAX - last_end, sizeof(esk->p) - last_end);
++    const int over = last_end > NENT * stride;
++    printf("  P1 empaquete == flux de cle AES-CTR : %s", ok_p1 ? "OUI" : "NON");
++    if (over) printf(" ; octet %zu (premier octet lu apres P1) == flux de cle : %s (valeur 0x%02x, donnee publique)\n", p1b, ok_gap ? "OUI" : "NON", ((uint8_t *) esk->p)[p1b]);
++    else printf(" ; aucun octet lu apres P1 (la zone suivante contient L ou P2, sans objet)\n");
++    free(csk); free(ks); free(esk);
++    return !(ok_p1 && (ok_gap || !over) && last_end <= (size_t) 8 * P1_LIMBS_MAX);
++}
++
++/* precondition des multabs : (i) les 4 constantes de __gf16_mulbase ont deux moities de 16 octets
++   egales ; (ii) pour les 16*16 couples de scalaires (a,b), la table construite comme
++   mayo_V_multabs (tbl(a) ^ (tbl(b) << 4)) a ses deux voies de 128 bits egales */
++static int multab_check(void) {
++    int bad = 0;
++    for (int i = 0; i < 4; i++) if (memcmp(__gf16_mulbase + 32 * i, __gf16_mulbase + 32 * i + 16, 16)) bad++;
++    printf("multab : constantes __gf16_mulbase a moities egales : %s\n", bad ? "NON" : "OUI (4/4)");
++    int n = 0, nbad = 0;
++    for (int a = 0; a < 16; a++) for (int b = 0; b < 16; b++) {
++        __m256i t = _mm256_xor_si256(tbl32_gf16_multab2((uint8_t) a), _mm256_slli_epi16(tbl32_gf16_multab2((uint8_t) b), 4));
++        uint8_t x[32]; _mm256_storeu_si256((__m256i *) x, t);
++        n++; if (memcmp(x, x + 16, 16)) nbad++;
++    }
++    for (int a = 0; a < 16; a++) {   /* K impair : table a un seul scalaire */
++        uint8_t x[32]; _mm256_storeu_si256((__m256i *) x, tbl32_gf16_multab2((uint8_t) a));
++        n++; if (memcmp(x, x + 16, 16)) nbad++;
++    }
++    printf("multab : %d tables (tous les couples de scalaires + K impair) : %d a voies differentes\n", n, nbad);
++    return bad + nbad;
++}
++
++/* Allocation de taille EXACTE (P1 empaquete = NENT*(M_MAX/2) octets, multabs, accumulateur) : sous
++   AddressSanitizer ou Valgrind memcheck, toute lecture/ecriture hors bloc est signalee.
++   tail_ab bounds <0..3> : 0 officiel P1, 1 officiel P1t, 2 xmm P1, 3 xmm P1t (un noyau par processus,
++   l'erreur arrete le processus). Resultat attendu : voir la note (1 octet lu au-dela pour l'officiel
++   et pour A2 par defaut sur MAYO-5, aucun pour A2 SAFE et pour MAYO-1). */
++static int bounds(int which) {
++    const size_t p1bytes = NENT * (M_MAX / 2);
++    uint8_t *P1 = malloc(p1bytes);
++    void *mtp; if (posix_memalign(&mtp, 32, sizeof(__m256i) * KP * V_MAX)) abort();
++    __m256i *mt = mtp;
++    uint64_t *acc = malloc(8 * ACC_LIMBS);
++    fill_p1(P1, p1bytes, 0); fill_mt(mt, 0); memset(acc, 0, 8 * ACC_LIMBS);
++    switch (which) {
++    case 0: off_p1((const uint64_t *) P1, mt, acc); break;
++    case 1: off_p1t((const uint64_t *) P1, mt, acc); break;
++#if HAVE_XMM
++    case 2: xmm_p1((const uint64_t *) P1, mt, acc); break;
++    case 3: xmm_p1t((const uint64_t *) P1, mt, acc); break;
++#endif
++    default: fprintf(stderr, "noyau %d indisponible\n", which); return 2;
++    }
++    printf("bounds M_MAX=%d noyau %d : P1 = %zu octets exactement, aucun acces hors bloc detecte\n", M_MAX, which, p1bytes);
++    free(P1); free(mt); free(acc);
++    return 0;
++}
++
++extern int mayo_tail_use_xmm;
++
++static int bench(int pairs) {
++    const mayo_params_t *p = 0;
++    int rc = 0;
++    const size_t stride = M_MAX / 2; (void) stride;
++#if HAVE_XMM
++    const size_t p1bytes = NENT * stride;
++    {   /* niveaux 1 et 2 : noyaux appeles directement, memes tampons, memes options */
++        uint8_t *P1 = amalloc(p1bytes + 128); fill_p1(P1, p1bytes + 128, 0);
++        __m256i *mt = amalloc(sizeof(__m256i) * KP * V_MAX); fill_mt(mt, 0);
++        uint64_t *acc = amalloc(8 * (ACC_LIMBS + CANARY)), *acc2 = amalloc(8 * (ACC_LIMBS + CANARY));
++        for (int w = 0; w < 2; w++) {
++            kern_t fo = w ? off_p1t : off_p1, fx = w ? xmm_p1t : xmm_p1;
++            uint64_t *tb = malloc(8 * (size_t) pairs), *tx = malloc(8 * (size_t) pairs); unsigned char *ord = malloc(pairs);
++            int bad = 0;
++            for (int i = -20; i < pairs; i++) {
++                int xf = (int) (rnd() >> 33) & 1;
++                if (i >= 0) ord[i] = (unsigned char) xf;
++                for (int a = 0; a < 2; a++) {
++                    int use_x = a == 0 ? xf : !xf;
++                    uint64_t *ac = use_x ? acc2 : acc;
++                    memset(ac, 0, 8 * (ACC_LIMBS + CANARY));
++                    uint64_t t0 = tick();
++                    if (use_x) fx((const uint64_t *) P1, mt, ac); else fo((const uint64_t *) P1, mt, ac);
++                    uint64_t t1 = tick();
++                    if (i >= 0) { if (use_x) tx[i] = t1 - t0; else tb[i] = t1 - t0; }
++                }
++                mask_pad(acc); mask_pad(acc2);
++                if (memcmp(acc, acc2, 8 * (ACC_LIMBS + CANARY)) != 0) bad++;
++            }
++            report(w ? "P1t_times_Vt" : "P1_times_Vt", tb, tx, ord, pairs);
++            printf("  sorties differentes sur %d paires\n", bad); rc |= bad;
++            free(tb); free(tx); free(ord);
++        }
++    }
++#endif
++    {   /* niveau 3 : m_calculate_M_and_VPV complet (aiguillage runtime) */
++        uint64_t *P1 = amalloc(8 * (NENT * MLIM + 64)), *P2 = amalloc(8 * ((size_t) V_MAX * O_MAX * MLIM + 64));
++        unsigned char *O = malloc((size_t) V_MAX * O_MAX + 64), *Vd = malloc((size_t) K_MAX * V_MAX + 64);
++        uint64_t *lam = amalloc(8 * ((size_t) N_MAX * MLIM + 64)), *Mt = amalloc(8 * ((size_t) K_MAX * O_MAX * MLIM + 64)), *Vp = amalloc(8 * ((size_t) K_MAX * K_MAX * MLIM + 64));
++        uint8_t *P1b = (uint8_t *) P1;
++        fill_p1(P1b, NENT * MLIM * 8, 0);
++        for (size_t i = 0; i < (size_t) V_MAX * O_MAX * MLIM + 64; i++) P2[i] = rnd();
++        for (size_t i = 0; i < (size_t) V_MAX * O_MAX; i++) O[i] = rnd() & 15;
++        for (size_t i = 0; i < (size_t) K_MAX * V_MAX; i++) Vd[i] = rnd() & 15;
++        for (size_t i = 0; i < (size_t) N_MAX * MLIM + 64; i++) lam[i] = rnd();
++        uint64_t *tb = malloc(8 * (size_t) pairs), *tx = malloc(8 * (size_t) pairs); unsigned char *ord = malloc(pairs);
++        uint64_t *M0 = amalloc(8 * ((size_t) K_MAX * O_MAX * MLIM + 64)), *V0 = amalloc(8 * ((size_t) K_MAX * K_MAX * MLIM + 64));
++        int bad = 0;
++        for (int i = -20; i < pairs; i++) {
++            int xf = (int) (rnd() >> 33) & 1;
++            if (i >= 0) ord[i] = (unsigned char) xf;
++            for (int a = 0; a < 2; a++) {
++                int use_x = a == 0 ? xf : !xf;
++                uint64_t *Mo = use_x ? Mt : M0, *Vo = use_x ? Vp : V0;
++                memset(Mo, 0, 8 * ((size_t) K_MAX * O_MAX * MLIM)); memset(Vo, 0, 8 * ((size_t) K_MAX * K_MAX * MLIM));
++                mayo_tail_use_xmm = use_x;
++                uint64_t t0 = tick();
++                m_calculate_M_and_VPV(p, P1, P2, O, Vd, lam, 0, Mo, Vo);
++                uint64_t t1 = tick();
++                if (i >= 0) { if (use_x) tx[i] = t1 - t0; else tb[i] = t1 - t0; }
++            }
++            mask_pad_n(Mt, (size_t) K_MAX * O_MAX); mask_pad_n(M0, (size_t) K_MAX * O_MAX); mask_pad_n(Vp, (size_t) K_MAX * K_MAX); mask_pad_n(V0, (size_t) K_MAX * K_MAX);
++            if (memcmp(Mt, M0, 8 * ((size_t) K_MAX * O_MAX * MLIM)) != 0 || memcmp(Vp, V0, 8 * ((size_t) K_MAX * K_MAX * MLIM)) != 0) bad++;
++        }
++        mayo_tail_use_xmm = 0;
++        report("m_calculate", tb, tx, ord, pairs);
++        printf("  sorties (Mtmp, VPV) differentes sur %d paires%s\n", bad, HAVE_XMM ? "" : " [M_MAX sans noyau xmm : les deux bras sont identiques = temoin nul]"); rc |= bad;
++        free(tb); free(tx); free(ord);
++    }
++    {   /* niveau 4 : mayo_sign_signature */
++        const int m_len = 32;
++        unsigned char *pk = calloc(PARAM_cpk_bytes(p), 1), *sk = calloc(PARAM_csk_bytes(p), 1);
++        unsigned char *s1 = calloc(PARAM_sig_bytes(p) + m_len, 1), *s2 = calloc(PARAM_sig_bytes(p) + m_len, 1), msg[32], seed[48];
++        for (int i = 0; i < 48; i++) seed[i] = (unsigned char) i;
++        randombytes_init(seed, NULL, 256);
++        if (mayo_keypair(p, pk, sk) != MAYO_OK) { fprintf(stderr, "keypair a echoue\n"); return 1; }
++        uint64_t *tb = malloc(8 * (size_t) pairs), *tx = malloc(8 * (size_t) pairs); unsigned char *ord = malloc(pairs);
++        int bad = 0;
++        for (int i = -20; i < pairs; i++) {
++            for (int j = 0; j < 32; j++) msg[j] = (unsigned char) (rnd() & 255);
++            unsigned char sd[48]; for (int j = 0; j < 48; j++) sd[j] = (unsigned char) (rnd() & 255);
++            int xf = (int) (rnd() >> 33) & 1;
++            if (i >= 0) ord[i] = (unsigned char) xf;
++            size_t l1 = 0, l2 = 0; int r1 = -1, r2 = -1;
++            for (int a = 0; a < 2; a++) {
++                int use_x = a == 0 ? xf : !xf;
++                unsigned char sdc[48]; memcpy(sdc, sd, 48);
++                randombytes_init(sdc, NULL, 256);
++                mayo_tail_use_xmm = use_x;
++                size_t l = PARAM_sig_bytes(p) + m_len;
++                uint64_t t0 = tick();
++                int r = mayo_sign_signature(p, use_x ? s2 : s1, &l, msg, m_len, sk);
++                uint64_t t1 = tick();
++                if (i >= 0) { if (use_x) tx[i] = t1 - t0; else tb[i] = t1 - t0; }
++                if (use_x) { r2 = r; l2 = l; } else { r1 = r; l1 = l; }
++            }
++            if (r1 != r2 || l1 != l2 || memcmp(s1, s2, l1) != 0) bad++;
++        }
++        mayo_tail_use_xmm = 0;
++        report("mayo_sign", tb, tx, ord, pairs);
++        printf("  signatures differentes sur %d paires\n", bad); rc |= bad;
++    }
++    return rc;
++}
++
++int main(int argc, char **argv) {
++    if (argc < 2) { fprintf(stderr, "usage: tail_ab unit [n] | guard | ct [k] | bench [paires] [graine]\n"); return 2; }
++    if (!strcmp(argv[1], "unit")) return unit(argc > 2 ? atol(argv[2]) : 20000);
++    if (!strcmp(argv[1], "guard")) return guard();
++    if (!strcmp(argv[1], "bounds")) return bounds(argc > 2 ? atoi(argv[2]) : 0);
++    if (!strcmp(argv[1], "multab")) return multab_check();
++    if (!strcmp(argv[1], "layout")) return layout();
++#ifdef ENABLE_CT_TESTING
++    if (!strcmp(argv[1], "ct")) return ct(argc > 2 ? atoi(argv[2]) : 1);
++#endif
++    if (!strcmp(argv[1], "bench")) {
++        if (argc > 3) rs ^= (uint64_t) atol(argv[3]) * 0x2545F4914F6CDD1Dull;
++        return bench(argc > 2 ? atoi(argv[2]) : 2001) ? 1 : 0;
++    }
++    return 2;
++}
+diff --git a/test/tail_study/aggregate_tail_ab.py b/test/tail_study/aggregate_tail_ab.py
+new file mode 100644
+index 0000000..05ed840
+--- /dev/null
++++ b/test/tail_study/aggregate_tail_ab.py
+@@ -0,0 +1,40 @@
++#!/usr/bin/env python3
++"""Agregation des CSV de tail_ab (paires A/B ordre aleatoire, un fichier par processus et par niveau).
++Usage : aggregate_tail_ab.py <repertoire_de_csv> [<autre_session> ...]
++Par repertoire (= session) : medianes par processus, rapports xmm/officiel par processus, IC95 de la mediane
++(bootstrap INTRA-processus), min-max ENTRE processus. Avec plusieurs repertoires : resume ENTRE SESSIONS
++(mediane des rapports de chaque session, min-max) -- la reproductibilite ne repose pas sur l'IC intra-processus."""
++import csv, glob, sys, numpy as np
++rng = np.random.default_rng(1)
++levels = ['P1_times_Vt', 'P1t_times_Vt', 'm_calculate', 'mayo_sign']
++def load(f):
++    d = list(csv.DictReader(open(f)))
++    return np.array([float(x['t_base']) for x in d]), np.array([float(x['t_xmm']) for x in d]), np.array([int(x['xmm_first']) for x in d])
++def boot(r, B=2000):
++    idx = rng.integers(0, len(r), (B, len(r))); m = np.median(r[idx], axis=1); return np.percentile(m, [2.5, 97.5])
++dirs = sys.argv[1:]
++multi = len(dirs) > 1
++sess = {}   # (v, lv) -> liste des medianes de rapports par session
++for d in dirs:
++    if multi: print(f"######## session {d}")
++    for v in [1, 5, 2, 3]:
++        print(f"== MAYO-{v}")
++        for lv in levels:
++            files = sorted(glob.glob(d + f'/m{v}_s*_{lv}.csv'))
++            if not files: continue
++            B = []; X = []; R = []; lo = []; hi = []; o = []
++            for f in files:
++                b, x, xf = load(f); r = x / b
++                B.append(np.median(b)); X.append(np.median(x)); R.append(np.median(r)); c = boot(r); lo.append(c[0]); hi.append(c[1])
++                o.append((np.median(r[xf == 1]), np.median(r[xf == 0])))
++            R = np.array(R)
++            sess.setdefault((v, lv), []).append(float(np.median(R)))
++            print(f"  {lv:13s} base méd/proc {[int(t) for t in B]}  xmm méd/proc {[int(t) for t in X]}")
++            print(f"  {'':13s} rapport/proc {np.round(R, 4).tolist()}  IC95 intra-proc [{min(lo):.4f};{max(hi):.4f}]  min-max {R.min():.4f}-{R.max():.4f}  méd {np.median(R):.4f} => gain {(1 - np.median(R)) * 100:.1f} % ; ordre (xmm d'abord / base d'abord) par proc {[(round(float(a), 3), round(float(b2), 3)) for a, b2 in o]}")
++if multi:
++    print("######## ENTRE SESSIONS (médiane des rapports de chaque session)")
++    for v in [1, 5, 2, 3]:
++        for lv in levels:
++            if (v, lv) in sess:
++                a = np.array(sess[(v, lv)])
++                print(f"  MAYO-{v} {lv:13s} sessions {np.round(a, 4).tolist()}  min-max {a.min():.4f}-{a.max():.4f}  méd {np.median(a):.4f} => gain {(1 - np.median(a)) * 100:.1f} %")
+diff --git a/test/tail_study/inspect_asm.py b/test/tail_study/inspect_asm.py
+new file mode 100644
+index 0000000..40c0204
+--- /dev/null
++++ b/test/tail_study/inspect_asm.py
+@@ -0,0 +1,48 @@
++#!/usr/bin/env python3
++"""Inspection de l'assembleur des noyaux (officiel / xmm) pour la propriete constant-time.
++Usage : inspect_asm.py <executable> <fonction>...
++Pour chaque fonction : branches (cibles), instructions qui font passer une valeur d'un registre
++vectoriel vers un registre general / les drapeaux, et operandes memoire dont l'adresse n'est pas
++construite uniquement a partir de rsp/rbp/registres d'adresse+compteurs (liste complete a relire)."""
++import re, subprocess, sys
++exe = sys.argv[1]
++dis = subprocess.run(["objdump", "-d", "--no-show-raw-insn", "-M", "att", exe], capture_output=True, text=True).stdout
++for fn in sys.argv[2:]:
++    m = re.search(r"^[0-9a-f]+ <%s>:\n(.*?)\n\n" % re.escape(fn), dis, re.S | re.M)
++    if not m:
++        print(f"{fn}: introuvable"); continue
++    lines = [l.split("\t", 1)[1].strip() if "\t" in l else l for l in m.group(1).split("\n")]
++    ins = [re.sub(r"\s+#.*$", "", l) for l in lines]
++    jcc = [l for l in ins if re.match(r"j[a-z]+\s", l)]
++    vec2gpr = [l for l in ins if re.match(r"(vmovq|vmovd|movq|movd)\s+%[xy]mm\d+,\s*%[re]?[a-z0-9]+", l) or re.match(r"v?pextr[bwdq]", l) or re.match(r"v?pmovmskb|v?movmsk", l) or re.match(r"v?ptest|vtest", l)]
++    cmps = [l for l in ins if re.match(r"(cmp|test)[a-z]*\s", l)]
++    mem = [l for l in ins if "(" in l and not l.startswith("lea")]
++    # adresses memoire utilisant un registre qui n'est ni rsp/rbp/rip ni un des registres d'adresse usuels : on liste les registres d'index distincts
++    idx = set()
++    for l in mem:
++        for mm in re.finditer(r"\(([^)]*)\)", l):
++            parts = [p.strip() for p in mm.group(1).split(",")]
++            if len(parts) >= 2 and parts[1]:
++                idx.add(parts[1])
++    print(f"=== {fn} : {len(ins)} instructions")
++    print(f"  branches conditionnelles/inconditionnelles : {len(jcc)} ; instructions cmp/test : {len(cmps)}")
++    for l in cmps: print("    ", l)
++    print(f"  vecteur -> registre general / drapeaux : {len(vec2gpr)}")
++    for l in vec2gpr: print("    ", l)
++    # usage des registres generaux alimentes par un registre vectoriel : doivent n'apparaitre que comme
++    # source d'un "xor %reg,mem" (fusion de la queue dans l'accumulateur), jamais dans une adresse, un
++    # cmp/test ou un saut
++    bad_use = []
++    for i, l in enumerate(ins):
++        mv = re.match(r"(?:vmovq|vmovd)\s+%[xy]mm\d+,\s*(%[a-z0-9]+)", l)
++        if not mv: continue
++        reg = mv.group(1)
++        for l2 in ins[i + 1:i + 16]:
++            if reg not in l2: continue
++            if re.match(r"xor\s+%s,\s*[-0-9a-fx]*\(%%[a-z0-9]+\)$" % re.escape(reg), l2): continue
++            if re.match(r"(?:v?movq|v?movd|mov|lea)\s+[^,]+,\s*%s$" % re.escape(reg), l2): break   # reg reecrit (ecrasement)
++            bad_use.append((l, l2))
++    print(f"  usages non conformes d'un registre alimente par un registre vectoriel : {len(bad_use)}")
++    for a, b in bad_use: print("    ", a, "->", b)
++    print(f"  registres d'index des operandes memoire : {sorted(idx)}")
++    print(f"  appels : {[l for l in ins if l.startswith('call')]}")
+diff --git a/test/tail_study/loop_stats.py b/test/tail_study/loop_stats.py
+new file mode 100644
+index 0000000..9e5b8cb
+--- /dev/null
++++ b/test/tail_study/loop_stats.py
+@@ -0,0 +1,38 @@
++#!/usr/bin/env python3
++"""Boucle interne (celle qui contient les vpshufb) de chaque noyau : decompte des instructions par classe.
++Usage : loop_stats.py <executable> <fonction>..."""
++import re, subprocess, sys, collections
++exe = sys.argv[1]
++dis = subprocess.run(["objdump", "-d", "--no-show-raw-insn", "-M", "att", exe], capture_output=True, text=True).stdout
++def cls(l):
++    op = l.split()[0]
++    if op.startswith("vpshufb"): return "vpshufb"
++    if re.search(r"\(%rsp\)|\(%rbp\)", l):
++        return "spill/reload (pile) " + ("store" if re.search(r",\s*[-0-9a-fx]*\(%r[sb]p\)$", l) else "load")
++    if re.match(r"v?pxor|vpor|vxorps|xor", op): return "xor"
++    if re.match(r"vpand|and", op): return "and"
++    if re.match(r"vpsrl|vpsll", op): return "shift"
++    if re.match(r"vpunpck|vpalign|vperm|vpblend|vinsert|vextract|vpbroad", op): return "permute/unpack"
++    if re.match(r"vmov|mov", op): return "mov (autres)"
++    if re.match(r"add|lea|inc|sub|cmp|test|j", op): return "controle/adresse"
++    return "autres"
++for fn in sys.argv[2:]:
++    m = re.search(r"^[0-9a-f]+ <%s>:\n(.*?)\n\n" % re.escape(fn), dis, re.S | re.M)
++    if not m: print(fn, "introuvable"); continue
++    rows = []
++    for l in m.group(1).split("\n"):
++        mm = re.match(r"\s*([0-9a-f]+):\s*(.*)$", l)
++        if mm: rows.append((int(mm.group(1), 16), re.sub(r"\s+#.*$", "", mm.group(2)).strip()))
++    # boucles : jcc/jmp arriere
++    best = None
++    for i, (a, l) in enumerate(rows):
++        mj = re.match(r"j[a-z]+\s+([0-9a-f]+)", l)
++        if mj and int(mj.group(1), 16) < a:
++            t = int(mj.group(1), 16)
++            body = [r for r in rows if t <= r[0] <= a]
++            nsh = sum(1 for r in body if r[1].startswith("vpshufb"))
++            if nsh and (best is None or len(body) < len(best)): best = body
++    if best is None: print(fn, ": pas de boucle"); continue
++    c = collections.Counter(cls(r[1]) for r in best)
++    print(f"=== {fn} : boucle interne = {len(best)} instructions (vpshufb : {c['vpshufb']})")
++    for k, v in sorted(c.items(), key=lambda x: -x[1]): print(f"    {k:28s} {v}")
+-- 
+2.43.0
+

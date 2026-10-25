@@ -1,0 +1,322 @@
+From 59413b0184c59f7833344b87a887927c40111dce Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 22 Oct 2026 16:49:18 +0100
+Subject: [PATCH] E1 : analyse statique normalisee du code genere (run_E1.sh,
+ e1_analyze.py)
+
+Aucun noyau modifie. run_E1.sh compile (options des mesures, avec et sans -g) les objets
+officiel / _tailab / sondes / banc isole et produit leur desassemblage avec numeros de ligne.
+e1_analyze.py normalise les comptes par entree de P1 (facteur de deroulage deduit du nombre de vpshufb).
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013EN1pV7V5FE6tBx9nkRL6J
+---
+ test/run_E1.sh                |  62 ++++++++++
+ test/tail_study/e1_analyze.py | 226 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 288 insertions(+)
+ create mode 100755 test/run_E1.sh
+ create mode 100644 test/tail_study/e1_analyze.py
+
+diff --git a/test/run_E1.sh b/test/run_E1.sh
+new file mode 100755
+index 0000000..3ae3cfa
+--- /dev/null
++++ b/test/run_E1.sh
+@@ -0,0 +1,62 @@
++#!/bin/sh
++# E1 : analyse STATIQUE du code genere (aucune mesure de temps, aucun noyau modifie).
++# Compile, avec les options des mesures (-O3 -funroll-loops, MAYO_MARCH="-march=haswell -maes"), les objets suivants,
++# puis produit leur desassemblage avec numeros de ligne source (objdump -d -l, syntaxe Intel) :
++#   ctx_official  : bibliotheque officielle (contexte de signature, sans A2)
++#   ctx_ab        : bibliotheque _tailab (contexte de signature des mesures : officiel et A2 SAFE dans le meme objet)
++#   ctx_phases_*  : memes sources avec sondes (all / none / esk / mcalc)
++#   bench_ab      : banc isole tail_ab.c (noyaux appeles comme fonctions separees)
++# Deux compilations : build_g (avec -g, pour les numeros de ligne) et build_nog (sans -g) ; le script verifie que
++# le code machine est identique (GCC garantit que -g ne change pas le code).
++# Usage : SESSION=<etiquette unique> sh test/run_E1.sh
++set -e
++ROOT=$(cd "$(dirname "$0")/.." && pwd)
++SESSION=${SESSION:-e1_$(date +%Y%m%d_%H%M%S)}
++OUT=${OUT:-$ROOT/e1_$(hostname)_$SESSION}
++CCBIN=${CC:-gcc}
++[ ! -e "$OUT" ] || { echo "REFUS : $OUT existe deja (pas d'ecrasement). Changer SESSION."; exit 1; }
++mkdir -p "$OUT/dumps" "$OUT/logs"
++{
++  echo "== session"; echo "$SESSION"; echo "== date (UTC)"; date -u; echo "== date (locale)"; date
++  echo "== fuseau"; (timedatectl 2>/dev/null | grep -i "time zone") || date +%Z
++  echo "== uname"; uname -a
++  echo "== compilateur ($CCBIN)"; "$CCBIN" --version | head -1; echo "== cmake"; cmake --version | head -1
++  echo "== objdump"; objdump --version | head -1
++  echo "== options"; echo "MAYO_MARCH=-march=haswell -maes ; MAYO_TAIL_SAFE=ON ; options de flags.cmake (-O3 -funroll-loops ...)"
++  echo "== boot_id"; cat /proc/sys/kernel/random/boot_id
++} > "$OUT/machine.txt" 2>&1
++( cd "$ROOT" && find src include test -type f | sort | xargs sha256sum ) > "$OUT/SOURCES.sha256"
++TARGETS="mayo_5 mayo_1 mayo_5_tailab mayo_1_tailab mayo_5_phases mayo_5_phases_none mayo_5_phases_esk mayo_5_phases_mcalc mayo_tail_ab_MAYO_5 mayo_tail_ab_MAYO_1"
++for B in g nog; do
++  mkdir -p "$OUT/build_$B"
++  EXTRA=""; [ "$B" = g ] && EXTRA="-DCMAKE_C_FLAGS=-g"
++  ( cd "$OUT/build_$B" && CC=$CCBIN cmake "$ROOT" -DMAYO_BUILD_TYPE=avx2 "-DMAYO_MARCH=-march=haswell -maes" -DMAYO_TAIL_SAFE=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON $EXTRA > cmake.log 2>&1 \
++    && make -j"$(nproc)" $TARGETS > make.log 2>&1 )
++  cp "$OUT/build_$B/compile_commands.json" "$OUT/logs/compile_commands_$B.json"
++done
++obj() { find "$OUT/build_$1" -path "*CMakeFiles/$2.dir/$3.o" | head -1; }
++dump() { # tag cible fichier
++  og=$(obj g "$2" "$3"); on=$(obj nog "$2" "$3")
++  [ -n "$og" ] && [ -n "$on" ] || { echo "objet introuvable : $2 $3" | tee -a "$OUT/logs/checks.txt"; return; }
++  objdump -d -l -M intel --no-show-raw-insn "$og" > "$OUT/dumps/$1.dis"
++  objdump -d -M intel --no-show-raw-insn "$og" | sed '1,/^Disassembly/d' > "$OUT/logs/_a.txt"
++  objdump -d -M intel --no-show-raw-insn "$on" | sed '1,/^Disassembly/d' > "$OUT/logs/_b.txt"
++  if cmp -s "$OUT/logs/_a.txt" "$OUT/logs/_b.txt"; then echo "$1 : code identique avec et sans -g" >> "$OUT/logs/checks.txt"; else echo "$1 : ATTENTION code different avec -g" >> "$OUT/logs/checks.txt"; fi
++}
++for p in 5 1; do
++  dump ctx_official_M$p mayo_$p mayo.c
++  dump ctx_ab_M$p mayo_${p}_tailab mayo.c
++  dump ctx_ab_arith_M$p mayo_${p}_tailab arithmetic.c
++  dump bench_ab_M$p mayo_tail_ab_MAYO_$p tail_ab.c
++done
++for t in phases phases_none phases_esk phases_mcalc; do dump ctx_${t}_M5 mayo_5_$t mayo.c; done
++rm -f "$OUT/logs/_a.txt" "$OUT/logs/_b.txt"
++cp "$ROOT/src/AVX2/shuffle_arithmetic.h" "$OUT/shuffle_arithmetic.h.copie"
++( cd "$OUT" && sha256sum dumps/* logs/* machine.txt SOURCES.sha256 shuffle_arithmetic.h.copie > SHA256SUMS.txt )
++cd "$ROOT"
++ARCH="$ROOT/$(basename "$OUT").tar.gz"
++[ ! -e "$ARCH" ] || { echo "REFUS : $ARCH existe"; exit 1; }
++tar czf "$ARCH" --exclude='build_g' --exclude='build_nog' -C "$ROOT" "$(basename "$OUT")"
++sha256sum "$ARCH" | tee "$ARCH.sha256"
++echo "Archive E1 : $ARCH"
++cat "$OUT/logs/checks.txt"
+diff --git a/test/tail_study/e1_analyze.py b/test/tail_study/e1_analyze.py
+new file mode 100644
+index 0000000..93b134c
+--- /dev/null
++++ b/test/tail_study/e1_analyze.py
+@@ -0,0 +1,226 @@
++#!/usr/bin/env python3
++"""E1 : analyse statique normalisee des boucles de P1_times_Vt / P1t_times_Vt (officiel et A2) dans le code genere.
++
++Usage : e1_analyze.py <dossier_E1> [--excerpts]
++Entree : <dossier_E1>/dumps/*.dis (objdump -d -l -M intel), shuffle_arithmetic.h.copie.
++
++Unite de travail : UNE ENTREE de P1 (un m-vec) multipliee par les K scalaires (K/2 multabs).
++Pour chaque boucle contenant des vpshufb, on deduit le facteur de deroulage u = (nb de vpshufb de la boucle) / (nb attendu par entree),
++puis tous les comptes sont divises par u. Nb attendu par entree (voir la note) :
++  officiel : 2*ceil(m/64)*ceil(K/2) vpshufb ymm   (MAYO-1: 20 ; MAYO-5: 36)
++  A2       : 2*floor(m/64)*ceil(K/2) vpshufb ymm + ceil(K/2) vpshufb xmm   (MAYO-1: 10+5 ; MAYO-5: 24+6)
++Les boucles dont les comptes ne correspondent a aucun de ces deux profils sont listees a part (autres noyaux, ou boucles non classees).
++Les comptes sont des instructions STATIQUES. Les micro-operations ne sont pas deduites des instructions.
++"""
++import re, sys, os, collections, glob
++
++PARAMS = {"M1": dict(m=80, K=10, V=80), "M5": dict(m=142, K=12, V=142)}
++
++
++def expected(par):
++    kp = (par["K"] + 1) // 2
++    nm_off = -(-par["m"] // 64)
++    nm_a2 = par["m"] // 64
++    return dict(kp=kp, off_y=2 * nm_off * kp, a2_y=2 * nm_a2 * kp, a2_x=kp)
++
++
++def kernel_ranges(src):
++    """lignes (debut, fin) des fonctions du fichier source, pour attribuer une instruction a un noyau."""
++    lines = open(src, errors="replace").read().split("\n")
++    starts = []
++    for i, l in enumerate(lines, 1):
++        m = re.match(r"\s*(?:static\s+)?inline\s+void\s+(\w+)\s*\(", l) or re.match(r"\s*void\s+(\w+)\s*\(", l)
++        if m:
++            starts.append((i, m.group(1)))
++    # un noyau va jusqu'au debut du suivant (les macros mtx_* sont rattachees via leur ligne d'appel)
++    rng = {}
++    for k, (i, n) in enumerate(starts):
++        j = starts[k + 1][0] - 1 if k + 1 < len(starts) else len(lines)
++        rng.setdefault(n, []).append((i, j))
++    return rng
++
++
++def parse(path):
++    funcs = collections.OrderedDict()
++    cur = None
++    curline = (None, None)
++    for raw in open(path, errors="replace"):
++        l = raw.rstrip("\n")
++        m = re.match(r"^[0-9a-f]+ <([^>]+)>:$", l)
++        if m:
++            cur = m.group(1)
++            funcs[cur] = []
++            continue
++        m = re.match(r"^(/[^\s:]+|[^\s:]+\.[ch]):(\d+)(?: \(discriminator \d+\))?$", l)
++        if m:
++            curline = (os.path.basename(m.group(1)), int(m.group(2)))
++            continue
++        m = re.match(r"^\s*([0-9a-f]+):\t(.*)$", l)
++        if m and cur is not None:
++            funcs[cur].append((int(m.group(1), 16), m.group(2).strip(), curline))
++    return funcs
++
++
++def reg0(op):
++    return op.split(None, 1)[1].split(",")[0].strip() if " " in op else ""
++
++
++def classify(ins):
++    mn = ins.split()[0]
++    rest = ins[len(mn):].strip()
++    ops = [o.strip() for o in re.split(r",(?![^\[]*\])", rest)] if rest else []
++    memop = [o for o in ops if "PTR" in o or "[" in o]
++    is_mem0 = bool(ops) and ("PTR" in ops[0] or ops[0].startswith("["))
++    stack = bool(memop) and bool(re.search(r"\[(rsp|rbp)", memop[0]))
++    if mn == "vpshufb":
++        w = "ymm" if ops and ops[0].startswith("ymm") else "xmm"
++        return "vpshufb " + w
++    if stack and mn.startswith("lea"):
++        return "adresse pile (lea)"
++    if stack:
++        return "pile: ecriture" if is_mem0 else "pile: lecture"
++    if memop:
++        return "memoire (hors pile): ecriture" if is_mem0 else "memoire (hors pile): lecture"
++    if re.match(r"vpxor|vxorps|xor|vpor|vorps", mn):
++        return "xor/or"
++    if re.match(r"vpand|and", mn):
++        return "and"
++    if re.match(r"vpsrl|vpsll|shl|shr|sar", mn):
++        return "decalages"
++    if re.match(r"vpunpck|vpalign|vperm|vpblend|vinsert|vextract|vpbroad|vpshuf[^b]|vpackus|vpmovzx", mn):
++        return "permutations/unpack"
++    if re.match(r"vmov|mov|vcvt|vzeroupper", mn):
++        return "mov registre"
++    if re.match(r"j|cmp|test|add|sub|lea|inc|dec|imul|neg", mn):
++        return "controle/adresse"
++    return "autres"
++
++
++def loops_of(insns):
++    addr = {a: i for i, (a, _, _) in enumerate(insns)}
++    out = []
++    for i, (a, t, _) in enumerate(insns):
++        m = re.match(r"j\w+\s+([0-9a-f]+)\b", t)
++        if m:
++            tg = int(m.group(1), 16)
++            if tg <= a and tg in addr:
++                out.append((addr[tg], i))
++    return out
++
++
++def analyze(path, par, ranges, outx, tag, excerpts):
++    funcs = parse(path)
++    exp = expected(par)
++    rows = []
++    for fn, insns in funcs.items():
++        if sum(1 for _, t, _ in insns if t.startswith("vpshufb")) < 4:
++            continue
++        lp = loops_of(insns)
++        cand = []
++        for (s, e) in lp:
++            body = insns[s:e + 1]
++            nsh = sum(1 for _, t, _ in body if t.startswith("vpshufb"))
++            if nsh:
++                cand.append((s, e, nsh))
++        # boucles "de travail" = minimales (ne contenant pas une autre boucle a vpshufb)
++        for (s, e, nsh) in cand:
++            if any((s2 >= s and e2 <= e and (s2, e2) != (s, e)) for (s2, e2, _) in cand):
++                continue
++            body = insns[s:e + 1]
++            ny = sum(1 for _, t, _ in body if t.startswith("vpshufb") and re.match(r"vpshufb\s+ymm", t))
++            nx = sum(1 for _, t, _ in body if t.startswith("vpshufb") and re.match(r"vpshufb\s+xmm", t))
++            arm, u = "non classee", None
++            if nx == 0 and ny and ny % exp["off_y"] == 0:
++                arm, u = "officiel", ny // exp["off_y"]
++            elif nx and nx % exp["a2_x"] == 0 and ny == (nx // exp["a2_x"]) * exp["a2_y"]:
++                arm, u = "A2", nx // exp["a2_x"]
++            # noyau : majorite des lignes sources dans les intervalles
++            votes = collections.Counter()
++            for _, _, (f, ln) in body:
++                if f == "shuffle_arithmetic.h" and ln:
++                    for kn, rs in ranges.items():
++                        if any(a <= ln <= b for a, b in rs):
++                            votes[kn] += 1
++            kern = votes.most_common(1)[0][0] if votes else "?"
++            cnt = collections.Counter(classify(t) for _, t, _ in body)
++            rows.append(dict(tag=tag, fn=fn, kern=kern, arm=arm, u=u, n=len(body), ny=ny, nx=nx, cnt=cnt,
++                             votes=votes, addr0=body[0][0], body=body))
++    return rows
++
++
++CLASSES = ["vpshufb ymm", "vpshufb xmm", "pile: lecture", "pile: ecriture", "adresse pile (lea)", "memoire (hors pile): lecture",
++           "memoire (hors pile): ecriture", "xor/or", "and", "decalages", "permutations/unpack", "mov registre", "controle/adresse", "autres"]
++
++
++def main():
++    d = sys.argv[1]
++    excerpts = "--excerpts" in sys.argv
++    ranges = kernel_ranges(os.path.join(d, "shuffle_arithmetic.h.copie"))
++    allrows = []
++    for path in sorted(glob.glob(os.path.join(d, "dumps", "*.dis"))):
++        tag = os.path.basename(path)[:-4]
++        mm = re.search(r"_(M[15])$", tag)
++        if not mm:
++            continue
++        par = PARAMS[mm.group(1)]
++        rows = analyze(path, par, ranges, d, tag, excerpts)
++        allrows += rows
++    # --- tableau principal : boucles classees, comptes par entree
++    print("# E1 : boucles de travail classees (comptes STATIQUES par entree de P1 = comptes de la boucle / facteur de deroulage u)")
++    print("# u = nb de vpshufb de la boucle / nb attendu par entree ; 'noyau' = noyau source majoritaire (numeros de ligne objdump -l)")
++    hdr = "%-22s %-24s %-18s %-8s %3s %6s %6s %8s %7s %7s %7s %7s" % (
++        "objet", "fonction", "noyau", "bras", "u", "ins/u", "vpshufb", "xmm/u", "pile-L", "pile-E", "mem-L", "ctrl")
++    print(hdr)
++    KERN = {"P1_times_Vt": "P1_times_Vt", "P1_times_Vt_xmm": "P1_times_Vt", "P1t_times_Vt": "P1t_times_Vt", "P1t_times_Vt_xmm": "P1t_times_Vt"}
++    classed = [r for r in allrows if r["u"] and r["kern"] in KERN and ((r["arm"] == "officiel") == (not r["kern"].endswith("_xmm")))]
++    autres = [r for r in allrows if r["u"] and r not in classed]
++    for r in classed:
++        u = r["u"]
++        c = r["cnt"]
++        print("%-22s %-24s %-18s %-8s %3d %6.1f %6.1f %8.1f %7.1f %7.1f %7.1f %7.1f" % (
++            r["tag"], r["fn"][:24], r["kern"][:18], r["arm"], u, r["n"] / u, r["ny"] / u, r["nx"] / u,
++            c["pile: lecture"] / u, c["pile: ecriture"] / u, c["memoire (hors pile): lecture"] / u, c["controle/adresse"] / u))
++    print("\n# Pivot : instructions statiques par entree (ins/u), min-max sur les copies du noyau dans l'objet")
++    piv = collections.OrderedDict()
++    for r in classed:
++        piv.setdefault((KERN[r["kern"]], r["arm"], r["tag"]), []).append(r)
++    print("%-14s %-9s %-22s %5s  %-14s %-12s %-12s" % ("noyau", "bras", "objet", "copies", "ins/entree", "pile-L", "pile-E"))
++    for (k, arm, tag), rs in sorted(piv.items()):
++        f = lambda g: "%.0f-%.0f" % (min(g(r) for r in rs), max(g(r) for r in rs))
++        print("%-14s %-9s %-22s %5d  %-14s %-12s %-12s" % (k, arm, tag, len(rs), f(lambda r: r["n"] / r["u"]),
++              f(lambda r: r["cnt"]["pile: lecture"] / r["u"]), f(lambda r: r["cnt"]["pile: ecriture"] / r["u"])))
++    print("\n# Boucles de travail classees d'autres noyaux (meme macro, autres longueurs K) : %d, non detaillees" % len(autres))
++    # --- detail par classe
++    print("\n# Detail par classe (par entree)")
++    for r in classed:
++        u = r["u"]
++        print("\n[%s] %s / %s / %s : u=%d, %d instructions de boucle, %.1f par entree, adresse %#x" % (
++            r["tag"], r["fn"][:30], r["kern"], r["arm"], u, r["n"], r["n"] / u, r["addr0"]))
++        for k in CLASSES:
++            if r["cnt"][k]:
++                print("    %-32s %6.1f" % (k, r["cnt"][k] / u))
++    # --- non classees
++    print("\n# Boucles contenant des vpshufb mais non classees (autres noyaux ou profil different) : fonction, noyau, ymm, xmm, instructions")
++    seen = set()
++    for r in allrows:
++        if not r["u"]:
++            key = (r["tag"], r["fn"], r["ny"], r["nx"], r["n"])
++            if key in seen:
++                continue
++            seen.add(key)
++            print("%-22s %-24s %-18s ymm=%3d xmm=%3d n=%4d" % (r["tag"], r["fn"][:24], r["kern"][:18], r["ny"], r["nx"], r["n"]))
++    if excerpts:
++        ed = os.path.join(d, "excerpts")
++        os.makedirs(ed, exist_ok=True)
++        for k, r in enumerate(classed):
++            with open(os.path.join(ed, "%s__%s__%s_%s_u%d_%d.asm" % (r["tag"], r["fn"][:20], r["kern"], r["arm"], r["u"], k)), "w") as f:
++                last = None
++                for a, t, (fl, ln) in r["body"]:
++                    if (fl, ln) != last:
++                        f.write("  ; %s:%s\n" % (fl, ln))
++                        last = (fl, ln)
++                    f.write("%x:\t%s\n" % (a, t))
++
++
++if __name__ == "__main__":
++    main()
+-- 
+2.43.0
+

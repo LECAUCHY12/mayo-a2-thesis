@@ -1,0 +1,534 @@
+# E1 : boucles de travail classees (comptes STATIQUES par entree de P1 = comptes de la boucle / facteur de deroulage u)
+# u = nb de vpshufb de la boucle / nb attendu par entree ; 'noyau' = noyau source majoritaire (numeros de ligne objdump -l)
+objet                  fonction                 noyau              bras       u  ins/u vpshufb    xmm/u  pile-L  pile-E   mem-L    ctrl
+bench_ab_M1            P1_times_Vt              P1_times_Vt        officiel   1   68.0   20.0      0.0    11.0    11.0     7.0     4.0
+bench_ab_M1            P1t_times_Vt             P1t_times_Vt       officiel   1   71.0   20.0      0.0    11.0    11.0     8.0     6.0
+bench_ab_M1            P1t_times_Vt_xmm         P1t_times_Vt_xmm   A2         1   56.0   10.0      5.0     6.0     6.0     8.0     6.0
+bench_ab_M1            P1_times_Vt_xmm          P1_times_Vt_xmm    A2         1   51.0   10.0      5.0     5.0     4.0     9.0     4.0
+bench_ab_M1            m_calculate_M_and_VPV.co P1_times_Vt_xmm    A2         1   51.0   10.0      5.0     4.0     4.0    10.0     4.0
+bench_ab_M1            m_calculate_M_and_VPV.co P1t_times_Vt_xmm   A2         1   56.0   10.0      5.0     6.0     6.0     8.0     6.0
+bench_ab_M1            m_calculate_M_and_VPV.co P1t_times_Vt       officiel   1   71.0   20.0      0.0    11.0    11.0     8.0     6.0
+bench_ab_M1            m_calculate_M_and_VPV.co P1_times_Vt        officiel   1   68.0   20.0      0.0    11.0    11.0     7.0     4.0
+bench_ab_M5            P1_times_Vt              P1_times_Vt        officiel   1  124.0   36.0      0.0    30.0    30.0     9.0     4.0
+bench_ab_M5            P1t_times_Vt             P1t_times_Vt       officiel   1  126.0   36.0      0.0    29.0    29.0     9.0     7.0
+bench_ab_M5            P1t_times_Vt_xmm         P1t_times_Vt_xmm   A2         1  110.0   24.0      6.0    24.0    23.0     9.0     8.0
+bench_ab_M5            P1_times_Vt_xmm          P1_times_Vt_xmm    A2         1  106.0   24.0      6.0    24.0    23.0     9.0     4.0
+bench_ab_M5            m_calculate_M_and_VPV.co P1_times_Vt_xmm    A2         1  105.0   24.0      6.0    22.0    22.0    10.0     4.0
+bench_ab_M5            m_calculate_M_and_VPV.co P1_times_Vt        officiel   1  123.0   36.0      0.0    29.0    29.0     9.0     4.0
+ctx_ab_M1              sign_signature_internal  P1_times_Vt_xmm    A2         1   52.0   10.0      5.0     5.0     5.0     8.0     4.0
+ctx_ab_M1              sign_signature_internal  P1t_times_Vt_xmm   A2         1   71.0   10.0      5.0     6.0    21.0     9.0     6.0
+ctx_ab_M1              sign_signature_internal  P1_times_Vt        officiel   1   68.0   20.0      0.0    11.0    11.0     7.0     4.0
+ctx_ab_M1              sign_signature_internal  P1t_times_Vt       officiel   1   91.0   20.0      0.0    11.0    31.0     8.0     6.0
+ctx_ab_M5              sign_signature_internal  P1_times_Vt_xmm    A2         1  135.0   24.0      6.0    22.0    52.0    10.0     4.0
+ctx_ab_M5              sign_signature_internal  P1t_times_Vt_xmm   A2         1  139.0   24.0      6.0    22.0    52.0    10.0     8.0
+ctx_ab_M5              sign_signature_internal  P1t_times_Vt       officiel   1  162.0   36.0      0.0    29.0    65.0     9.0     7.0
+ctx_official_M1        sign_signature_internal  P1_times_Vt        officiel   1   68.0   20.0      0.0    11.0    11.0     7.0     4.0
+ctx_official_M1        sign_signature_internal  P1t_times_Vt       officiel   1   91.0   20.0      0.0    11.0    31.0     8.0     6.0
+ctx_official_M5        sign_signature_internal  P1t_times_Vt       officiel   1  162.0   36.0      0.0    29.0    65.0     9.0     7.0
+ctx_phases_M5          sign_signature_internal  P1_times_Vt_xmm    A2         1  105.0   24.0      6.0    22.0    22.0    10.0     4.0
+ctx_phases_M5          sign_signature_internal  P1t_times_Vt_xmm   A2         1  109.0   24.0      6.0    22.0    22.0    10.0     8.0
+ctx_phases_M5          sign_signature_internal  P1t_times_Vt       officiel   1  126.0   36.0      0.0    29.0    29.0     9.0     7.0
+ctx_phases_esk_M5      sign_signature_internal  P1_times_Vt_xmm    A2         1  135.0   24.0      6.0    22.0    52.0    10.0     4.0
+ctx_phases_esk_M5      sign_signature_internal  P1t_times_Vt_xmm   A2         1  139.0   24.0      6.0    22.0    52.0    10.0     8.0
+ctx_phases_esk_M5      sign_signature_internal  P1t_times_Vt       officiel   1  162.0   36.0      0.0    29.0    65.0     9.0     7.0
+ctx_phases_mcalc_M5    sign_signature_internal  P1_times_Vt_xmm    A2         1  135.0   24.0      6.0    22.0    52.0    10.0     4.0
+ctx_phases_mcalc_M5    sign_signature_internal  P1t_times_Vt_xmm   A2         1  139.0   24.0      6.0    22.0    52.0    10.0     8.0
+ctx_phases_mcalc_M5    sign_signature_internal  P1t_times_Vt       officiel   1  162.0   36.0      0.0    29.0    65.0     9.0     7.0
+ctx_phases_none_M5     sign_signature_internal  P1_times_Vt_xmm    A2         1  135.0   24.0      6.0    22.0    52.0    10.0     4.0
+ctx_phases_none_M5     sign_signature_internal  P1t_times_Vt_xmm   A2         1  139.0   24.0      6.0    22.0    52.0    10.0     8.0
+ctx_phases_none_M5     sign_signature_internal  P1t_times_Vt       officiel   1  162.0   36.0      0.0    29.0    65.0     9.0     7.0
+
+# Pivot : instructions statiques par entree (ins/u), min-max sur les copies du noyau dans l'objet
+noyau          bras      objet                  copies  ins/entree     pile-L       pile-E      
+P1_times_Vt    A2        bench_ab_M1                2  51-51          4-5          4-4         
+P1_times_Vt    A2        bench_ab_M5                2  105-106        22-24        22-23       
+P1_times_Vt    A2        ctx_ab_M1                  1  52-52          5-5          5-5         
+P1_times_Vt    A2        ctx_ab_M5                  1  135-135        22-22        52-52       
+P1_times_Vt    A2        ctx_phases_M5              1  105-105        22-22        22-22       
+P1_times_Vt    A2        ctx_phases_esk_M5          1  135-135        22-22        52-52       
+P1_times_Vt    A2        ctx_phases_mcalc_M5        1  135-135        22-22        52-52       
+P1_times_Vt    A2        ctx_phases_none_M5         1  135-135        22-22        52-52       
+P1_times_Vt    officiel  bench_ab_M1                2  68-68          11-11        11-11       
+P1_times_Vt    officiel  bench_ab_M5                2  123-124        29-30        29-30       
+P1_times_Vt    officiel  ctx_ab_M1                  1  68-68          11-11        11-11       
+P1_times_Vt    officiel  ctx_official_M1            1  68-68          11-11        11-11       
+P1t_times_Vt   A2        bench_ab_M1                2  56-56          6-6          6-6         
+P1t_times_Vt   A2        bench_ab_M5                1  110-110        24-24        23-23       
+P1t_times_Vt   A2        ctx_ab_M1                  1  71-71          6-6          21-21       
+P1t_times_Vt   A2        ctx_ab_M5                  1  139-139        22-22        52-52       
+P1t_times_Vt   A2        ctx_phases_M5              1  109-109        22-22        22-22       
+P1t_times_Vt   A2        ctx_phases_esk_M5          1  139-139        22-22        52-52       
+P1t_times_Vt   A2        ctx_phases_mcalc_M5        1  139-139        22-22        52-52       
+P1t_times_Vt   A2        ctx_phases_none_M5         1  139-139        22-22        52-52       
+P1t_times_Vt   officiel  bench_ab_M1                2  71-71          11-11        11-11       
+P1t_times_Vt   officiel  bench_ab_M5                1  126-126        29-29        29-29       
+P1t_times_Vt   officiel  ctx_ab_M1                  1  91-91          11-11        31-31       
+P1t_times_Vt   officiel  ctx_ab_M5                  1  162-162        29-29        65-65       
+P1t_times_Vt   officiel  ctx_official_M1            1  91-91          11-11        31-31       
+P1t_times_Vt   officiel  ctx_official_M5            1  162-162        29-29        65-65       
+P1t_times_Vt   officiel  ctx_phases_M5              1  126-126        29-29        29-29       
+P1t_times_Vt   officiel  ctx_phases_esk_M5          1  162-162        29-29        65-65       
+P1t_times_Vt   officiel  ctx_phases_mcalc_M5        1  162-162        29-29        65-65       
+P1t_times_Vt   officiel  ctx_phases_none_M5         1  162-162        29-29        65-65       
+
+# Boucles de travail classees d'autres noyaux (meme macro, autres longueurs K) : 111, non detaillees
+
+# Detail par classe (par entree)
+
+[bench_ab_M1] P1_times_Vt / P1_times_Vt / officiel : u=1, 68 instructions de boucle, 68.0 par entree, adresse 0xd0
+    vpshufb ymm                        20.0
+    pile: lecture                      11.0
+    pile: ecriture                     11.0
+    memoire (hors pile): lecture        7.0
+    xor/or                              9.0
+    and                                 4.0
+    decalages                           2.0
+    controle/adresse                    4.0
+
+[bench_ab_M1] P1t_times_Vt / P1t_times_Vt / officiel : u=1, 71 instructions de boucle, 71.0 par entree, adresse 0x988
+    vpshufb ymm                        20.0
+    pile: lecture                      11.0
+    pile: ecriture                     11.0
+    memoire (hors pile): lecture        8.0
+    xor/or                              9.0
+    and                                 4.0
+    decalages                           2.0
+    controle/adresse                    6.0
+
+[bench_ab_M1] P1t_times_Vt_xmm / P1t_times_Vt_xmm / A2 : u=1, 56 instructions de boucle, 56.0 par entree, adresse 0x16f0
+    vpshufb ymm                        10.0
+    vpshufb xmm                         5.0
+    pile: lecture                       6.0
+    pile: ecriture                      6.0
+    memoire (hors pile): lecture        8.0
+    xor/or                              9.0
+    and                                 3.0
+    decalages                           2.0
+    permutations/unpack                 1.0
+    controle/adresse                    6.0
+
+[bench_ab_M1] P1_times_Vt_xmm / P1_times_Vt_xmm / A2 : u=1, 51 instructions de boucle, 51.0 par entree, adresse 0x1d20
+    vpshufb ymm                        10.0
+    vpshufb xmm                         5.0
+    pile: lecture                       5.0
+    pile: ecriture                      4.0
+    memoire (hors pile): lecture        9.0
+    xor/or                             11.0
+    decalages                           2.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[bench_ab_M1] m_calculate_M_and_VPV.constpro / P1_times_Vt_xmm / A2 : u=1, 51 instructions de boucle, 51.0 par entree, adresse 0x33f0
+    vpshufb ymm                        10.0
+    vpshufb xmm                         5.0
+    pile: lecture                       4.0
+    pile: ecriture                      4.0
+    memoire (hors pile): lecture       10.0
+    xor/or                             11.0
+    decalages                           2.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[bench_ab_M1] m_calculate_M_and_VPV.constpro / P1t_times_Vt_xmm / A2 : u=1, 56 instructions de boucle, 56.0 par entree, adresse 0x4720
+    vpshufb ymm                        10.0
+    vpshufb xmm                         5.0
+    pile: lecture                       6.0
+    pile: ecriture                      6.0
+    memoire (hors pile): lecture        8.0
+    xor/or                              9.0
+    and                                 3.0
+    decalages                           2.0
+    permutations/unpack                 1.0
+    controle/adresse                    6.0
+
+[bench_ab_M1] m_calculate_M_and_VPV.constpro / P1t_times_Vt / officiel : u=1, 71 instructions de boucle, 71.0 par entree, adresse 0x5dc0
+    vpshufb ymm                        20.0
+    pile: lecture                      11.0
+    pile: ecriture                     11.0
+    memoire (hors pile): lecture        8.0
+    xor/or                              9.0
+    and                                 4.0
+    decalages                           2.0
+    controle/adresse                    6.0
+
+[bench_ab_M1] m_calculate_M_and_VPV.constpro / P1_times_Vt / officiel : u=1, 68 instructions de boucle, 68.0 par entree, adresse 0x6588
+    vpshufb ymm                        20.0
+    pile: lecture                      11.0
+    pile: ecriture                     11.0
+    memoire (hors pile): lecture        7.0
+    xor/or                              9.0
+    and                                 4.0
+    decalages                           2.0
+    controle/adresse                    4.0
+
+[bench_ab_M5] P1_times_Vt / P1_times_Vt / officiel : u=1, 124 instructions de boucle, 124.0 par entree, adresse 0x1b0
+    vpshufb ymm                        36.0
+    pile: lecture                      30.0
+    pile: ecriture                     30.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              6.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    4.0
+
+[bench_ab_M5] P1t_times_Vt / P1t_times_Vt / officiel : u=1, 126 instructions de boucle, 126.0 par entree, adresse 0x1120
+    vpshufb ymm                        36.0
+    pile: lecture                      29.0
+    pile: ecriture                     29.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    7.0
+
+[bench_ab_M5] P1t_times_Vt_xmm / P1t_times_Vt_xmm / A2 : u=1, 110 instructions de boucle, 110.0 par entree, adresse 0x2122
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      24.0
+    pile: ecriture                     23.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    8.0
+
+[bench_ab_M5] P1_times_Vt_xmm / P1_times_Vt_xmm / A2 : u=1, 106 instructions de boucle, 106.0 par entree, adresse 0x29a8
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      24.0
+    pile: ecriture                     23.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[bench_ab_M5] m_calculate_M_and_VPV.constpro / P1_times_Vt_xmm / A2 : u=1, 105 instructions de boucle, 105.0 par entree, adresse 0x4038
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     22.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[bench_ab_M5] m_calculate_M_and_VPV.constpro / P1_times_Vt / officiel : u=1, 123 instructions de boucle, 123.0 par entree, adresse 0x4780
+    vpshufb ymm                        36.0
+    pile: lecture                      29.0
+    pile: ecriture                     29.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    4.0
+
+[ctx_ab_M1] sign_signature_internal / P1_times_Vt_xmm / A2 : u=1, 52 instructions de boucle, 52.0 par entree, adresse 0x3b70
+    vpshufb ymm                        10.0
+    vpshufb xmm                         5.0
+    pile: lecture                       5.0
+    pile: ecriture                      5.0
+    memoire (hors pile): lecture        8.0
+    xor/or                             10.0
+    and                                 2.0
+    decalages                           2.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[ctx_ab_M1] sign_signature_internal / P1t_times_Vt_xmm / A2 : u=1, 71 instructions de boucle, 71.0 par entree, adresse 0x4e46
+    vpshufb ymm                        10.0
+    vpshufb xmm                         5.0
+    pile: lecture                       6.0
+    pile: ecriture                     21.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              9.0
+    and                                 2.0
+    decalages                           2.0
+    permutations/unpack                 1.0
+    controle/adresse                    6.0
+
+[ctx_ab_M1] sign_signature_internal / P1_times_Vt / officiel : u=1, 68 instructions de boucle, 68.0 par entree, adresse 0x8720
+    vpshufb ymm                        20.0
+    pile: lecture                      11.0
+    pile: ecriture                     11.0
+    memoire (hors pile): lecture        7.0
+    xor/or                              9.0
+    and                                 4.0
+    decalages                           2.0
+    controle/adresse                    4.0
+
+[ctx_ab_M1] sign_signature_internal / P1t_times_Vt / officiel : u=1, 91 instructions de boucle, 91.0 par entree, adresse 0x9abc
+    vpshufb ymm                        20.0
+    pile: lecture                      11.0
+    pile: ecriture                     31.0
+    memoire (hors pile): lecture        8.0
+    xor/or                              9.0
+    and                                 4.0
+    decalages                           2.0
+    controle/adresse                    6.0
+
+[ctx_ab_M5] sign_signature_internal / P1_times_Vt_xmm / A2 : u=1, 135 instructions de boucle, 135.0 par entree, adresse 0x4fa0
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     52.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[ctx_ab_M5] sign_signature_internal / P1t_times_Vt_xmm / A2 : u=1, 139 instructions de boucle, 139.0 par entree, adresse 0x6ab5
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     52.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    8.0
+
+[ctx_ab_M5] sign_signature_internal / P1t_times_Vt / officiel : u=1, 162 instructions de boucle, 162.0 par entree, adresse 0x9a54
+    vpshufb ymm                        36.0
+    pile: lecture                      29.0
+    pile: ecriture                     65.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    7.0
+
+[ctx_official_M1] sign_signature_internal / P1_times_Vt / officiel : u=1, 68 instructions de boucle, 68.0 par entree, adresse 0x3ba0
+    vpshufb ymm                        20.0
+    pile: lecture                      11.0
+    pile: ecriture                     11.0
+    memoire (hors pile): lecture        7.0
+    xor/or                              9.0
+    and                                 4.0
+    decalages                           2.0
+    controle/adresse                    4.0
+
+[ctx_official_M1] sign_signature_internal / P1t_times_Vt / officiel : u=1, 91 instructions de boucle, 91.0 par entree, adresse 0x4f73
+    vpshufb ymm                        20.0
+    pile: lecture                      11.0
+    pile: ecriture                     31.0
+    memoire (hors pile): lecture        8.0
+    xor/or                              9.0
+    and                                 4.0
+    decalages                           2.0
+    controle/adresse                    6.0
+
+[ctx_official_M5] sign_signature_internal / P1t_times_Vt / officiel : u=1, 162 instructions de boucle, 162.0 par entree, adresse 0x6896
+    vpshufb ymm                        36.0
+    pile: lecture                      29.0
+    pile: ecriture                     65.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    7.0
+
+[ctx_phases_M5] sign_signature_internal / P1_times_Vt_xmm / A2 : u=1, 105 instructions de boucle, 105.0 par entree, adresse 0x7688
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     22.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[ctx_phases_M5] sign_signature_internal / P1t_times_Vt_xmm / A2 : u=1, 109 instructions de boucle, 109.0 par entree, adresse 0xade2
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     22.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    8.0
+
+[ctx_phases_M5] sign_signature_internal / P1t_times_Vt / officiel : u=1, 126 instructions de boucle, 126.0 par entree, adresse 0xc4e0
+    vpshufb ymm                        36.0
+    pile: lecture                      29.0
+    pile: ecriture                     29.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    7.0
+
+[ctx_phases_esk_M5] sign_signature_internal / P1_times_Vt_xmm / A2 : u=1, 135 instructions de boucle, 135.0 par entree, adresse 0x4fa0
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     52.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[ctx_phases_esk_M5] sign_signature_internal / P1t_times_Vt_xmm / A2 : u=1, 139 instructions de boucle, 139.0 par entree, adresse 0x6ab5
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     52.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    8.0
+
+[ctx_phases_esk_M5] sign_signature_internal / P1t_times_Vt / officiel : u=1, 162 instructions de boucle, 162.0 par entree, adresse 0x9a54
+    vpshufb ymm                        36.0
+    pile: lecture                      29.0
+    pile: ecriture                     65.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    7.0
+
+[ctx_phases_mcalc_M5] sign_signature_internal / P1_times_Vt_xmm / A2 : u=1, 135 instructions de boucle, 135.0 par entree, adresse 0x4fb0
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     52.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[ctx_phases_mcalc_M5] sign_signature_internal / P1t_times_Vt_xmm / A2 : u=1, 139 instructions de boucle, 139.0 par entree, adresse 0x6aeb
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     52.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    8.0
+
+[ctx_phases_mcalc_M5] sign_signature_internal / P1t_times_Vt / officiel : u=1, 162 instructions de boucle, 162.0 par entree, adresse 0x9abc
+    vpshufb ymm                        36.0
+    pile: lecture                      29.0
+    pile: ecriture                     65.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    7.0
+
+[ctx_phases_none_M5] sign_signature_internal / P1_times_Vt_xmm / A2 : u=1, 135 instructions de boucle, 135.0 par entree, adresse 0x4fa0
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     52.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    4.0
+
+[ctx_phases_none_M5] sign_signature_internal / P1t_times_Vt_xmm / A2 : u=1, 139 instructions de boucle, 139.0 par entree, adresse 0x6ab5
+    vpshufb ymm                        24.0
+    vpshufb xmm                         6.0
+    pile: lecture                      22.0
+    pile: ecriture                     52.0
+    memoire (hors pile): lecture       10.0
+    xor/or                              8.0
+    and                                 4.0
+    decalages                           4.0
+    permutations/unpack                 1.0
+    controle/adresse                    8.0
+
+[ctx_phases_none_M5] sign_signature_internal / P1t_times_Vt / officiel : u=1, 162 instructions de boucle, 162.0 par entree, adresse 0x9a54
+    vpshufb ymm                        36.0
+    pile: lecture                      29.0
+    pile: ecriture                     65.0
+    memoire (hors pile): lecture        9.0
+    xor/or                              7.0
+    and                                 6.0
+    decalages                           3.0
+    controle/adresse                    7.0
+
+# Boucles contenant des vpshufb mais non classees (autres noyaux ou profil different) : fonction, noyau, ymm, xmm, instructions
+bench_ab_M1            m_calculate_M_and_VPV.co Ut_times_O         ymm= 16 xmm=  0 n=  55
+ctx_ab_M1              P1P1t_times_O.isra.0     P1P1t_times_O      ymm= 16 xmm=  0 n=  56
+ctx_ab_M1              P1P1t_times_O.isra.0     P1P1t_times_O      ymm= 16 xmm=  0 n=  58
+ctx_ab_M1              sign_signature_internal  Ut_times_O         ymm= 16 xmm=  0 n=  71
+ctx_ab_M1              sign_signature_internal  m_gf16_mulc_xor    ymm= 26 xmm=  0 n= 135
+ctx_ab_M1              sign_signature_internal  ?                  ymm=  0 xmm= 14 n= 108
+ctx_ab_M1              sign_signature_internal  ?                  ymm= 24 xmm=  0 n= 237
+ctx_ab_M1              pqmayo_MAYO_1_avx2_mayo_ P1_times_O         ymm= 16 xmm=  0 n=  55
+ctx_ab_M5              sign_signature_internal  ?                  ymm=  0 xmm=  1 n=  54
+ctx_ab_M5              sign_signature_internal  m_gf16_mulc_xor    ymm= 12 xmm=  0 n=  65
+ctx_ab_M5              sign_signature_internal  ?                  ymm= 10 xmm=  0 n=  64
+ctx_ab_arith_M1        EF_backsub               ?                  ymm=  3 xmm=  0 n=  54
+ctx_ab_arith_M1        EF_backsub               ?                  ymm=  3 xmm=  0 n=  53
+ctx_ab_arith_M1        EF_backsub               ?                  ymm=  1 xmm=  0 n=  45
+ctx_ab_arith_M1        EF_backsub               ?                  ymm=  3 xmm=  0 n=  50
+ctx_ab_arith_M1        EF_backsub               ?                  ymm=  1 xmm=  0 n=  42
+ctx_ab_arith_M1        EF.isra.0                ?                  ymm=  3 xmm=  0 n=  49
+ctx_ab_arith_M1        EF.isra.0                ?                  ymm=  6 xmm=  0 n=  70
+ctx_ab_arith_M1        EF.isra.0                ?                  ymm=  4 xmm=  0 n=  80
+ctx_ab_arith_M1        EF.isra.0                ?                  ymm=  4 xmm=  0 n=  64
+ctx_ab_arith_M1        EF.isra.0                ?                  ymm=  2 xmm=  0 n=  68
+ctx_ab_arith_M1        EF.isra.0                ?                  ymm=  2 xmm=  0 n=  54
+ctx_ab_arith_M5        EF_backsub               ?                  ymm=  5 xmm=  0 n=  64
+ctx_ab_arith_M5        EF_backsub               ?                  ymm=  5 xmm=  0 n=  63
+ctx_ab_arith_M5        EF_backsub               ?                  ymm=  1 xmm=  0 n=  45
+ctx_ab_arith_M5        EF_backsub               ?                  ymm=  5 xmm=  0 n=  65
+ctx_ab_arith_M5        EF_backsub               ?                  ymm=  5 xmm=  0 n=  60
+ctx_ab_arith_M5        EF_backsub               ?                  ymm=  1 xmm=  0 n=  42
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  5 xmm=  0 n=  60
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  5 xmm=  0 n=  43
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  4 xmm=  0 n=  52
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  8 xmm=  0 n=  78
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  3 xmm=  0 n=  47
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  6 xmm=  0 n=  71
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  4 xmm=  0 n=  80
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  4 xmm=  0 n=  64
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  2 xmm=  0 n=  68
+ctx_ab_arith_M5        EF.isra.0                ?                  ymm=  2 xmm=  0 n=  54
+ctx_official_M1        P1P1t_times_O.isra.0     P1P1t_times_O      ymm= 16 xmm=  0 n=  56
+ctx_official_M1        P1P1t_times_O.isra.0     P1P1t_times_O      ymm= 16 xmm=  0 n=  58
+ctx_official_M1        sign_signature_internal  Ut_times_O         ymm= 16 xmm=  0 n=  72
+ctx_official_M1        sign_signature_internal  m_gf16_mulc_xor    ymm= 26 xmm=  0 n= 134
+ctx_official_M1        sign_signature_internal  ?                  ymm=  0 xmm= 14 n= 108
+ctx_official_M1        sign_signature_internal  ?                  ymm= 24 xmm=  0 n= 237
+ctx_official_M1        pqmayo_MAYO_1_avx2_mayo_ P1_times_O         ymm= 16 xmm=  0 n=  55
+ctx_official_M5        sign_signature_internal  ?                  ymm=  0 xmm=  1 n=  54
+ctx_official_M5        sign_signature_internal  m_gf16_mulc_xor    ymm= 12 xmm=  0 n=  65
+ctx_official_M5        sign_signature_internal  ?                  ymm= 10 xmm=  0 n=  64
+ctx_phases_M5          compute_A.isra.0         m_gf16_mulc_xor    ymm= 12 xmm=  0 n=  64
+ctx_phases_M5          sign_signature_internal  ?                  ymm=  0 xmm=  1 n=  54
+ctx_phases_M5          sign_signature_internal  ?                  ymm= 10 xmm=  0 n=  64
+ctx_phases_esk_M5      sign_signature_internal  ?                  ymm=  0 xmm=  1 n=  54
+ctx_phases_esk_M5      sign_signature_internal  m_gf16_mulc_xor    ymm= 12 xmm=  0 n=  65
+ctx_phases_esk_M5      sign_signature_internal  ?                  ymm= 10 xmm=  0 n=  64
+ctx_phases_mcalc_M5    sign_signature_internal  ?                  ymm=  0 xmm=  1 n=  54
+ctx_phases_mcalc_M5    sign_signature_internal  m_gf16_mulc_xor    ymm= 12 xmm=  0 n=  65
+ctx_phases_mcalc_M5    sign_signature_internal  ?                  ymm= 10 xmm=  0 n=  64
+ctx_phases_none_M5     sign_signature_internal  ?                  ymm=  0 xmm=  1 n=  54
+ctx_phases_none_M5     sign_signature_internal  m_gf16_mulc_xor    ymm= 12 xmm=  0 n=  65
+ctx_phases_none_M5     sign_signature_internal  ?                  ymm= 10 xmm=  0 n=  64

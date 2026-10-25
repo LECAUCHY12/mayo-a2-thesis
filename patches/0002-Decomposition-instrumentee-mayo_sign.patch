@@ -1,0 +1,880 @@
+From 14f315a1ab439a30caf6d6597f9c7bd28811579f Mon Sep 17 00:00:00 2001
+From: Marcel Eric Angoah <marcelericangoah@gmail.com>
+Date: Wed, 21 Oct 2026 18:46:00 +0100
+Subject: [PATCH] Decomposition instrumentee de mayo_sign (A/B apparie officiel
+ / A2 SAFE), sondes inertes par defaut
+
+Ajoute les sondes MAYO_PROFILING_PROBES (profiling_probes.h/.c, appels dans mayo.c et arithmetic.h),
+la bibliotheque *_phases, test/sign_phases_ab.c, test/run_phases.sh et phases_analyze.py.
+Sans MAYO_PROFILING_PROBES les macros sont vides : le code objet de mayo.c et arithmetic.c est
+identique a la base (verifie par objdump / cmp). Aucune optimisation nouvelle.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013EN1pV7V5FE6tBx9nkRL6J
+---
+ src/CMakeLists.txt                |  11 ++
+ src/arithmetic.h                  |  20 ++++
+ src/mayo.c                        |  48 ++++++++-
+ src/profiling_probes.c            |  60 +++++++++++
+ src/profiling_probes.h            | 160 ++++++++++++++++++++++++++++++
+ test/CMakeLists.txt               |   6 ++
+ test/run_phases.sh                |  63 ++++++++++++
+ test/sign_phases_ab.c             | 131 ++++++++++++++++++++++++
+ test/tail_study/phases_analyze.py |  51 ++++++++++
+ test/tail_study/phases_vs_ref.py  |  26 +++++
+ 10 files changed, 575 insertions(+), 1 deletion(-)
+ create mode 100644 src/profiling_probes.c
+ create mode 100644 src/profiling_probes.h
+ create mode 100755 test/run_phases.sh
+ create mode 100644 test/sign_phases_ab.c
+ create mode 100644 test/tail_study/phases_analyze.py
+ create mode 100644 test/tail_study/phases_vs_ref.py
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 1c70f9a..f09c8d3 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -114,6 +114,17 @@ else()
+             target_compile_definitions(${MVARIANT_LOWER}_tailxmm PUBLIC MAYO_TAIL_XMM_SAFE)
+             target_compile_definitions(${MVARIANT_LOWER}_tailab PUBLIC MAYO_TAIL_XMM_SAFE)
+         endif()
++        # Decomposition instrumentee de mayo_sign (A/B apparie) : sondes MAYO_PROFILING_PROBES + choix a l'execution
++        add_library(${MVARIANT_LOWER}_phases ${SOURCE_FILES_MAYO} profiling_probes.c)
++        target_link_libraries(${MVARIANT_LOWER}_phases PUBLIC mayo_common_test)
++        target_include_directories(${MVARIANT_LOWER}_phases PUBLIC ../include . PRIVATE common ${INC_PLATFORM})
++        target_compile_definitions(${MVARIANT_LOWER}_phases PUBLIC MAYO_VARIANT=${MVARIANT} MAYO_TAIL_XMM MAYO_TAIL_AB MAYO_PROFILING_PROBES)
++        if (MAYO_TAIL_CHECK)
++            target_compile_definitions(${MVARIANT_LOWER}_phases PUBLIC MAYO_TAIL_XMM_CHECK)
++        endif()
++        if (MAYO_TAIL_SAFE)
++            target_compile_definitions(${MVARIANT_LOWER}_phases PUBLIC MAYO_TAIL_XMM_SAFE)
++        endif()
+     ENDFOREACH()
+ 
+     foreach(MVARIANT ${MVARIANT_S})
+diff --git a/src/arithmetic.h b/src/arithmetic.h
+index 29795e1..8d749cd 100644
+--- a/src/arithmetic.h
++++ b/src/arithmetic.h
+@@ -7,6 +7,7 @@
+ #include <stdint.h>
+ #include <mayo.h>
+ #include <stddef.h>
++#include <profiling_probes.h>
+ 
+ #if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+ #ifndef TARGET_BIG_ENDIAN
+@@ -186,6 +187,7 @@ void m_upper(const mayo_params_t* p, const uint64_t *in, uint64_t *out, int size
+ #define sample_solution MAYO_NAMESPACE(sample_solution)
+ int sample_solution(const mayo_params_t *p, unsigned char *A, const unsigned char *y, const unsigned char *r, unsigned char *x, int k, int o, int m, int A_cols);
+ 
++
+ #if defined(__GNUC__) || defined(__clang__)
+ #define BSWAP32(i) __builtin_bswap32((i))
+ #define BSWAP64(i) __builtin_bswap64((i))
+@@ -287,10 +289,14 @@ static inline void m_calculate_M_and_VPV(const mayo_params_t *p,
+     mayo_multab_t O_multabs[MAYO_O_MULTABS_N];
+     alignas(MAYO_MULTAB_ALIGN) mayo_multab_t V_multabs[MAYO_V_MULTABS_N];
+ 
++    PROBE_START_ID(PROBE_MCM_V_MULTABS);
+     mayo_V_multabs(Vdec, V_multabs);
++    PROBE_END_ID(PROBE_MCM_V_MULTABS);
+ 
+     MAYO_ACC_INIT(VKtmp); // P1_times_Vt accumulates into it
++    PROBE_START_ID(PROBE_MCM_P1_VT);
+     MAYO_CALL_P1_VT(P1, V_multabs, VKtmp);
++    PROBE_END_ID(PROBE_MCM_P1_VT);
+ 
+     /* lambda into column 0 of P1 * V^t. Vt_times_Pv runs on both paths, so
+        Lambda(v_i) reaches VPV[i][0] for free either way. With L implicit,
+@@ -298,9 +304,13 @@ static inline void m_calculate_M_and_VPV(const mayo_params_t *p,
+        column 0 into (O^t lambda)[c] in block 0 of Mtmp; with L materialized
+        there is no such pass, so that half is inserted explicitly.
+        v m-vector XORs, no multiplications. */
++    PROBE_START_ID(PROBE_MCM_VKT_LAMBDA);
+     m_vkt_add_lambda(VKtmp, lambda, PARAM_v(p));
++    PROBE_END_ID(PROBE_MCM_VKT_LAMBDA);
+ 
++    PROBE_START_ID(PROBE_MCM_VT_PV);
+     Vt_times_Pv(VKtmp, V_multabs, VPV);
++    PROBE_END_ID(PROBE_MCM_VT_PV);
+ 
+     if (use_l) {
+         // L is materialized in the expanded key: Mtmp = V * L directly.
+@@ -315,13 +325,23 @@ static inline void m_calculate_M_and_VPV(const mayo_params_t *p,
+     } else {
+         // implicit L: Mtmp = V * ((P1 + P1^t) * O + P2), reusing P1 * V^t.
+         // VKtmp = (P1 + P1^t) * V^t; the diagonal cancels in characteristic two.
++        PROBE_START_ID(PROBE_MCM_O_MULTABS);
+         mayo_O_multabs(O, O_multabs);
++        PROBE_END_ID(PROBE_MCM_O_MULTABS);
++        PROBE_START_ID(PROBE_MCM_P1T_VT);
+         MAYO_CALL_P1T_VT(P1, V_multabs, VKtmp);
++        PROBE_END_ID(PROBE_MCM_P1T_VT);
++        PROBE_START_ID(PROBE_MCM_UT_O);
+         Ut_times_O(VKtmp, O_multabs, Mtmp);
++        PROBE_END_ID(PROBE_MCM_UT_O);
++        PROBE_START_ID(PROBE_MCM_VT_L);
+         Vt_times_L(P2_or_L, V_multabs, Mtmp);
++        PROBE_END_ID(PROBE_MCM_VT_L);
+     }
+ 
++    PROBE_START_ID(PROBE_MCM_LAMBDA_OIL);
+     m_lambda_oil(p, lambda, Mtmp);
++    PROBE_END_ID(PROBE_MCM_LAMBDA_OIL);
+ 
+     mayo_secure_clear(VKtmp, sizeof(VKtmp));
+     mayo_secure_clear(O_multabs, sizeof(O_multabs));
+diff --git a/src/mayo.c b/src/mayo.c
+index 4fbc10b..cc82793 100644
+--- a/src/mayo.c
++++ b/src/mayo.c
+@@ -13,6 +13,7 @@
+ #ifdef ENABLE_CT_TESTING
+ #include <valgrind/memcheck.h>
+ #endif
++#include <profiling_probes.h>
+ 
+ #define MAYO_MIN(x, y) (((x) < (y)) ? (x) : (y))
+ #define PK_PRF AES_128_CTR
+@@ -155,6 +156,7 @@ static void compute_A(const mayo_params_t *p, uint64_t *VtL, unsigned char *A_ou
+         }
+     }
+ 
++    PROBE_START_ID(PROBE_CA_ACC);
+     /* the whipping schedule puts the pair of label l at row offset l, i.e. a shift
+        of l nibbles: l/16 whole limb-rows plus 4*(l%16) bits within a limb */
+     const unsigned char *whip_positions = PARAM_whip_pos(p);
+@@ -174,10 +176,14 @@ static void compute_A(const mayo_params_t *p, uint64_t *VtL, unsigned char *A_ou
+         }
+     }
+ 
++    PROBE_END_ID(PROBE_CA_ACC);
++    PROBE_START_ID(PROBE_CA_TRANSPOSE);
+     for (size_t c = 0; c < A_width*((PARAM_m(p) + (PARAM_k(p)+1)*PARAM_k(p)/2 +15)/16) ; c+= 16)
+     {
+         transpose_16x16_nibbles(A + c);
+     }
++    PROBE_END_ID(PROBE_CA_TRANSPOSE);
++    PROBE_START_ID(PROBE_CA_FTAIL);
+ 
+     /* the tail rows reduce into the rows below them, one GF(16) multiply per tap. A's
+        rows sit sixteen to a block, so copy the sources out and the destinations back and
+@@ -212,6 +218,7 @@ static void compute_A(const mayo_params_t *p, uint64_t *VtL, unsigned char *A_ou
+             A[(i / 16) * A_width + c + (i % 16)] ^= ft_dst[i];
+         }
+     }
++    PROBE_END_ID(PROBE_CA_FTAIL);
+     mayo_secure_clear(ft_src, sizeof(ft_src));
+     mayo_secure_clear(ft_dst, sizeof(ft_dst));
+     #undef FTAIL_ROWS
+@@ -222,6 +229,7 @@ static void compute_A(const mayo_params_t *p, uint64_t *VtL, unsigned char *A_ou
+ #endif
+ 
+ 
++    PROBE_START_ID(PROBE_CA_DECODE);
+     /* A is blocked sixteen rows to a chunk; walk the rows and pick the chunk */
+     for (int row = 0; row < PARAM_m(p); row++)
+     {
+@@ -231,6 +239,7 @@ static void compute_A(const mayo_params_t *p, uint64_t *VtL, unsigned char *A_ou
+             decode( (unsigned char *) &A[base + c], A_out + PARAM_A_cols(p)*row + c, MAYO_MIN(16, PARAM_A_cols(p)-1-c));
+         }
+     }
++    PROBE_END_ID(PROBE_CA_DECODE);
+ }
+ 
+ static void unpack_m_vecs(const unsigned char *in, uint64_t *out, int vecs, int m){
+@@ -313,11 +322,14 @@ static void expand_P1_P2(const mayo_params_t *p, uint64_t *P, const unsigned cha
+     #ifndef ENABLE_PARAMS_DYNAMIC
+     (void) p;
+     #endif
++    PROBE_START_ID(PROBE_ESK_PK_PRF);
+     PK_PRF((unsigned char *)P, PARAM_P1_bytes(p) + PARAM_P2_bytes(p), seed_pk, PARAM_pk_seed_bytes(p));
++    PROBE_END_ID(PROBE_ESK_PK_PRF);
+     // m % 16 == 0: packed stride == padded stride, the keystream already is the layout.
+     if (PARAM_m(p) % 16 == 0) {
+         return;
+     }
++    PROBE_START_ID(PROBE_ESK_UNPACK_MVECS);
+ #ifdef MAYO_PACKED_P1P2
+     if (!keep_p2_packed) { // P1 stays packed; spread only P2 into its padded slot
+         unpack_m_vecs((unsigned char *)P + PARAM_P1_bytes(p), P + PARAM_P1_limbs(p),
+@@ -327,6 +339,7 @@ static void expand_P1_P2(const mayo_params_t *p, uint64_t *P, const unsigned cha
+     (void) keep_p2_packed;
+     unpack_m_vecs((unsigned char *)P, P, (PARAM_P1_limbs(p) + PARAM_P2_limbs(p)) / PARAM_m_vec_limbs(p), PARAM_m(p));
+ #endif
++    PROBE_END_ID(PROBE_ESK_UNPACK_MVECS);
+ }
+ 
+ static void eval_public_map(const mayo_params_t *p, const unsigned char *s, const uint64_t *P1, const uint64_t *P2, const uint64_t *P3, const uint64_t *lambda, unsigned char *eval){
+@@ -365,9 +378,14 @@ static int expand_sk_internal(const mayo_params_t *p, const unsigned char *csk,
+     const unsigned char *seed_sk = csk;
+     unsigned char *seed_pk = S;
+ 
++    PROBE_START_ID(PROBE_ESK_SHAKE_SEED_O);
+     shake256(S, param_pk_seed_bytes + param_O_bytes, seed_sk,
+              param_sk_seed_bytes);
++    PROBE_END_ID(PROBE_ESK_SHAKE_SEED_O);
++
++    PROBE_START_ID(PROBE_ESK_DECODE_O);
+     decode(S + param_pk_seed_bytes, O, param_v * param_o);
++    PROBE_END_ID(PROBE_ESK_DECODE_O);
+ 
+     // keep the seed in the expanded key so Sign(esk) can derive the salt
+     memcpy(sk->sk_seed, seed_sk, param_sk_seed_bytes);
+@@ -376,7 +394,9 @@ static int expand_sk_internal(const mayo_params_t *p, const unsigned char *csk,
+     VALGRIND_MAKE_MEM_DEFINED(seed_pk, param_pk_seed_bytes);
+ #endif
+ 
++    PROBE_START_ID(PROBE_ESK_EXPAND_P1P2);
+     expand_P1_P2(p, P, seed_pk, 0);
++    PROBE_END_ID(PROBE_ESK_EXPAND_P1P2);
+     MAYO_ZERO_SLACK(P, PARAM_P1_limbs(p) + PARAM_P2_limbs(p));
+ #ifdef TARGET_BIG_ENDIAN
+     for (int i = 0; i < PARAM_P1_limbs(p) + PARAM_P2_limbs(p); ++i) {
+@@ -444,7 +464,9 @@ static int sign_signature_internal(const mayo_params_t *p, unsigned char *sig,
+     seed_sk = sk->sk_seed;
+ 
+     // hash message
++    PROBE_START_ID(PROBE_HASH_MSG);
+     shake256(tmp, param_digest_bytes, m, mlen);
++    PROBE_END_ID(PROBE_HASH_MSG);
+ 
+     // sk is read-only on little-endian; on big-endian the swaps below convert it in
+     // place and the err: block converts it back, leaving the caller's key unchanged.
+@@ -474,8 +496,10 @@ static int sign_signature_internal(const mayo_params_t *p, unsigned char *sig,
+     // hashing to salt
+     memcpy(tmp + param_digest_bytes + param_salt_bytes, seed_sk,
+            param_sk_seed_bytes);
++    PROBE_START_ID(PROBE_SALT);
+     shake256(salt, param_salt_bytes, tmp,
+              param_digest_bytes + param_salt_bytes + param_sk_seed_bytes);
++    PROBE_END_ID(PROBE_SALT);
+ 
+ #ifdef ENABLE_CT_TESTING
+     VALGRIND_MAKE_MEM_DEFINED(salt, SALT_BYTES_MAX); // Salt is not secret
+@@ -485,29 +509,44 @@ static int sign_signature_internal(const mayo_params_t *p, unsigned char *sig,
+     memcpy(tmp + param_digest_bytes, salt, param_salt_bytes);
+     ctrbyte = tmp + param_digest_bytes + param_salt_bytes + param_sk_seed_bytes;
+ 
++    PROBE_START_ID(PROBE_HASH_T);
+     shake256(tenc, param_m_bytes + MAYO_LAMBDA_SEED_BYTES, tmp,
+              param_digest_bytes + param_salt_bytes);
++    PROBE_END_ID(PROBE_HASH_T);
+ 
+     decode(tenc, t, param_m); // may not be necessary
++    PROBE_START_ID(PROBE_DERIVE_LAMBDA);
+     derive_lambda(p, tenc + param_m_bytes, lambda);
++    PROBE_END_ID(PROBE_DERIVE_LAMBDA);
+ 
+     for (int ctr = 0; ctr <= 255; ++ctr) {
+         *ctrbyte = (unsigned char)ctr;
+ 
++        PROBE_START_ID(PROBE_SHAKE_V);
+         shake256(V, param_k * param_v_bytes + param_r_bytes, tmp,
+                  param_digest_bytes + param_salt_bytes + param_sk_seed_bytes + 1);
++        PROBE_END_ID(PROBE_SHAKE_V);
+ 
++        PROBE_START_ID(PROBE_DECODE_V);
+         // decode the v_i vectors
+         for (int i = 0; i < param_k; ++i) {
+             decode(V + i * param_v_bytes, Vdec + i * param_v, param_v);
+         }
++        PROBE_END_ID(PROBE_DECODE_V);
+ 
+         // compute M_i matrices and all v_i*P1*v_j, with lambda folded in
++        PROBE_START_ID(PROBE_M_CALC_M_VPV);
+         m_calculate_M_and_VPV(p, P1, P2_or_L, sk->O, Vdec, lambda, use_l,
+                               Mtmp, (uint64_t *) A);
++        PROBE_END_ID(PROBE_M_CALC_M_VPV);
+ 
++        PROBE_START_ID(PROBE_COMPUTE_RHS);
+         compute_rhs(p, (uint64_t*) A, t, y);
++        PROBE_END_ID(PROBE_COMPUTE_RHS);
++
++        PROBE_START_ID(PROBE_COMPUTE_A);
+         compute_A(p, Mtmp, A);
++        PROBE_END_ID(PROBE_COMPUTE_A);
+ 
+         for (int i = 0; i < param_m; i++)
+         {
+@@ -518,7 +557,10 @@ static int sign_signature_internal(const mayo_params_t *p, unsigned char *sig,
+                param_k *
+                param_o);
+ 
+-        if (sample_solution(p, A, y, r, x, param_k, param_o, param_m, param_A_cols)) {
++        PROBE_START_ID(PROBE_SAMPLE_SOLUTION);
++        int sample_ok = sample_solution(p, A, y, r, x, param_k, param_o, param_m, param_A_cols);
++        PROBE_END_ID(PROBE_SAMPLE_SOLUTION);
++        if (sample_ok) {
+             sol_found = 1;
+             break;
+         } else {
+@@ -531,8 +573,10 @@ static int sign_signature_internal(const mayo_params_t *p, unsigned char *sig,
+         goto err;
+     }
+ 
++    PROBE_START_ID(PROBE_COMPUTE_S);
+     m_compute_s(p, sk->O, Vdec, x, s);
+     encode(s, sig, param_n * param_k);
++    PROBE_END_ID(PROBE_COMPUTE_S);
+ 
+     memcpy(sig + param_sig_bytes - param_salt_bytes, salt, param_salt_bytes);
+     *siglen = param_sig_bytes;
+@@ -573,7 +617,9 @@ int mayo_sign_signature(const mayo_params_t *p, unsigned char *sig,
+               size_t mlen, const unsigned char *csk) {
+     const int use_l = 0; // all backends expand without L and sign implicitly
+     alignas(32) sk_t sk;
++    PROBE_START_ID(PROBE_EXPAND_SK);
+     int ret = expand_sk_internal(p, csk, &sk, use_l);
++    PROBE_END_ID(PROBE_EXPAND_SK);
+     if (ret == MAYO_OK) {
+         ret = sign_signature_internal(p, sig, siglen, m, mlen, &sk, use_l);
+     }
+diff --git a/src/profiling_probes.c b/src/profiling_probes.c
+new file mode 100644
+index 0000000..4e1be0b
+--- /dev/null
++++ b/src/profiling_probes.c
+@@ -0,0 +1,60 @@
++// SPDX-License-Identifier: Apache-2.0
++//
++// Definition unique (liaison externe) de l'etat des sondes de profilage
++// declarees dans profiling_probes.h. Ce fichier doit etre compile et lie
++// dans le MEME binaire que mayo.c (qui ecrit via PROBE_START/PROBE_END) et
++// que le binaire de profilage (qui lit via profiling_probes_dump), pour
++// que les deux partagent le meme etat.
++#ifdef MAYO_PROFILING_PROBES
++
++#include <profiling_probes.h>
++
++const char *probe_names[PROBE_N] = {
++    "hash_message(shake256)",
++    "hash_salt(shake256)",
++    "hash_t(shake256)",
++    "derive_lambda",
++    "shake_V(per-attempt)",
++    "decode_V(per-attempt)",
++    "m_calculate_M_and_VPV(per-attempt)",
++    "compute_rhs(per-attempt)",
++    "compute_A(per-attempt)",
++    "sample_solution(per-attempt)",
++    "m_compute_s+encode(final)",
++    "expand_sk_internal",
++    "  ss.copy_r+clear_col(per-attempt)",
++    "  ss.EF_mat_vec_mul(per-attempt)",
++    "  ss.insert_y-Ar(per-attempt)",
++    "  ss.EF(per-attempt)",
++    "  ss.rank_check(per-attempt)",
++    "  ss.EF_backsub(per-attempt)",
++    "  esk.shake_seed_O",
++    "  esk.decode_O",
++    "  esk.expand_P1_P2",
++    "  esk.PK_PRF(in expand_P1_P2)",
++    "  esk.unpack_m_vecs(in expand_P1_P2)",
++    "    ef.PROFILED_TOTAL(cf PROBE_SS_EF)",
++    "    ef.row_masks",
++    "    ef.pivot_search",
++    "    ef.pivot_normalize",
++    "    ef.eliminate_rows",
++    "    mcm.V_multabs",
++    "    mcm.P1_times_Vt",
++    "    mcm.vkt_add_lambda",
++    "    mcm.Vt_times_Pv",
++    "    mcm.O_multabs",
++    "    mcm.P1t_times_Vt",
++    "    mcm.Ut_times_O",
++    "    mcm.Vt_times_L",
++    "    mcm.lambda_oil",
++    "    cA.acc(whip)",
++    "    cA.transpose",
++    "    cA.f_tail",
++    "    cA.decode",
++};
++
++uint64_t probe_cycles[PROBE_N];
++uint64_t probe_calls[PROBE_N];
++uint64_t probe_t0[PROBE_N];
++
++#endif // MAYO_PROFILING_PROBES
+diff --git a/src/profiling_probes.h b/src/profiling_probes.h
+new file mode 100644
+index 0000000..6a269ad
+--- /dev/null
++++ b/src/profiling_probes.h
+@@ -0,0 +1,160 @@
++// SPDX-License-Identifier: Apache-2.0
++//
++// Sondes de profilage temporaire pour decomposer mayo_sign_signature en
++// sous-etapes. Actif uniquement sous MAYO_PROFILING_PROBES (desactive par
++// defaut, aucun effet sur le build officiel). Accumule les cycles de
++// chaque etape sur toute l'execution du processus (thread-local naif,
++// suffisant pour un binaire de profilage mono-thread), et les imprime a
++// la fin via profiling_probes_dump().
++#ifndef MAYO_PROFILING_PROBES_H
++#define MAYO_PROFILING_PROBES_H
++
++#ifdef MAYO_PROFILING_PROBES
++
++#include <stdint.h>
++#include <stdio.h>
++#include <x86intrin.h>
++
++enum {
++    PROBE_HASH_MSG = 0,
++    PROBE_SALT,
++    PROBE_HASH_T,
++    PROBE_DERIVE_LAMBDA,
++    PROBE_SHAKE_V,
++    PROBE_DECODE_V,
++    PROBE_M_CALC_M_VPV,
++    PROBE_COMPUTE_RHS,
++    PROBE_COMPUTE_A,
++    PROBE_SAMPLE_SOLUTION,
++    PROBE_COMPUTE_S,
++    PROBE_EXPAND_SK,
++    // Decomposition fine de sample_solution (demande Dr Tale) :
++    PROBE_SS_COPY_R_CLEAR,   // x <- r, et clear derniere colonne de A
++    PROBE_SS_EF_MAT_VEC_MUL, // Ar = A * r
++    PROBE_SS_INSERT_Y_AR,    // derniere colonne de A <- y - Ar
++    PROBE_SS_EF,             // EF (elimination de Gauss)
++    PROBE_SS_RANK_CHECK,     // test de rang (derniere ligne de A)
++    PROBE_SS_EF_BACKSUB,     // EF_backsub (retro-substitution)
++    // Decomposition fine du chemin compact d'expand_sk_internal
++    // (materialize_l=0 uniquement — ne pas confondre avec P1P1t_times_O,
++    // qui appartient au chemin materialize_l=1, non emprunte par
++    // mayo_sign_signature) :
++    PROBE_ESK_SHAKE_SEED_O,  // shake256 -> seed_pk || O
++    PROBE_ESK_DECODE_O,      // decode(O)
++    PROBE_ESK_EXPAND_P1P2,   // expand_P1_P2 (englobe PK_PRF + unpack_m_vecs eventuel)
++    PROBE_ESK_PK_PRF,        // PK_PRF seul, a l'interieur de expand_P1_P2
++    PROBE_ESK_UNPACK_MVECS,  // unpack_m_vecs seul (uniquement si m%16 != 0, donc MAYO-3/5)
++    // Decomposition fine de EF (elimination de Gauss, chemin AVX2 pur,
++    // echelon_form_loop.h), demande Dr Tale. Mesuree sur une copie
++    // dediee EF_profiled (voir echelon_form_profiled.h), executee EN
++    // PLUS de l'appel normal a EF dans sample_solution (sur une copie
++    // de A), jamais a sa place : EF reste sur le chemin reellement
++    // mesure pour le tableau global, EF_profiled sert uniquement a
++    // cette decomposition et son propre cout total (PROBE_EF_PROFILED_TOTAL)
++    // est compare au cout de la vraie sonde PROBE_SS_EF pour quantifier
++    // l'overhead introduit par la granularite plus fine.
++    PROBE_EF_PROFILED_TOTAL,  // EF_profiled complete (pour comparaison a PROBE_SS_EF)
++    PROBE_EF_ROW_MASKS,       // ef_row_masks (masques eq/gt par ligne)
++    PROBE_EF_PIVOT_SEARCH,    // recherche/selection du pivot (lecture colonne + prefixe ct)
++    PROBE_EF_PIVOT_NORMALIZE, // inverse_f_ct + tbl32_gf16_multab + normalisation ligne pivot
++    PROBE_EF_ELIMINATE,       // boucle d'elimination des lignes (tables + shuffle + xor/blend)
++    // Sous-operations de m_calculate_M_and_VPV (chemin multab, implicit L)
++    PROBE_MCM_V_MULTABS,      // mayo_V_multabs (tables de V)
++    PROBE_MCM_P1_VT,          // P1_times_Vt
++    PROBE_MCM_VKT_LAMBDA,     // m_vkt_add_lambda
++    PROBE_MCM_VT_PV,          // Vt_times_Pv
++    PROBE_MCM_O_MULTABS,      // mayo_O_multabs
++    PROBE_MCM_P1T_VT,         // P1t_times_Vt
++    PROBE_MCM_UT_O,           // Ut_times_O
++    PROBE_MCM_VT_L,           // Vt_times_L
++    PROBE_MCM_LAMBDA_OIL,     // m_lambda_oil
++    // Sous-operations de compute_A
++    PROBE_CA_ACC,             // boucle m_compute_A_acc (whipping)
++    PROBE_CA_TRANSPOSE,       // transpose_16x16_nibbles
++    PROBE_CA_FTAIL,           // reduction f_tail
++    PROBE_CA_DECODE,          // decode final de A
++    PROBE_N
++};
++
++// IMPORTANT : ces trois tableaux doivent avoir une liaison EXTERNE et une
++// definition UNIQUE (dans profiling_probes.c), et non "static" ici. Ce
++// header est inclus a la fois par mayo.c (qui appelle PROBE_START/
++// PROBE_END, compile dans la bibliotheque ${MVARIANT}_profiling) et par
++// profile_probes.c (qui appelle profiling_probes_reset/dump), deux
++// traducteurs distincts qui doivent partager le MEME etat pour que les
++// sondes ecrites dans mayo.c soient lisibles depuis profile_probes.c. Avec
++// "static", chaque .c aurait sa propre copie privee et profile_probes.c
++// ne verrait jamais que des zeros (bug observe et corrige).
++extern const char *probe_names[PROBE_N];
++extern uint64_t probe_cycles[PROBE_N];
++extern uint64_t probe_calls[PROBE_N];
++// Un depart PAR identifiant de sonde (et non une variable unique partagee) :
++// certaines sondes sont imbriquees (ex. PROBE_EXPAND_SK, posee dans
++// mayo_sign_signature autour de expand_sk_internal, englobe
++// PROBE_ESK_SHAKE_SEED_O / PROBE_ESK_DECODE_O / PROBE_ESK_EXPAND_P1P2,
++// posees a l'interieur de expand_sk_internal ; PROBE_ESK_EXPAND_P1P2
++// englobe a son tour PROBE_ESK_PK_PRF / PROBE_ESK_UNPACK_MVECS, posees a
++// l'interieur de expand_P1_P2). Avec un probe_t0 unique partage entre
++// toutes les sondes, un PROBE_START() imbrique ecrase le depart de la
++// sonde englobante avant son PROBE_END(), ce qui a produit des valeurs
++// incoherentes (esk.PK_PRF mesure superieure a esk.expand_P1_P2 sur
++// MAYO-3/5) — bug observe et corrige. Avec un depart par id, les sondes
++// imbriquees restent correctes, mais leurs valeurs se RECOUVRENT
++// volontairement (PROBE_EXPAND_SK inclut le temps deja compte dans les
++// PROBE_ESK_*, PROBE_ESK_EXPAND_P1P2 inclut celui de PROBE_ESK_PK_PRF et
++// PROBE_ESK_UNPACK_MVECS) : ne jamais sommer des sondes d'un niveau
++// d'imbrication different dans le meme total.
++extern uint64_t probe_t0[PROBE_N];
++
++static inline uint64_t probe_rdtscp(void) {
++    unsigned int aux;
++    _mm_lfence();
++    return __rdtscp(&aux);
++}
++
++#define PROBE_START_ID(id) (probe_t0[(id)] = probe_rdtscp())
++#define PROBE_END_ID(id) do { \
++        _mm_lfence(); \
++        probe_cycles[(id)] += probe_rdtscp() - probe_t0[(id)]; \
++        probe_calls[(id)] += 1; \
++    } while (0)
++// Alias historiques : la forme a un seul argument n'est plus utilisable des
++// deux cotes avec un etat partage (voir ci-dessus). PROBE_START() seul ne
++// peut plus determiner quel probe_t0[id] remplir, donc ces deux macros sont
++// desormais des erreurs de compilation volontaires si on les appelle sans
++// id, pour forcer la mise a jour de tous les sites d'appel.
++#define PROBE_START() PROBE_START_REQUIRES_AN_ID_NOW
++#define PROBE_END(id) PROBE_END_REQUIRES_PROBE_END_ID_NOW
++
++static inline void profiling_probes_reset(void) {
++    for (int i = 0; i < PROBE_N; i++) { probe_cycles[i] = 0; probe_calls[i] = 0; }
++}
++
++static inline void profiling_probes_dump(const char *label, uint64_t total_cycles) {
++    printf("--- PROBES %s (total cumule mayo_sign_signature = %llu cycles) ---\n",
++           label, (unsigned long long) total_cycles);
++    uint64_t sum = 0;
++    for (int i = 0; i < PROBE_N; i++) {
++        sum += probe_cycles[i];
++        double pct = total_cycles ? (100.0 * (double) probe_cycles[i] / (double) total_cycles) : 0.0;
++        double avg_per_call = probe_calls[i] ? (double) probe_cycles[i] / (double) probe_calls[i] : 0.0;
++        printf("  %-38s cycles=%12llu calls=%8llu  avg/appel=%9.1f  %6.2f%%\n",
++               probe_names[i], (unsigned long long) probe_cycles[i],
++               (unsigned long long) probe_calls[i], avg_per_call, pct);
++    }
++    double pct_sum = total_cycles ? (100.0 * (double) sum / (double) total_cycles) : 0.0;
++    double pct_rest = 100.0 - pct_sum;
++    printf("  %-38s %25s  %6.2f%%\n", "[somme instrumentee]", "", pct_sum);
++    printf("  %-38s %25s  %6.2f%%\n", "[reste non instrumente]", "", pct_rest);
++}
++
++#else
++
++#define PROBE_START() ((void) 0)
++#define PROBE_END(id) ((void) 0)
++#define PROBE_START_ID(id) ((void) 0)
++#define PROBE_END_ID(id) ((void) 0)
++
++#endif // MAYO_PROFILING_PROBES
++
++#endif // MAYO_PROFILING_PROBES_H
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index efd6ee8..b9636e9 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -61,6 +61,12 @@ else()
+         target_include_directories(mayo_tail_ab_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
+         target_include_directories(mayo_tail_ab_${MVARIANT} PRIVATE ../src ../src/AVX2 ../src/generic ../src/common)
+         target_compile_definitions(mayo_tail_ab_${MVARIANT} PRIVATE MAYO_AVX)
++        add_executable(mayo_sign_phases_${MVARIANT} sign_phases_ab.c)
++        target_link_libraries(mayo_sign_phases_${MVARIANT} ${MVARIANT_LOWER}_phases)
++        target_link_libraries(mayo_sign_phases_${MVARIANT} m)
++        target_include_directories(mayo_sign_phases_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
++        target_include_directories(mayo_sign_phases_${MVARIANT} PRIVATE ../src ../src/AVX2 ../src/generic ../src/common)
++        target_compile_definitions(mayo_sign_phases_${MVARIANT} PRIVATE MAYO_AVX)
+     ENDFOREACH()
+ 
+ endif()
+diff --git a/test/run_phases.sh b/test/run_phases.sh
+new file mode 100755
+index 0000000..b069ce3
+--- /dev/null
++++ b/test/run_phases.sh
+@@ -0,0 +1,63 @@
++#!/bin/sh
++# Decomposition instrumentee de mayo_sign_signature, A/B apparie officiel / A2 SAFE (aucune optimisation nouvelle).
++# Les sondes (MAYO_PROFILING_PROBES) sont compilees UNIQUEMENT dans la bibliotheque *_phases ; les autres builds
++# sont inchanges (code objet identique, verifie). Par signature et par bras : temps total, nombre de tentatives,
++# ticks et nombre d'appels de chaque phase. Reference sans sondes : le banc A/B habituel (mayo_tail_ab bench).
++#
++# Usage : SESSION=<etiquette unique> sh test/run_phases.sh [coeur=1] [paires=3001] [graines5="31 32 33 34 35 36 37 38 39 40"] [graines1_2="31 32 33 34 35"]
++# Jamais d'ecrasement : refus si le dossier de sortie existe deja.
++set -e
++ROOT=$(cd "$(dirname "$0")/.." && pwd)
++CORE=${1:-1}; PAIRS=${2:-3001}; SEEDS5=${3:-"31 32 33 34 35 36 37 38 39 40"}; SEEDS12=${4:-"31 32 33 34 35"}
++SESSION=${SESSION:-phases_$(date +%Y%m%d_%H%M%S)}
++OUT=${OUT:-$ROOT/phases_$(hostname)_$SESSION}
++[ ! -e "$OUT" ] || { echo "REFUS : $OUT existe deja (pas d'ecrasement). Changer SESSION."; exit 1; }
++grep -q avx2 /proc/cpuinfo || { echo "AVX2 absent : arret"; exit 1; }
++mkdir -p "$OUT/csv_phases" "$OUT/csv_ref" "$OUT/logs"
++{
++  echo "== session"; echo "$SESSION"
++  echo "== date"; date -u; echo "== uname"; uname -a; echo "== lscpu"; lscpu
++  echo "== hypervisor flag (0 attendu sur machine physique)"; grep -c hypervisor /proc/cpuinfo || true
++  echo "== systemd-detect-virt"; (systemd-detect-virt 2>/dev/null || echo "n/a")
++  echo "== governor"; cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_governor 2>/dev/null || echo "n/a"
++  echo "== no_turbo"; cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo "n/a"
++  echo "== MHz cpu$CORE"; awk -v c=$CORE '/^processor/{p=$3} p==c && /cpu MHz/{print; exit}' /proc/cpuinfo
++  echo "== SMT"; cat /sys/devices/system/cpu/smt/active 2>/dev/null || echo "n/a"
++  echo "== charge (uptime)"; uptime; echo "== uptime -s"; uptime -s
++  echo "== boot_id"; cat /proc/sys/kernel/random/boot_id
++  echo "== alimentation (online=1 : secteur)"; for p in /sys/class/power_supply/*; do echo "$(basename $p) type=$(cat $p/type 2>/dev/null) online=$(cat $p/online 2>/dev/null || echo n/a) status=$(cat $p/status 2>/dev/null || echo n/a)"; done 2>/dev/null || true
++  echo "== frequence max/min cpu$CORE"; cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_max_freq /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_min_freq 2>/dev/null || echo "n/a"
++  echo "== gcc"; gcc --version | head -1; echo "== cmake"; cmake --version | head -1
++  echo "== python3 / numpy"; (python3 --version; python3 -c 'import numpy; print("numpy", numpy.__version__)') 2>&1 || true
++  echo "== commit"; (cd "$ROOT" && git log -1 --format=%H 2>/dev/null || echo "(archive sans git)")
++  echo "== arguments"; echo "coeur=$CORE paires=$PAIRS graines_MAYO5=$SEEDS5 graines_MAYO1_2=$SEEDS12"
++} > "$OUT/machine.txt" 2>&1
++mkdir -p "$OUT/build" && cd "$OUT/build"
++cmake "$ROOT" -DMAYO_BUILD_TYPE=avx2 "-DMAYO_MARCH=-march=haswell -maes" -DMAYO_TAIL_SAFE=ON > cmake.log 2>&1
++make -j"$(nproc)" mayo_sign_phases_MAYO_1 mayo_sign_phases_MAYO_2 mayo_sign_phases_MAYO_5 mayo_tail_ab_MAYO_5 mayo_tail_ab_MAYO_1 > make.log 2>&1
++{ echo "== options effectives (phases, SAFE)"; cat src/CMakeFiles/mayo_5_phases.dir/flags.make; } >> "$OUT/machine.txt"
++T=$OUT/build/test
++run_phases() { # $1=variante $2=graine
++  PHASES_CSV="$OUT/csv_phases/phases_m$1_s$2" taskset -c "$CORE" "$T/mayo_sign_phases_MAYO_$1" "$PAIRS" "$2" 2>&1 | tee -a "$OUT/logs/phases.log"
++}
++run_ref() { # $1=graine ; reference SANS sondes (banc A/B habituel), meme build SAFE
++  EF_AB_CSV="$OUT/csv_ref/m5_s$1" taskset -c "$CORE" "$T/mayo_tail_ab_MAYO_5" bench "$PAIRS" "$1" 2>&1 | tee -a "$OUT/logs/ref.log"
++}
++# alternance dans le temps : sondes / reference / sondes ... (aucune condition ne favorise un type de mesure)
++set -- $SEEDS5
++i=0
++for s in "$@"; do
++  echo "#### phases MAYO-5 graine=$s" | tee -a "$OUT/logs/phases.log"; run_phases 5 "$s"
++  i=$((i+1)); if [ $((i % 2)) -eq 0 ]; then echo "#### reference sans sondes MAYO-5 graine=$s" | tee -a "$OUT/logs/ref.log"; run_ref "$s"; fi
++done
++for s in $SEEDS12; do
++  echo "#### phases MAYO-1 graine=$s" | tee -a "$OUT/logs/phases.log"; run_phases 1 "$s"
++  echo "#### phases MAYO-2 (temoin nul) graine=$s" | tee -a "$OUT/logs/phases.log"; run_phases 2 "$s"
++done
++{ echo "== uptime fin"; uptime; echo "== MHz cpu$CORE fin"; awk -v c=$CORE '/^processor/{p=$3} p==c && /cpu MHz/{print; exit}' /proc/cpuinfo; } >> "$OUT/machine.txt"
++cd "$ROOT"
++ARCH="$ROOT/$(basename "$OUT").tar.gz"
++[ ! -e "$ARCH" ] || { echo "REFUS : $ARCH existe"; exit 1; }
++tar czf "$ARCH" --exclude='build' -C "$ROOT" "$(basename "$OUT")"
++sha256sum "$ARCH" | tee "$ARCH.sha256"
++echo "Archive complete (CSV bruts inclus) : $ARCH"
+diff --git a/test/sign_phases_ab.c b/test/sign_phases_ab.c
+new file mode 100644
+index 0000000..686bfc0
+--- /dev/null
++++ b/test/sign_phases_ab.c
+@@ -0,0 +1,131 @@
++// SPDX-License-Identifier: Apache-2.0
++//
++// Decomposition instrumentee de mayo_sign_signature, A/B apparie (officiel / A2) dans un meme
++// processus. Pour chaque paire (meme message, meme graine aleatoire dans les deux bras, ordre
++// aleatoire), on enregistre PAR SIGNATURE et PAR BRAS :
++//   - le temps total (rdtscp+lfence autour de mayo_sign_signature) ;
++//   - le nombre de tentatives de la boucle de signature (nombre d'appels de la sonde
++//     m_calculate_M_and_VPV pendant cette signature) ;
++//   - pour chaque sonde, les ticks cumules et le nombre d'appels pendant cette signature.
++// Rien n'est deduit par soustraction de medianes : chaque ligne du CSV est une signature.
++// Compiler avec MAYO_PROFILING_PROBES + MAYO_TAIL_XMM + MAYO_TAIL_AB (bibliotheque *_phases).
++// Les sondes sont inertes (macros vides) dans tous les autres builds.
++//
++// Usage : sign_phases_ab [paires=3001] [graine=1]      (PHASES_CSV=<prefixe> pour ecrire le CSV)
++#include <mayo.h>
++#include <arithmetic.h>
++#include <randombytes.h>
++#include <profiling_probes.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <x86intrin.h>
++
++#ifndef MAYO_PROFILING_PROBES
++#error "sign_phases_ab.c doit etre compile avec -DMAYO_PROFILING_PROBES"
++#endif
++#ifndef MAYO_TAIL_AB
++#error "sign_phases_ab.c doit etre compile avec -DMAYO_TAIL_AB (choix officiel/A2 a l'execution)"
++#endif
++
++extern int mayo_tail_use_xmm; /* defini dans arithmetic.c (MAYO_TAIL_AB), pour toutes les variantes */
++static uint64_t rs = 0x9E3779B97F4A7C15ull;
++static uint64_t rnd(void) { rs ^= rs << 13; rs ^= rs >> 7; rs ^= rs << 17; return rs; }
++static inline uint64_t tick(void) { unsigned a; _mm_lfence(); uint64_t t = __rdtscp(&a); _mm_lfence(); return t; }
++
++int main(int argc, char **argv) {
++    const int pairs = argc > 1 ? atoi(argv[1]) : 3001;
++    if (argc > 2) rs ^= (uint64_t) atol(argv[2]) * 0x2545F4914F6CDD1Dull;
++    const mayo_params_t *p = 0;
++    const int m_len = 32;
++    unsigned char *pk = calloc(PARAM_cpk_bytes(p), 1), *sk = calloc(PARAM_csk_bytes(p), 1);
++    unsigned char *sg[2]; sg[0] = calloc(PARAM_sig_bytes(p) + m_len, 1); sg[1] = calloc(PARAM_sig_bytes(p) + m_len, 1);
++    unsigned char msg[32], seed[48];
++    for (int i = 0; i < 48; i++) seed[i] = (unsigned char) i;
++    randombytes_init(seed, NULL, 256);
++    if (mayo_keypair(p, pk, sk) != MAYO_OK) { fprintf(stderr, "keypair a echoue\n"); return 1; }
++
++    /* echauffement, et choix des colonnes : sondes appelees au moins une fois par signature */
++    int cols[PROBE_N], ncol = 0;
++    {
++        profiling_probes_reset();
++        for (int i = 0; i < 20; i++) {
++            unsigned char sd[48]; for (int j = 0; j < 48; j++) sd[j] = (unsigned char) (rnd() & 255);
++            for (int j = 0; j < 32; j++) msg[j] = (unsigned char) (rnd() & 255);
++            for (int a = 0; a < 2; a++) {
++                randombytes_init(sd, NULL, 256); mayo_tail_use_xmm = a;
++                size_t l = PARAM_sig_bytes(p) + m_len;
++                if (mayo_sign_signature(p, sg[a], &l, msg, m_len, sk) != MAYO_OK) { fprintf(stderr, "signature a echoue\n"); return 1; }
++            }
++        }
++        for (int k = 0; k < PROBE_N; k++) if (probe_calls[k] > 0) cols[ncol++] = k;
++    }
++    mayo_tail_use_xmm = 0;
++
++    const char *pre = getenv("PHASES_CSV");
++    FILE *f = NULL;
++    if (pre) {
++        char fn[512]; snprintf(fn, sizeof fn, "%s.csv", pre);
++        f = fopen(fn, "w");
++        if (!f) { perror("csv"); return 1; }
++        fprintf(f, "i,xmm_first,att_b,att_x,tot_b,tot_x,sig_equal");
++        for (int c = 0; c < ncol; c++) {
++            const char *nm = probe_names[cols[c]];
++            while (*nm == ' ') nm++;
++            fprintf(f, ",cb_%d,cx_%d,nb_%d,nx_%d", cols[c], cols[c], cols[c], cols[c]);
++            (void) nm;
++        }
++        fprintf(f, "\n");
++        /* ligne de correspondance id -> nom, en commentaire */
++        fprintf(f, "# ");
++        for (int c = 0; c < ncol; c++) { const char *nm = probe_names[cols[c]]; while (*nm == ' ') nm++; fprintf(f, "%d=%s;", cols[c], nm); }
++        fprintf(f, "\n");
++    }
++
++    int bad_sig = 0, bad_att = 0;
++    uint64_t sumb = 0, sumx = 0;
++    for (int i = -20; i < pairs; i++) {
++        unsigned char sd[48]; for (int j = 0; j < 48; j++) sd[j] = (unsigned char) (rnd() & 255);
++        for (int j = 0; j < 32; j++) msg[j] = (unsigned char) (rnd() & 255);
++        int xf = (int) (rnd() >> 33) & 1;
++        uint64_t tot[2] = {0, 0}, att[2] = {0, 0};
++        uint64_t dc[2][PROBE_N], dn[2][PROBE_N];
++        size_t len[2] = {0, 0}; int ret[2] = {-1, -1};
++        for (int a = 0; a < 2; a++) {
++            int use_x = a == 0 ? xf : !xf;
++            randombytes_init(sd, NULL, 256);
++            mayo_tail_use_xmm = use_x;
++            size_t l = PARAM_sig_bytes(p) + m_len;
++            uint64_t c0[PROBE_N], n0[PROBE_N];
++            memcpy(c0, probe_cycles, sizeof c0); memcpy(n0, probe_calls, sizeof n0);
++            uint64_t t0 = tick();
++            int r = mayo_sign_signature(p, sg[use_x], &l, msg, m_len, sk);
++            uint64_t t1 = tick();
++            for (int k = 0; k < PROBE_N; k++) { dc[use_x][k] = probe_cycles[k] - c0[k]; dn[use_x][k] = probe_calls[k] - n0[k]; }
++            tot[use_x] = t1 - t0; att[use_x] = dn[use_x][PROBE_M_CALC_M_VPV];
++            len[use_x] = l; ret[use_x] = r;
++        }
++        mayo_tail_use_xmm = 0;
++        int eq = (ret[0] == ret[1] && len[0] == len[1] && memcmp(sg[0], sg[1], len[0]) == 0);
++        if (i >= 0) {
++            if (!eq) bad_sig++;
++            if (att[0] != att[1]) bad_att++;
++            sumb += tot[0]; sumx += tot[1];
++            if (f) {
++                fprintf(f, "%d,%d,%llu,%llu,%llu,%llu,%d", i, xf, (unsigned long long) att[0], (unsigned long long) att[1],
++                        (unsigned long long) tot[0], (unsigned long long) tot[1], eq);
++                for (int c = 0; c < ncol; c++) {
++                    int k = cols[c];
++                    fprintf(f, ",%llu,%llu,%llu,%llu", (unsigned long long) dc[0][k], (unsigned long long) dc[1][k],
++                            (unsigned long long) dn[0][k], (unsigned long long) dn[1][k]);
++                }
++                fprintf(f, "\n");
++            }
++        }
++    }
++    if (f) fclose(f);
++    printf("paires=%d  signatures differentes=%d  paires a nombre de tentatives different=%d  moyenne totale officiel=%.0f A2=%.0f\n",
++           pairs, bad_sig, bad_att, (double) sumb / pairs, (double) sumx / pairs);
++    return (bad_sig || bad_att) ? 1 : 0;
++}
+diff --git a/test/tail_study/phases_analyze.py b/test/tail_study/phases_analyze.py
+new file mode 100644
+index 0000000..2adf818
+--- /dev/null
++++ b/test/tail_study/phases_analyze.py
+@@ -0,0 +1,51 @@
++# Analyse de la decomposition instrumentee de mayo_sign (A/B apparie). Unite statistique : le PROCESSUS.
++# Usage : python3 -I phases_analyze.py <dossier_ou_prefixe_csv...>   (fichiers phases_m<k>_s<graine>.csv)
++import sys,glob,re,numpy as np
++rng=np.random.default_rng(5)
++files=[]
++for a in sys.argv[1:]: files+=sorted(glob.glob(a)) if any(c in a for c in '*?') else [a]
++def load(f):
++    names={}
++    for line in open(f):
++        if line.startswith('# '):
++            for kv in line[2:].strip().split(';'):
++                if '=' in kv: k,v=kv.split('=',1); names[int(k)]=v
++            break
++    d=np.genfromtxt(f,delimiter=',',names=True,comments='#')
++    return names,d
++TOP=[0,1,2,3,4,5,6,7,8,9,10,11]
++def ci(v):
++    v=np.asarray(v); i=rng.integers(0,len(v),(4000,len(v))); return np.percentile(np.median(v[i],axis=1),[2.5,97.5])
++def run(files,label,mask_fn=None):
++    rows=[]
++    for f in files:
++        names,d=load(f)
++        if mask_fn is not None: m=mask_fn(d)
++        else: m=np.ones(len(d),bool)
++        if m.sum()<30: continue
++        r={'n':int(m.sum()),'att':float(np.mean(d['att_b'][m])),'ratio':float(np.median(d['tot_x'][m]/d['tot_b'][m])),'tb':float(np.median(d['tot_b'][m])),'tx':float(np.median(d['tot_x'][m]))}
++        for k in names:
++            cb=d[f'cb_{k}'][m];cx=d[f'cx_{k}'][m];nb=d[f'nb_{k}'][m];nx=d[f'nx_{k}'][m]
++            r[k]=(np.median(cb),np.median(cx),np.median(cx-cb),np.mean(cx-cb),np.mean(nb),np.mean(nx))
++        top_b=sum(d[f'cb_{k}'][m] for k in TOP if k in names); top_x=sum(d[f'cx_{k}'][m] for k in TOP if k in names)
++        r['res']=(np.median(d['tot_b'][m]-top_b),np.median(d['tot_x'][m]-top_x),np.mean((d['tot_x'][m]-top_x)-(d['tot_b'][m]-top_b)))
++        r['dtot']=np.mean(d['tot_x'][m]-d['tot_b'][m])
++        rows.append(r)
++    if not rows: print(label,'aucun processus'); return
++    print(f'\n=== {label} : {len(rows)} processus, {sum(r["n"] for r in rows)} signatures ===')
++    rb=[r['ratio'] for r in rows];lo,hi=ci(rb)
++    print(f'total mayo_sign (avec sondes) : officiel {np.median([r["tb"] for r in rows]):.0f}  A2 {np.median([r["tx"] for r in rows]):.0f}  rapport {np.median(rb):.4f} [{min(rb):.4f}-{max(rb):.4f}] IC95 entre processus [{lo:.4f};{hi:.4f}] ; tentatives/signature {np.mean([r["att"] for r in rows]):.3f}')
++    print(f'{"phase":42s} {"appels/sig":>10s} {"officiel":>10s} {"A2":>10s} {"med(x-b)":>10s} {"moy(x-b)":>10s} {"part de la moy(x-b) totale":>26s}')
++    names=load(files[0])[0]
++    dt=np.median([r['dtot'] for r in rows])
++    for k in sorted(names):
++        v=np.array([r[k] for r in rows]); 
++        print(f'{names[k][:42]:42s} {np.median(v[:,4]):10.2f} {np.median(v[:,0]):10.0f} {np.median(v[:,1]):10.0f} {np.median(v[:,2]):10.0f} {np.median(v[:,3]):10.0f} {100*np.median(v[:,3])/dt:25.1f}%')
++    v=np.array([r['res'] for r in rows])
++    print(f'{"[reste non attribue = total - somme des 12 sondes de niveau 1]":42s} {"":>10s} {np.median(v[:,0]):10.0f} {np.median(v[:,1]):10.0f} {"":>10s} {np.median(v[:,2]):10.0f} {100*np.median(v[:,2])/dt:25.1f}%')
++    print(f'{"[total mayo_sign : moyenne de (x-b)]":42s} {"":>10s} {"":>10s} {"":>10s} {"":>10s} {dt:10.0f}')
++run(files,'toutes signatures')
++run(files,'tentatives == 1',lambda d:(d['att_b']==1))
++run(files,'tentatives >= 2',lambda d:(d['att_b']>=2))
++run(files,'A2 execute en premier',lambda d:(d['xmm_first']==1))
++run(files,'officiel execute en premier',lambda d:(d['xmm_first']==0))
+diff --git a/test/tail_study/phases_vs_ref.py b/test/tail_study/phases_vs_ref.py
+new file mode 100644
+index 0000000..67ac990
+--- /dev/null
++++ b/test/tail_study/phases_vs_ref.py
+@@ -0,0 +1,26 @@
++# Compare le rapport A2/officiel de mayo_sign MESURE AVEC sondes (phases_m5_s*.csv) et SANS sondes (csv_ref/m5_s*_mayo_sign.csv).
++# Unite statistique : le processus. Usage : python3 -I phases_vs_ref.py <dossier_phases_...>
++import sys,glob,numpy as np
++rng=np.random.default_rng(3)
++d=sys.argv[1]
++def ratios(files,col_b,col_x):
++    out=[]
++    for f in files:
++        a=np.genfromtxt(f,delimiter=',',names=True,comments='#')
++        out.append(float(np.median(a[col_x]/a[col_b])))
++    return np.array(out)
++def ci(v):
++    i=rng.integers(0,len(v),(4000,len(v))); return np.percentile(np.median(v[i],axis=1),[2.5,97.5])
++for m in ('5','1','2'):
++    fp=sorted(glob.glob(f'{d}/csv_phases/phases_m{m}_s*.csv'))
++    if fp:
++        r=ratios(fp,'tot_b','tot_x'); lo,hi=ci(r)
++        print(f'MAYO-{m} AVEC sondes : {len(r)} processus, rapport mayo_sign {np.median(r):.4f} [{r.min():.4f}-{r.max():.4f}] IC95 entre processus [{lo:.4f};{hi:.4f}]')
++fr=sorted(glob.glob(f'{d}/csv_ref/m5_s*_mayo_sign.csv'))
++if fr:
++    r=ratios(fr,'t_base','t_xmm'); lo,hi=ci(r)
++    print(f'MAYO-5 SANS sondes (reference) : {len(r)} processus, rapport mayo_sign {np.median(r):.4f} [{r.min():.4f}-{r.max():.4f}] IC95 entre processus [{lo:.4f};{hi:.4f}]')
++for lv in ('m_calculate','P1_times_Vt','P1t_times_Vt'):
++    fr=sorted(glob.glob(f'{d}/csv_ref/m5_s*_{lv}.csv'))
++    if fr:
++        r=ratios(fr,'t_base','t_xmm'); print(f'MAYO-5 SANS sondes, niveau {lv} : rapport {np.median(r):.4f} [{r.min():.4f}-{r.max():.4f}] ({len(r)} processus)')
+-- 
+2.43.0
+

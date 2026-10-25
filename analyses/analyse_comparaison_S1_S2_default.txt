@@ -1,0 +1,47 @@
+##### variante default : PARTIE 1 - chaque session separement
+--- S1 (/tmp/claude-0/-home-claude/47105109-5760-5f75-bca8-b14c11341df8/scratchpad/s1pool)
+MAYO-1 P1_times_Vt   n_proc=20 base=41809 a2=32667 ratio=0.7805 [0.7782-0.8186] IC95_entre_proc=[0.7801;0.7824] gain=21.95% | ratio A2 1er=0.7810 off 1er=0.7804 moy 2 ordres=0.7807
+MAYO-1 P1t_times_Vt  n_proc=20 base=51327 a2=36305 ratio=0.7091 [0.7020-0.7170] IC95_entre_proc=[0.7058;0.7125] gain=29.09% | ratio A2 1er=0.7134 off 1er=0.6999 moy 2 ordres=0.7067
+MAYO-1 m_calculate   n_proc=20 base=130991 a2=106539 ratio=0.8106 [0.8083-0.8152] IC95_entre_proc=[0.8098;0.8122] gain=18.94% | ratio A2 1er=0.8105 off 1er=0.8106 moy 2 ordres=0.8106
+MAYO-1 mayo_sign     n_proc=20 base=286984 a2=258257 ratio=0.8976 [0.8959-0.9025] IC95_entre_proc=[0.8973;0.8980] gain=10.24% | ratio A2 1er=0.8976 off 1er=0.8976 moy 2 ordres=0.8976
+MAYO-5 P1_times_Vt   n_proc=20 base=266611 a2=214690 ratio=0.8038 [0.7995-0.8081] IC95_entre_proc=[0.8030;0.8047] gain=19.62% | ratio A2 1er=0.8037 off 1er=0.8038 moy 2 ordres=0.8037
+MAYO-5 P1t_times_Vt  n_proc=20 base=352941 a2=314309 ratio=0.8914 [0.8895-0.8951] IC95_entre_proc=[0.8912;0.8930] gain=10.86% | ratio A2 1er=0.8923 off 1er=0.8914 moy 2 ordres=0.8919
+MAYO-5 m_calculate   n_proc=20 base=791297 a2=700102 ratio=0.8853 [0.8836-0.8884] IC95_entre_proc=[0.8846;0.8860] gain=11.47% | ratio A2 1er=0.8855 off 1er=0.8851 moy 2 ordres=0.8853
+MAYO-5 mayo_sign     n_proc=20 base=1470157 a2=1445415 ratio=0.9834 [0.9826-0.9855] IC95_entre_proc=[0.9829;0.9836] gain=1.66% | ratio A2 1er=0.9831 off 1er=0.9836 moy 2 ordres=0.9833
+MAYO-2 m_calculate   n_proc=20 base=35827 a2=35783 ratio=1.0001 [0.9967-1.0019] IC95_entre_proc=[1.0000;1.0005] gain=-0.01% | ratio A2 1er=1.0006 off 1er=0.9997 moy 2 ordres=1.0001
+MAYO-2 mayo_sign     n_proc=20 base=141942 a2=141949 ratio=1.0000 [0.9999-1.0002] IC95_entre_proc=[1.0000;1.0000] gain=-0.00% | ratio A2 1er=1.0000 off 1er=1.0000 moy 2 ordres=1.0000
+MAYO-3 m_calculate   n_proc=20 base=294489 a2=294525 ratio=1.0001 [0.9978-1.0013] IC95_entre_proc=[0.9993;1.0006] gain=-0.01% | ratio A2 1er=1.0004 off 1er=0.9999 moy 2 ordres=1.0001
+MAYO-3 mayo_sign     n_proc=20 base=609616 a2=609687 ratio=1.0000 [0.9998-1.0001] IC95_entre_proc=[1.0000;1.0000] gain=0.00% | ratio A2 1er=1.0001 off 1er=0.9999 moy 2 ordres=1.0000
+--- S2 (/tmp/claude-0/-home-claude/47105109-5760-5f75-bca8-b14c11341df8/scratchpad/phys/s5)
+MAYO-1 P1_times_Vt   n_proc=5 base=232764 a2=169736 ratio=0.7293 [0.7141-0.7800] IC95_entre_proc=[0.7141;0.7800] gain=27.07% | ratio A2 1er=0.7303 off 1er=0.7283 moy 2 ordres=0.7293
+MAYO-1 P1t_times_Vt  n_proc=5 base=262330 a2=183574 ratio=0.7070 [0.6988-0.7118] IC95_entre_proc=[0.6988;0.7118] gain=29.30% | ratio A2 1er=0.7115 off 1er=0.6996 moy 2 ordres=0.7056
+MAYO-1 m_calculate   n_proc=5 base=666696 a2=541152 ratio=0.8104 [0.8097-0.8120] IC95_entre_proc=[0.8097;0.8120] gain=18.96% | ratio A2 1er=0.8103 off 1er=0.8106 moy 2 ordres=0.8104
+MAYO-1 mayo_sign     n_proc=5 base=1483622 a2=1333692 ratio=0.8973 [0.8964-0.8989] IC95_entre_proc=[0.8964;0.8989] gain=10.27% | ratio A2 1er=0.8973 off 1er=0.8972 moy 2 ordres=0.8972
+MAYO-5 P1_times_Vt   n_proc=5 base=1349642 a2=1085932 ratio=0.8032 [0.7993-0.8049] IC95_entre_proc=[0.7993;0.8049] gain=19.68% | ratio A2 1er=0.8031 off 1er=0.8032 moy 2 ordres=0.8032
+MAYO-5 P1t_times_Vt  n_proc=5 base=1834692 a2=1638786 ratio=0.8917 [0.8899-0.8942] IC95_entre_proc=[0.8899;0.8942] gain=10.83% | ratio A2 1er=0.8919 off 1er=0.8912 moy 2 ordres=0.8916
+MAYO-5 m_calculate   n_proc=5 base=4023058 a2=3560736 ratio=0.8840 [0.8833-0.8868] IC95_entre_proc=[0.8833;0.8868] gain=11.60% | ratio A2 1er=0.8844 off 1er=0.8835 moy 2 ordres=0.8840
+MAYO-5 mayo_sign     n_proc=5 base=7690598 a2=7564016 ratio=0.9843 [0.9828-0.9847] IC95_entre_proc=[0.9828;0.9847] gain=1.57% | ratio A2 1er=0.9842 off 1er=0.9844 moy 2 ordres=0.9843
+MAYO-2 m_calculate   n_proc=5 base=179850 a2=179866 ratio=0.9997 [0.9960-1.0001] IC95_entre_proc=[0.9960;1.0001] gain=0.03% | ratio A2 1er=1.0002 off 1er=0.9992 moy 2 ordres=0.9997
+MAYO-2 mayo_sign     n_proc=5 base=741488 a2=741432 ratio=1.0000 [0.9999-1.0002] IC95_entre_proc=[0.9999;1.0002] gain=0.00% | ratio A2 1er=1.0001 off 1er=0.9999 moy 2 ordres=1.0000
+MAYO-3 m_calculate   n_proc=5 base=1508344 a2=1506760 ratio=1.0000 [0.9979-1.0011] IC95_entre_proc=[0.9979;1.0011] gain=0.00% | ratio A2 1er=1.0001 off 1er=0.9991 moy 2 ordres=0.9996
+MAYO-3 mayo_sign     n_proc=5 base=3190836 a2=3191072 ratio=1.0000 [1.0000-1.0001] IC95_entre_proc=[1.0000;1.0001] gain=0.00% | ratio A2 1er=1.0001 off 1er=0.9999 moy 2 ordres=1.0000
+
+##### PARTIE 2 - comparaison S2 vs S1 (difference des rapports ; bootstrap sur les processus de chaque session)
+MAYO-1 P1_times_Vt   ratio S1=0.7805 S2=0.7293 diff(S2-S1)=-0.0513 IC95=[-0.0667;-0.0006]
+MAYO-1 P1t_times_Vt  ratio S1=0.7091 S2=0.7070 diff(S2-S1)=-0.0021 IC95=[-0.0104;+0.0047]
+MAYO-1 m_calculate   ratio S1=0.8106 S2=0.8104 diff(S2-S1)=-0.0002 IC95=[-0.0019;+0.0016]
+MAYO-1 mayo_sign     ratio S1=0.8976 S2=0.8973 diff(S2-S1)=-0.0003 IC95=[-0.0012;+0.0013]
+MAYO-5 P1_times_Vt   ratio S1=0.8038 S2=0.8032 diff(S2-S1)=-0.0005 IC95=[-0.0050;+0.0011]
+MAYO-5 P1t_times_Vt  ratio S1=0.8914 S2=0.8917 diff(S2-S1)=+0.0002 IC95=[-0.0028;+0.0027]
+MAYO-5 m_calculate   ratio S1=0.8853 S2=0.8840 diff(S2-S1)=-0.0013 IC95=[-0.0024;+0.0016]
+MAYO-5 mayo_sign     ratio S1=0.9834 S2=0.9843 diff(S2-S1)=+0.0009 IC95=[-0.0007;+0.0016]
+MAYO-2 m_calculate   ratio S1=1.0001 S2=0.9997 diff(S2-S1)=-0.0004 IC95=[-0.0042;+0.0000]
+MAYO-2 mayo_sign     ratio S1=1.0000 S2=1.0000 diff(S2-S1)=-0.0000 IC95=[-0.0001;+0.0002]
+MAYO-3 m_calculate   ratio S1=1.0001 S2=1.0000 diff(S2-S1)=-0.0001 IC95=[-0.0023;+0.0011]
+MAYO-3 mayo_sign     ratio S1=1.0000 S2=1.0000 diff(S2-S1)=+0.0000 IC95=[-0.0001;+0.0001]
+
+##### PARTIE 3 - mayo_sign - m_calculate (MESURE DIRECTE NON VALIDE comme cout du reste : niveaux mesures dans des appariements distincts ; indication seulement)
+S1 MAYO-1: officiel 155993 | A2 151718 | variation -4275 ticks ; gain m_calculate 24452, gain mayo_sign 28727
+S1 MAYO-5: officiel 678860 | A2 745313 | variation +66453 ticks ; gain m_calculate 91195, gain mayo_sign 24742
+S2 MAYO-1: officiel 816926 | A2 792540 | variation -24386 ticks ; gain m_calculate 125544, gain mayo_sign 149930
+S2 MAYO-5: officiel 3667540 | A2 4003280 | variation +335740 ticks ; gain m_calculate 462322, gain mayo_sign 126582

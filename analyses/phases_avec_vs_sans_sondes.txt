@@ -1,0 +1,7 @@
+MAYO-5 AVEC sondes : 10 processus, rapport mayo_sign 0.9270 [0.9253-0.9283] IC95 entre processus [0.9261;0.9279]
+MAYO-1 AVEC sondes : 5 processus, rapport mayo_sign 0.8983 [0.8981-0.8993] IC95 entre processus [0.8981;0.8993]
+MAYO-2 AVEC sondes : 5 processus, rapport mayo_sign 0.9999 [0.9999-1.0000] IC95 entre processus [0.9999;1.0000]
+MAYO-5 SANS sondes (reference) : 5 processus, rapport mayo_sign 0.9871 [0.9853-0.9886] IC95 entre processus [0.9853;0.9886]
+MAYO-5 SANS sondes, niveau m_calculate : rapport 0.8858 [0.8842-0.8870] (5 processus)
+MAYO-5 SANS sondes, niveau P1_times_Vt : rapport 0.8054 [0.8004-0.8085] (5 processus)
+MAYO-5 SANS sondes, niveau P1t_times_Vt : rapport 0.8805 [0.8696-0.8907] (5 processus)

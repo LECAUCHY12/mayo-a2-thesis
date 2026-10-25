@@ -1,0 +1,238 @@
+From aad15e8a7de214c63b4b3bf555912b8f4299af30 Mon Sep 17 00:00:00 2001
+From: Marcel Eric Angoah <marcelericangoah@gmail.com>
+Date: Wed, 21 Oct 2026 19:22:09 +0100
+Subject: [PATCH] Controle de l'effet des sondes : masque de sondes, build
+ plain, run_controle.sh
+
+Ajoute MAYO_PROBES_MASK (sondes activees par masque de compilation ; defaut : toutes, comportement inchange),
+les bibliotheques *_phases_{none,esk,mcalc}, le build "plain" du meme programme de test lie a *_tailab,
+test/run_controle.sh et controle_analyze.py. Aucune optimisation nouvelle.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013EN1pV7V5FE6tBx9nkRL6J
+---
+ src/CMakeLists.txt                  | 21 ++++++++++
+ src/profiling_probes.h              | 17 ++++++--
+ test/CMakeLists.txt                 | 14 +++++++
+ test/run_controle.sh                | 62 +++++++++++++++++++++++++++++
+ test/sign_phases_ab.c               | 11 +++--
+ test/tail_study/controle_analyze.py | 23 +++++++++++
+ 6 files changed, 141 insertions(+), 7 deletions(-)
+ create mode 100644 test/run_controle.sh
+ create mode 100644 test/tail_study/controle_analyze.py
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index f09c8d3..0d3cbbb 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -125,6 +125,27 @@ else()
+         if (MAYO_TAIL_SAFE)
+             target_compile_definitions(${MVARIANT_LOWER}_phases PUBLIC MAYO_TAIL_XMM_SAFE)
+         endif()
++        # Controle "sondes eparses" : memes sources, seules certaines sondes sont actives (masque de compilation).
++        #   none : aucune sonde (code objet identique a _tailab) ; esk : expand_sk_internal seul ; mcalc : m_calculate_M_and_VPV seul
++        foreach(PTAG none esk mcalc)
++            if (PTAG STREQUAL "none")
++                set(PMASK 0x0ULL)
++            elseif (PTAG STREQUAL "esk")
++                set(PMASK 0x800ULL)
++            else()
++                set(PMASK 0x40ULL)
++            endif()
++            add_library(${MVARIANT_LOWER}_phases_${PTAG} ${SOURCE_FILES_MAYO} profiling_probes.c)
++            target_link_libraries(${MVARIANT_LOWER}_phases_${PTAG} PUBLIC mayo_common_test)
++            target_include_directories(${MVARIANT_LOWER}_phases_${PTAG} PUBLIC ../include . PRIVATE common ${INC_PLATFORM})
++            target_compile_definitions(${MVARIANT_LOWER}_phases_${PTAG} PUBLIC MAYO_VARIANT=${MVARIANT} MAYO_TAIL_XMM MAYO_TAIL_AB MAYO_PROFILING_PROBES MAYO_PROBES_MASK=${PMASK})
++            if (MAYO_TAIL_CHECK)
++                target_compile_definitions(${MVARIANT_LOWER}_phases_${PTAG} PUBLIC MAYO_TAIL_XMM_CHECK)
++            endif()
++            if (MAYO_TAIL_SAFE)
++                target_compile_definitions(${MVARIANT_LOWER}_phases_${PTAG} PUBLIC MAYO_TAIL_XMM_SAFE)
++            endif()
++        endforeach()
+     ENDFOREACH()
+ 
+     foreach(MVARIANT ${MVARIANT_S})
+diff --git a/src/profiling_probes.h b/src/profiling_probes.h
+index 6a269ad..f509d1e 100644
+--- a/src/profiling_probes.h
++++ b/src/profiling_probes.h
+@@ -112,11 +112,20 @@ static inline uint64_t probe_rdtscp(void) {
+     return __rdtscp(&aux);
+ }
+ 
+-#define PROBE_START_ID(id) (probe_t0[(id)] = probe_rdtscp())
++// MAYO_PROBES_MASK : masque (bit = identifiant de sonde) des sondes ACTIVES, constante de compilation.
++// Par defaut toutes ; les sondes hors masque disparaissent a la compilation (aucune instruction).
++// Sert au controle "sondes eparses" (quelles frontieres de mesure modifient le comportement).
++#ifndef MAYO_PROBES_MASK
++#define MAYO_PROBES_MASK (~0ULL)
++#endif
++#define PROBE_ON(id) ((((unsigned long long) (MAYO_PROBES_MASK)) >> (id)) & 1ULL)
++#define PROBE_START_ID(id) do { if (PROBE_ON(id)) probe_t0[(id)] = probe_rdtscp(); } while (0)
+ #define PROBE_END_ID(id) do { \
+-        _mm_lfence(); \
+-        probe_cycles[(id)] += probe_rdtscp() - probe_t0[(id)]; \
+-        probe_calls[(id)] += 1; \
++        if (PROBE_ON(id)) { \
++            _mm_lfence(); \
++            probe_cycles[(id)] += probe_rdtscp() - probe_t0[(id)]; \
++            probe_calls[(id)] += 1; \
++        } \
+     } while (0)
+ // Alias historiques : la forme a un seul argument n'est plus utilisable des
+ // deux cotes avec un etat partage (voir ci-dessus). PROBE_START() seul ne
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index b9636e9..eeb038a 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -67,6 +67,20 @@ else()
+         target_include_directories(mayo_sign_phases_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
+         target_include_directories(mayo_sign_phases_${MVARIANT} PRIVATE ../src ../src/AVX2 ../src/generic ../src/common)
+         target_compile_definitions(mayo_sign_phases_${MVARIANT} PRIVATE MAYO_AVX)
++        add_executable(mayo_sign_plain_${MVARIANT} sign_phases_ab.c)
++        target_link_libraries(mayo_sign_plain_${MVARIANT} ${MVARIANT_LOWER}_tailab)
++        target_link_libraries(mayo_sign_plain_${MVARIANT} m)
++        target_include_directories(mayo_sign_plain_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
++        target_include_directories(mayo_sign_plain_${MVARIANT} PRIVATE ../src ../src/AVX2 ../src/generic ../src/common)
++        target_compile_definitions(mayo_sign_plain_${MVARIANT} PRIVATE MAYO_AVX)
++        foreach(PTAG none esk mcalc)
++            add_executable(mayo_sign_phases_${PTAG}_${MVARIANT} sign_phases_ab.c)
++            target_link_libraries(mayo_sign_phases_${PTAG}_${MVARIANT} ${MVARIANT_LOWER}_phases_${PTAG})
++            target_link_libraries(mayo_sign_phases_${PTAG}_${MVARIANT} m)
++            target_include_directories(mayo_sign_phases_${PTAG}_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
++            target_include_directories(mayo_sign_phases_${PTAG}_${MVARIANT} PRIVATE ../src ../src/AVX2 ../src/generic ../src/common)
++            target_compile_definitions(mayo_sign_phases_${PTAG}_${MVARIANT} PRIVATE MAYO_AVX)
++        endforeach()
+     ENDFOREACH()
+ 
+ endif()
+diff --git a/test/run_controle.sh b/test/run_controle.sh
+new file mode 100644
+index 0000000..9208884
+--- /dev/null
++++ b/test/run_controle.sh
+@@ -0,0 +1,62 @@
++#!/bin/sh
++# Controle de l'effet des sondes sur mayo_sign (MAYO-5, A/B apparie officiel / A2 SAFE). Aucune optimisation.
++# Cinq configurations du MEME programme de test (sign_phases_ab.c), alternees dans le temps (ordre tournant par graine) :
++#   plain  : aucune sonde, bibliotheque *_tailab d'origine (temps total seulement)
++#   none   : sondes compilees mais toutes desactivees (masque 0)
++#   esk    : sonde sur expand_sk_internal seule
++#   mcalc  : sonde sur m_calculate_M_and_VPV seule
++#   all    : toutes les sondes (comme run_phases.sh)
++# Plus la reference habituelle (mayo_tail_ab bench) sur quelques graines.
++# Usage : SESSION=<etiquette unique> sh test/run_controle.sh [coeur=1] [paires=3001] [graines="41 42 43 44 45 46 47 48 49 50"]
++set -e
++ROOT=$(cd "$(dirname "$0")/.." && pwd)
++CORE=${1:-1}; PAIRS=${2:-3001}; SEEDS=${3:-"41 42 43 44 45 46 47 48 49 50"}
++SESSION=${SESSION:-ctrl_$(date +%Y%m%d_%H%M%S)}
++OUT=${OUT:-$ROOT/controle_$(hostname)_$SESSION}
++[ ! -e "$OUT" ] || { echo "REFUS : $OUT existe deja (pas d'ecrasement). Changer SESSION."; exit 1; }
++grep -q avx2 /proc/cpuinfo || { echo "AVX2 absent : arret"; exit 1; }
++mkdir -p "$OUT/csv_ctrl" "$OUT/csv_ref" "$OUT/logs"
++{
++  echo "== session"; echo "$SESSION"
++  echo "== date"; date -u; echo "== uname"; uname -a; echo "== lscpu"; lscpu
++  echo "== hypervisor flag (0 attendu sur machine physique)"; grep -c hypervisor /proc/cpuinfo || true
++  echo "== systemd-detect-virt"; (systemd-detect-virt 2>/dev/null || echo "n/a")
++  echo "== governor"; cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_governor 2>/dev/null || echo "n/a"
++  echo "== no_turbo"; cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo "n/a"
++  echo "== MHz cpu$CORE"; awk -v c=$CORE '/^processor/{p=$3} p==c && /cpu MHz/{print; exit}' /proc/cpuinfo
++  echo "== SMT"; cat /sys/devices/system/cpu/smt/active 2>/dev/null || echo "n/a"
++  echo "== charge (uptime)"; uptime; echo "== uptime -s"; uptime -s
++  echo "== boot_id"; cat /proc/sys/kernel/random/boot_id
++  echo "== alimentation"; for p in /sys/class/power_supply/*; do echo "$(basename $p) type=$(cat $p/type 2>/dev/null) online=$(cat $p/online 2>/dev/null || echo n/a)"; done 2>/dev/null || true
++  echo "== gcc"; gcc --version | head -1; echo "== cmake"; cmake --version | head -1
++  echo "== arguments"; echo "coeur=$CORE paires=$PAIRS graines=$SEEDS"
++} > "$OUT/machine.txt" 2>&1
++mkdir -p "$OUT/build" && cd "$OUT/build"
++cmake "$ROOT" -DMAYO_BUILD_TYPE=avx2 "-DMAYO_MARCH=-march=haswell -maes" -DMAYO_TAIL_SAFE=ON > cmake.log 2>&1
++make -j"$(nproc)" mayo_sign_plain_MAYO_5 mayo_sign_phases_none_MAYO_5 mayo_sign_phases_esk_MAYO_5 mayo_sign_phases_mcalc_MAYO_5 mayo_sign_phases_MAYO_5 mayo_tail_ab_MAYO_5 > make.log 2>&1
++T=$OUT/build/test
++bin() { case $1 in plain) echo "$T/mayo_sign_plain_MAYO_5";; none) echo "$T/mayo_sign_phases_none_MAYO_5";; esk) echo "$T/mayo_sign_phases_esk_MAYO_5";; mcalc) echo "$T/mayo_sign_phases_mcalc_MAYO_5";; all) echo "$T/mayo_sign_phases_MAYO_5";; esac; }
++CFGS="plain none esk mcalc all"
++idx=0
++for s in $SEEDS; do
++  # rotation de l'ordre des configurations a chaque graine
++  k=$((idx % 5)); order=""; j=0
++  for c in $CFGS; do if [ $j -ge $k ]; then order="$order $c"; fi; j=$((j+1)); done
++  j=0; for c in $CFGS; do if [ $j -lt $k ]; then order="$order $c"; fi; j=$((j+1)); done
++  for c in $order; do
++    echo "#### $c graine=$s" | tee -a "$OUT/logs/ctrl.log"
++    PHASES_CSV="$OUT/csv_ctrl/cfg_${c}_m5_s$s" taskset -c "$CORE" "$(bin $c)" "$PAIRS" "$s" 2>&1 | tee -a "$OUT/logs/ctrl.log"
++  done
++  if [ $((idx % 2)) -eq 1 ]; then
++    echo "#### reference mayo_tail_ab graine=$s" | tee -a "$OUT/logs/ref.log"
++    EF_AB_CSV="$OUT/csv_ref/m5_s$s" taskset -c "$CORE" "$T/mayo_tail_ab_MAYO_5" bench "$PAIRS" "$s" 2>&1 | tee -a "$OUT/logs/ref.log"
++  fi
++  idx=$((idx+1))
++done
++{ echo "== uptime fin"; uptime; echo "== MHz cpu$CORE fin"; awk -v c=$CORE '/^processor/{p=$3} p==c && /cpu MHz/{print; exit}' /proc/cpuinfo; } >> "$OUT/machine.txt"
++cd "$ROOT"
++ARCH="$ROOT/$(basename "$OUT").tar.gz"
++[ ! -e "$ARCH" ] || { echo "REFUS : $ARCH existe"; exit 1; }
++tar czf "$ARCH" --exclude='build' -C "$ROOT" "$(basename "$OUT")"
++sha256sum "$ARCH" | tee "$ARCH.sha256"
++echo "Archive complete (CSV bruts inclus) : $ARCH"
+diff --git a/test/sign_phases_ab.c b/test/sign_phases_ab.c
+index 686bfc0..13c10ef 100644
+--- a/test/sign_phases_ab.c
++++ b/test/sign_phases_ab.c
+@@ -15,16 +15,21 @@
+ #include <mayo.h>
+ #include <arithmetic.h>
+ #include <randombytes.h>
++#ifdef MAYO_PROFILING_PROBES
+ #include <profiling_probes.h>
++#else
++/* build "plain" : meme programme de test, bibliotheque *_tailab SANS aucune sonde (seul le temps total est enregistre) */
++enum { PROBE_M_CALC_M_VPV = 0, PROBE_N = 1 };
++static uint64_t probe_cycles[PROBE_N], probe_calls[PROBE_N];
++static const char *probe_names[PROBE_N] = {"(aucune sonde)"};
++static inline void profiling_probes_reset(void) { probe_cycles[0] = 0; probe_calls[0] = 0; }
++#endif
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <x86intrin.h>
+ 
+-#ifndef MAYO_PROFILING_PROBES
+-#error "sign_phases_ab.c doit etre compile avec -DMAYO_PROFILING_PROBES"
+-#endif
+ #ifndef MAYO_TAIL_AB
+ #error "sign_phases_ab.c doit etre compile avec -DMAYO_TAIL_AB (choix officiel/A2 a l'execution)"
+ #endif
+diff --git a/test/tail_study/controle_analyze.py b/test/tail_study/controle_analyze.py
+new file mode 100644
+index 0000000..1e4eabb
+--- /dev/null
++++ b/test/tail_study/controle_analyze.py
+@@ -0,0 +1,23 @@
++# Analyse du controle des sondes. Unite statistique : le PROCESSUS. Usage : python3 -I controle_analyze.py <dossier_controle>
++import sys,glob,re,numpy as np
++rng=np.random.default_rng(9)
++D=sys.argv[1]
++def ci(v):
++    v=np.asarray(v); i=rng.integers(0,len(v),(4000,len(v))); return np.percentile(np.median(v[i],axis=1),[2.5,97.5])
++def load(f): return np.genfromtxt(f,delimiter=',',names=True,comments='#')
++print('configuration | n_proc | total officiel | total A2 | rapport A2/officiel [min-max] IC95 entre processus | gain | reste(=total-sonde) officiel/A2 si sonde unique')
++for c in ('plain','none','esk','mcalc','all'):
++    fs=sorted(glob.glob(f'{D}/csv_ctrl/cfg_{c}_m5_s*.csv'))
++    if not fs: continue
++    R=[];TB=[];TX=[];RB=[];RX=[]
++    for f in fs:
++        a=load(f); R.append(np.median(a['tot_x']/a['tot_b'])); TB.append(np.median(a['tot_b'])); TX.append(np.median(a['tot_x']))
++        names=a.dtype.names
++        if c=='esk' and 'cb_11' in names: RB.append(np.median(a['tot_b']-a['cb_11'])); RX.append(np.median(a['tot_x']-a['cx_11']))
++        if c=='mcalc' and 'cb_6' in names: RB.append(np.median(a['tot_b']-a['cb_6'])); RX.append(np.median(a['tot_x']-a['cx_6']))
++    lo,hi=ci(R); rest=f'{np.median(RB):.0f} / {np.median(RX):.0f}  (ecart {np.median(RX)-np.median(RB):+.0f})' if RB else ''
++    print(f'{c:6s} | {len(R):2d} | {np.median(TB):.0f} | {np.median(TX):.0f} | {np.median(R):.4f} [{min(R):.4f}-{max(R):.4f}] [{lo:.4f};{hi:.4f}] | {100*(1-np.median(R)):.2f} % | {rest}')
++fr=sorted(glob.glob(f'{D}/csv_ref/m5_s*_mayo_sign.csv'))
++if fr:
++    R=[np.median(load(f)['t_xmm']/load(f)['t_base']) for f in fr]; lo,hi=ci(R)
++    print(f'ref(mayo_tail_ab) | {len(R)} | | | {np.median(R):.4f} [{min(R):.4f}-{max(R):.4f}] [{lo:.4f};{hi:.4f}] | {100*(1-np.median(R)):.2f} %')
+-- 
+2.43.0
+
