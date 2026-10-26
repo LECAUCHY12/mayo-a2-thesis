@@ -1,12 +1,66 @@
 \chapter[Fondements et revue de littérature]{Fondements théoriques et revue de littérature}
 \label{ch:etat}
 
-Ce chapitre présente le schéma MAYO et ses noyaux de calcul, l'arithmétique par \vpshufb{} sur $\mathbb{F}_{16}$, les implémentations existantes, puis situe l'optimisation étudiée par rapport à ces sources.
+Ce chapitre donne au lecteur ce qui est nécessaire pour suivre la suite sans autre source : le schéma de signature MAYO et ses algorithmes (section~\ref{sec:schema}), leur traduction dans le code de référence et la place des noyaux étudiés (section~\ref{sec:code}), la représentation des données et l'arithmétique par \vpshufb{} sur $\mathbb{F}_{16}$ (section~\ref{sec:arith}), un panorama des analyses menées (section~\ref{sec:panorama}), puis les implémentations existantes et le positionnement de l'optimisation étudiée (sections~\ref{sec:revue} et suivantes).
 
 \section{Fondements théoriques}
-\subsection{Le schéma MAYO et ses noyaux de calcul}
-\subsubsection{Structure}
-MAYO~\cite{mayo} dérive d'un schéma UOV~\cite{uov} dont l'espace d'huile est volontairement petit, ce qui réduit la clé publique ; la sécurité est restaurée en composant $k$ copies de l'application publique (« fouettage »). Les paramètres de ce mémoire sont ceux de l'arbre officiel de référence (annexe~\ref{app:inventaire}). Les grandeurs utiles à l'étude des noyaux sont données au tableau~\ref{tab:params}.
+\subsection{Le schéma MAYO}\label{sec:schema}
+\subsubsection{Des signatures multivariées à Oil-and-Vinegar}
+Une signature multivariée repose sur une application publique quadratique $\mathcal{P}:\mathbb{F}_q^n\to\mathbb{F}_q^m$, formée de $m$ polynômes homogènes de degré~2 en $n$ variables. Une signature d'un message $M$ est un point $s$ tel que $\mathcal{P}(s)=H(M)$, où $H$ est une fonction de hachage salée à valeurs dans $\mathbb{F}_q^m$ ; la vérification consiste donc à évaluer $\mathcal{P}$. Le schéma Oil-and-Vinegar (OV)~\cite{patarin,kipnisshamir,uov} cache une structure : la clé secrète est un sous-espace $\mathcal{O}\subset\mathbb{F}_q^n$ (« l'huile ») de dimension $o$ sur lequel $\mathcal{P}$ s'annule. Dans OV, $o=m$ : pour signer, on tire au hasard les composantes « vinaigre » $v\in\mathbb{F}_q^{n-o}$, et il reste à résoudre un \emph{système linéaire} de $m$ équations en les $o$ composantes d'huile. L'inconvénient d'OV est la taille de ses clés.
+
+\subsubsection{Le schéma MAYO}
+MAYO~\cite{mayo,nibbling} choisit un espace d'huile \emph{trop petit} ($o<m$), ce qui réduit fortement les clés mais interdit la résolution directe. La parade est le « fouettage » : l'application publique $\mathcal{P}$ est étendue en une application $\mathcal{P}^\star:\mathbb{F}_q^{kn}\to\mathbb{F}_q^m$ à $k$ blocs de $n$ variables,
+\[\mathcal{P}^\star(x_1,\dots,x_k)=\sum_{i=1}^{k}E_{ii}\,\mathcal{P}(x_i)+\sum_{i=1}^{k}\sum_{j=i+1}^{k}E_{ij}\,\mathcal{P}'(x_i,x_j),\qquad \mathcal{P}'(x,y)=\mathcal{P}(x+y)-\mathcal{P}(x)-\mathcal{P}(y),\]
+où les matrices publiques $E_{ij}\in\mathbb{F}_q^{m\times m}$ représentent la multiplication par des puissances de $X$ modulo un polynôme irréductible de degré~$m$. Une signature est $S=(s_1,\dots,s_k)$, valide si $\mathcal{P}^\star(S)=H(M)$. Ici $q=16$. Les paramètres $m$, $k$, $o$, $n$ définissent quatre jeux (MAYO-1, 2, 3 et 5) selon le niveau de sécurité NIST~\cite{nistadd}.
+
+\subsubsection{Évaluation par produits de matrices}
+Les $m$ polynômes de $\mathcal{P}$ s'écrivent $p_\ell(x)=x^{\top}P_\ell\,x$, avec $P_\ell$ triangulaire supérieure, découpée en blocs
+\[P_\ell=\begin{pmatrix}P^{(1)}_\ell&P^{(2)}_\ell\\0&P^{(3)}_\ell\end{pmatrix},\]
+où $P^{(1)}_\ell$ est de taille $v\times v$ avec $v=n-o$ (noté $V$ dans le code et au tableau~\ref{tab:params}), $P^{(2)}_\ell$ de taille $v\times o$ et $P^{(3)}_\ell$ de taille $o\times o$. Les blocs $P^{(1)}$ et $P^{(2)}$ sont dérivés d'une graine par une fonction d'expansion à base d'AES ; seul $P^{(3)}$ est stocké dans la clé publique~\cite{nibbling}. Si $S$ est la matrice dont les colonnes sont $s_1,\dots,s_k$, tout se déduit de $S^{\top}P_\ell S$ : $\mathcal{P}(s_i)_\ell$ est son élément diagonal $(i,i)$ et $\mathcal{P}'(s_i,s_j)_\ell$ la somme des éléments $(i,j)$ et $(j,i)$. \emph{Les produits matrice $\times$ matrice dominent donc le coût}, ce qui motive leur optimisation~\cite{nibbling}.
+
+\subsubsection{Algorithmes (version simplifiée)}
+\begin{encadre}
+\textbf{KeyGen.} Tirer \code{seed_sk} ; en dériver \code{seed_pk} et $O\in\mathbb{F}_{16}^{v\times o}$ ; développer $\{P^{(1)}_\ell,P^{(2)}_\ell\}$ depuis \code{seed_pk} ; calculer $P^{(3)}_\ell=\mathrm{Upper}\big(-O^{\top}(P^{(1)}_\ell O-P^{(2)}_\ell)\big)$. Clé publique : \code{seed_pk} et $\{P^{(3)}_\ell\}$ ; clé secrète : \code{seed_sk}.\\[2pt]
+\textbf{Sign}$(M)$. (1)~Tirer un sel et calculer $t=H(M\,\|\,\text{sel})\in\mathbb{F}_{16}^m$. (2)~Tirer $V\in\mathbb{F}_{16}^{k\times v}$ (les « vinaigres »). (3)~Pour chaque $\ell<m$ : $L_\ell=(P^{(1)}_\ell+P^{(1)\top}_\ell)\,O+P^{(2)}_\ell$ ; $M_\ell=V\,L_\ell$ ; $Y_\ell=V\,P^{(1)}_\ell\,V^{\top}$. (4)~Assembler le système linéaire $Ax=y$, où $A$ provient des $M_\ell$ et $y=t+(\text{combinaison des }Y_\ell)$. (5)~Si le système n'a pas de solution, retourner à l'étape~2 (nouveaux vinaigres) ; sinon tirer une solution $x$ au hasard. (6)~Signature : $S=(V+(OX)^{\top},X)$, où $X$ est $x$ mis en matrice $k\times o$.\\[2pt]
+\textbf{Verify.} Redévelopper $P^{(1)},P^{(2)}$ ; calculer $t=H(M\,\|\,\text{sel})$ ; calculer $Y_\ell=S\begin{pmatrix}P^{(1)}_\ell&P^{(2)}_\ell\\0&P^{(3)}_\ell\end{pmatrix}S^{\top}$, combiner en $\mathcal{P}^\star(S)$ ; accepter si le résultat égale $t$.
+\end{encadre}
+La signature fait donc intervenir : des produits de matrices ($M_\ell$ et $Y_\ell$, à partir de la clé publique étendue $P^{(1)}$, $P^{(2)}$), la résolution d'un système linéaire par élimination de Gauss en temps constant, et des boucles de reprise. Selon~\cite{nibbling}, les évaluations partielles de $\mathcal{P}$ et l'élimination de Gauss sont les étapes les plus coûteuses ; l'assemblage de $A$ et de $y$ ne l'est que marginalement.
+
+\subsection{La signature dans le code de référence}\label{sec:code}
+\subsubsection{Le déroulement d'une tentative}
+Dans l'arbre de référence (annexe~\ref{app:inventaire}), \code{mayo_sign_signature} calcule le sel et $t$, puis exécute une boucle d'au plus 256 tentatives (octet de compteur). Chaque tentative enchaîne les étapes suivantes (figure~\ref{fig:pipeline}) :
+\begin{enumerate}[itemsep=1pt]
+\item tirer et décoder les vinaigres $V$ (SHAKE256) ;
+\item \code{m_calculate_M_and_VPV} : calculer les matrices $M_\ell$ et tous les produits $v_i P^{(1)} v_j$ ;
+\item \code{compute_rhs} (second membre $y$) puis \code{compute_A} (matrice $A$) ;
+\item \code{sample_solution} : résoudre $Ax=y$ ; en cas d'échec, nouvelle tentative ;
+\item \code{m_compute_s} : assembler la signature $s_i=[\,v_i+Ox_i\mid x_i\,]$.
+\end{enumerate}
+
+\begin{figure}[ht]\centering
+\begin{tikzpicture}[node distance=5mm,font=\small,box/.style={draw,rounded corners=2pt,fill=ice,minimum width=3.4cm,minimum height=0.7cm,align=center},key/.style={draw=alert,thick,rounded corners=2pt,fill=alert!12,minimum width=3.1cm,minimum height=0.7cm,align=center},>=Stealth]
+ \node[box] (a) {sel, $t=H(M\|\text{sel})$};
+ \node[box,right=8mm of a] (b) {tirer $V$ (SHAKE256)};
+ \node[key,right=8mm of b] (c) {\code{m_calculate_M_and_VPV}\\[-1pt]{\scriptsize noyaux étudiés}};
+ \node[box,below=14mm of c] (d) {\code{compute_rhs}, \code{compute_A}};
+ \node[box,left=8mm of d] (e) {\code{sample_solution}\\[-1pt]{\scriptsize (Gauss, temps constant)}};
+ \node[box,left=8mm of e] (f) {\code{m_compute_s}\\[-1pt]{\scriptsize signature}};
+ \draw[->] (a)--(b); \draw[->] (b)--(c); \draw[->] (c)--(d); \draw[->] (d)--(e); \draw[->] (e)--(f);
+ \draw[->,dashed] ($(e.north)+(0.9,0)$) -- node[right,font=\scriptsize,align=left]{échec :\\nouvelle\\tentative} ($(b.south)+(0.9,0)$);
+\end{tikzpicture}
+\caption{Une tentative de signature dans le code de référence. Les noyaux optimisés se trouvent dans l'étape en rouge, répétée à chaque tentative.}\label{fig:pipeline}
+\end{figure}
+
+\subsubsection{Où sont les noyaux étudiés}
+Dans \code{m_calculate_M_and_VPV} (chemin à $L$ implicite, celui où les deux noyaux interviennent), l'ordre des opérations est le suivant : construction des tables de multiplication de $V$ (\code{mayo_V_multabs}), puis :
+\begin{itemize}[itemsep=1pt]
+\item \code{P1_times_Vt} : accumule $P^{(1)}\cdot V^{\top}$ dans un tampon ; \code{Vt_times_Pv} en déduit $V P^{(1)}V^{\top}$, c'est-à-dire tous les $v_iP^{(1)}v_j$ ;
+\item \code{P1t_times_Vt} : accumule la contribution transposée $P^{(1)\top}V^{\top}$ sur le même tampon, qui devient $(P^{(1)}+P^{(1)\top})V^{\top}$ (la diagonale s'annule en caractéristique~2) ; le calcul de $M_\ell$ réutilise ce produit, puis \code{Ut_times_O} et \code{Vt_times_L} complètent $M_\ell$.
+\end{itemize}
+Les noyaux \code{P1_times_Vt} et \code{P1t_times_Vt} sont donc des produits de la \emph{partie vinaigre de la clé publique} $P^{(1)}$ par les multiples de $V$. Ce sont eux, et eux seuls, que ce mémoire optimise (variante A2) pour MAYO-1 et MAYO-5.
+
+\subsubsection{Rôle de $P_1$ et paramètres}
+$P_1$ est une matrice triangulaire supérieure de $m$-vecteurs de $\mathbb{F}_{16}^m$ ; elle est stockée à plat, une entrée après l'autre, à la position $e\cdot b$ pour l'entrée numéro $e$ (disposition empaquetée du flux de clé). Chaque noyau accumule, pour chaque entrée de $P_1$ et chaque vecteur de $V$, le produit d'un scalaire de $\mathbb{F}_{16}$ par le $m$-vecteur de l'entrée, dans un accumulateur de $L$ limbes. Les bornes de boucle ($V$, $K$) et les adresses de chargement ($e\cdot b$) ne dépendent que de paramètres publics. Les grandeurs utiles sont au tableau~\ref{tab:params}.
 
 \begin{table}[ht]\centering\small
 \caption{Paramètres des noyaux étudiés. $m$ : longueur du $m$-vecteur ; $b=m/2$ : octets par $m$-vecteur ; $L$ : limbes de 64 bits d'un accumulateur ; $K$ : nombre de vecteurs de $V$ ; $V$ : dimension de la partie vinaigre ; $N_{\mathrm{ent}}=V(V+1)/2$ : nombre d'entrées de $P_1$.}\label{tab:params}
@@ -19,13 +73,19 @@ MAYO-5 & 142 & 71 & 9 & 12 & 142 & 10\,153 & 14\\\bottomrule
 \end{tabular}
 \end{table}
 
-\subsubsection{Rôle de $P_1$}
-$P_1$ est une matrice triangulaire supérieure de $m$-vecteurs de $\mathbb{F}_{16}^m$ ; elle est stockée à plat, une entrée après l'autre, à la position $e\cdot b$ pour l'entrée numéro $e$ (disposition empaquetée du flux de clé). Les noyaux \code{P1_times_Vt} et \code{P1t_times_Vt} accumulent, pour chaque entrée de $P_1$ et chaque vecteur de $V$, le produit d'un scalaire de $\mathbb{F}_{16}$ par le $m$-vecteur de l'entrée, dans un accumulateur de $L$ limbes ; le premier traite $P_1\cdot V^{t}$, le second la contribution transposée. Leurs bornes de boucle ($V$, $K$) et les adresses de chargement ($e\cdot b$) ne dépendent que de paramètres publics. Ces deux noyaux sont appelés par \code{m_calculate_M_and_VPV}, elle-même appelée par la signature (chapitre~\ref{ch:resultats} pour leur poids).
+\subsection{Représentation des données}\label{sec:repr}
+\subsubsection{Le corps $\mathbb{F}_{16}$ et les $m$-vecteurs}
+$\mathbb{F}_{16}$ est réalisé comme $\mathbb{F}_2[x]/(x^4+x+1)$ (commentaire du code, \code{simple_arithmetic.h}) : un élément tient dans un \emph{quartet} (4 bits) et l'addition est le OU exclusif. L'unité de calcul de MAYO est le \emph{$m$-vecteur} : le vecteur $(a_0[i,j],\dots,a_{m-1}[i,j])$ des éléments de même position dans les $m$ matrices $P_\ell$. On calcule donc en parallèle sur les $m$ composantes, ce qui se prête naturellement à la vectorisation~\cite{nibbling}.
 
+\subsubsection{Empaquetage en quartets}
+Un $m$-vecteur est stocké sur $b=m/2$ octets : deux éléments par octet, l'élément d'indice pair dans le quartet de poids faible. Les accumulateurs sont découpés en \emph{limbes} de 64 bits, soit 16 éléments par limbe ; il faut $L=\lceil m/16\rceil$ limbes, avec éventuellement des quartets de bourrage dans le dernier limbe ($m=142$ : $L=9$, 144 positions, deux de bourrage). Cette représentation par quartets a été proposée dans~\cite{nibbling} à la place de la représentation « bitsliced » (par plans de bits) de la première spécification ; elle permet d'utiliser des instructions de permutation d'octets pour multiplier, au prix d'un changement de format de clé.
 
-\subsection{Arithmétique $\mathbb{F}_{16}$ par \vpshufb}
+\subsection{Arithmétique $\mathbb{F}_{16}$ par \vpshufb}\label{sec:arith}
+\subsubsection{Rappel : le registre AVX2 et \vpshufb}
+Un registre AVX2 \code{ymm} contient 256 bits, soit deux \emph{voies} de 128 bits (\code{xmm} désigne la moitié basse) ; la plupart des instructions, dont \vpshufb, opèrent indépendamment sur chaque voie. \vpshufb{} reçoit une table de 16 octets (par voie) et un registre d'index : pour chaque octet d'index, il écrit l'élément de la table désigné par les 4 bits bas de l'index, ou 0 si le bit 7 de l'index est positif. Un \code{ymm} fait donc 32 recherches en une instruction.
+
 \subsubsection{Principe}
-Avec des éléments de 4 bits, la multiplication d'un vecteur par un scalaire $c$ est une recherche dans une table de 16 entrées $x\mapsto c\cdot x$. L'instruction \vpshufb{} (\code{_mm256_shuffle_epi8}) réalise, pour chaque octet d'un registre d'index, une recherche dans une table de 16 octets (celle de la voie de 128 bits qui contient l'octet) ; si le bit 7 de l'index est nul, l'indice est le quartet bas, sinon la sortie est 0. C'est la méthode des « quatre Russes »~\cite{russes} à $t=1$ (voir aussi~\cite{albrecht2011} pour $\mathbb{F}_2$).
+Avec des éléments de 4 bits, la multiplication d'un vecteur par un scalaire $c$ est une recherche dans une table de 16 entrées $x\mapsto c\cdot x$. L'instruction \vpshufb{} (\code{_mm256_shuffle_epi8}) réalise, pour chaque octet d'un registre d'index, une recherche dans une table de 16 octets (celle de la voie de 128 bits qui contient l'octet) ; si le bit 7 de l'index est nul, l'indice est le quartet bas, sinon la sortie est 0. C'est la méthode des « quatre Russes »~\cite{russes}, qui échange des multiplications contre des lectures de tables : pour $A\cdot B$, on découpe $A$ en bandes de $t$ colonnes et $B$ en bandes de $t$ lignes, on précalcule pour chaque bande de $B$ toutes les combinaisons linéaires de ses lignes ($16^t$ entrées), puis chaque ligne de $A$ sert d'indice. Ici la table tient dans un registre, donc $t=1$ (voir aussi~\cite{albrecht2011} pour $\mathbb{F}_2$) ; les tables dépendent de $V$ (secret) mais ne servent que d'opérande de données, jamais d'adresse.
 
 \subsubsection{Deux produits par recherche}
 Pour une paire de scalaires $(c_{2p},c_{2p+1})$, la table $T_p[x]=(c_{2p}x)\oplus\big((c_{2p+1}x)\ll4\big)$ fournit \emph{les deux} produits dans un seul octet. Le code stocke $T_p$ dans un registre 256 bits dont les deux voies sont égales (lemme~\ref{lem:voies}). Un registre de données de 32 octets contient 64 éléments ; il faut séparer les quartets impairs et pairs (ET avec \code{0x0f}, décalage de 4) et donc deux \vpshufb{} par registre et par paire. Les accumulateurs impairs et pairs sont maintenus séparés et ne sont « désintriqués » qu'à la fin de la ligne, technique décrite dans l'article \emph{Nibbling MAYO}~\cite{nibbling}.
@@ -58,7 +118,18 @@ Pour $m\le64$, $64<m\le128$ et $128<m\le192$, le code officiel utilise respectiv
 \end{figure}
 
 
-\section{Revue de littérature}
+
+\subsection{Panorama des analyses menées}\label{sec:panorama}
+Pour que le lecteur situe la suite, voici les analyses et ce qu'elles établissent (détails aux chapitres~\ref{ch:methodo} et~\ref{ch:resultats}) :
+\begin{itemize}[itemsep=1pt]
+\item \textbf{Comptage} (théorique, dans un modèle défini) : borne $\lceil m/32\rceil$ de \vpshufb{} par paire de scalaires et par $m$-vecteur, réalisation par A2 pour $m\in\{80,142\}$ ;
+\item \textbf{Correction et sûreté} : tests de réponses connues (KAT), tests unitaires, bornes de lecture et d'écriture, invariants des tables, indépendance au bourrage ;
+\item \textbf{Mesures de temps} sur une machine physique (compteur TSC, unité statistique : le processus) : gains sur les noyaux isolés, puis sur \code{mayo_sign}, avec contrôle de l'effet d'ordre et des sondes de mesure ;
+\item \textbf{Analyse statique du code généré} (E1, E1b) : comptage d'instructions et d'écritures dans les boucles produites par GCC~16.2.0, désactivation de passes une à une ;
+\item \textbf{Chaque résultat porte une étiquette} : \F{} fait établi, \I{} inférence, \Hy{} hypothèse non testée.
+\end{itemize}
+
+\section{Revue de littérature}\label{sec:revue}
 \subsection{Implémentations existantes}
 \begin{description}[leftmargin=0.5cm]
 \item[Référence C.] Arithmétique scalaire, sans \vpshufb{}.
