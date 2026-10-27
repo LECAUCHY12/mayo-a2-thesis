@@ -1,157 +1,157 @@
 \chapter{Méthodologie}
 \label{ch:methodo}
 
-Ce chapitre décrit la démarche : la conception d'A2 et son modèle de comptage (section~\ref{sec:a2}), les propriétés de correction et de sûreté sur lesquelles elle repose (section~\ref{sec:surete}), puis le protocole expérimental et d'analyse statique (section~\ref{sec:protocole}).
+Ce chapitre décrit la démarche : la conception d'A2 et son modèle de comptage (section~\ref{sec:a2}), les propriétés qui assurent sa correction et sa sûreté (section~\ref{sec:surete}), puis le protocole d'expérience et d'analyse du code produit (section~\ref{sec:protocole}).
 
-\section{Conception d'A2 : comptage, réalisation, hypothèses et limites}\label{sec:a2}
-Ce chapitre répond à QR1 et décrit la réalisation (QR2). Les propositions~\ref{prop:borne} à~\ref{prop:real} sont des énoncés mathématiques \emph{dans un modèle}; aucune conclusion de performance n'en est déduite (section~\ref{sec:perfborne}).
+\section{Conception d'A2 : comptage, mise en œuvre, hypothèses et limites}\label{sec:a2}
+Cette section répond à QR1 et décrit la mise en œuvre (QR2). Les propositions~\ref{prop:borne} à~\ref{prop:real} sont des énoncés mathématiques \emph{dans un modèle} ; on n'en tire aucune conclusion sur la vitesse (section~\ref{sec:perfborne}).
 
 \subsection{Modèle de comptage}
 \begin{definition}[Données]
-Un \emph{$m$-vec} est un vecteur $v\in\mathbb{F}_{16}^m$, $m$ pair, stocké sur $b=m/2$ octets : $v_{2i}$ est le quartet bas de l'octet $i$, $v_{2i+1}$ le quartet haut. Les $K$ scalaires $c_0,\dots,c_{K-1}$ sont regroupés en $P=\lceil K/2\rceil$ paires (complétées par 0 si $K$ est impair). Pour chaque $k<K$ on calcule $\mathrm{acc}_k\leftarrow\mathrm{acc}_k\oplus c_k v$.
+Un \emph{$m$-vec} est un vecteur $v\in\mathbb{F}_{16}^m$, avec $m$ pair, rangé sur $b=m/2$ octets : $v_{2i}$ est le quartet bas de l'octet $i$ et $v_{2i+1}$ le quartet haut. Les $K$ nombres $c_0,\dots,c_{K-1}$ sont regroupés en $P=\lceil K/2\rceil$ paires (complétées par 0 si $K$ est impair). Pour chaque $k<K$, on calcule $\mathrm{acc}_k\leftarrow\mathrm{acc}_k\oplus c_k v$.
 \end{definition}
-Pour la paire $p$, $T_p[x]=(c_{2p}x)\oplus((c_{2p+1}x)\ll4)$ ; \vpshufb{} de largeur $W\in\{16,32\}$ octets effectue $W$ recherches indépendantes, chacune livrant, pour \emph{un} élément de $v$, les deux produits de la paire.
+Pour la paire $p$, on pose $T_p[x]=(c_{2p}x)\oplus((c_{2p+1}x)\ll4)$. Un \vpshufb{} de largeur $W\in\{16,32\}$ octets fait $W$ recherches indépendantes. Chacune donne, pour \emph{un} élément de $v$, les deux produits de la paire.
 
 \begin{definition}[Classe $\mathcal{C}$]
-Algorithmes qui (i) obtiennent chaque produit $c_kv_j$ par une recherche dans une table de 16 octets ; (ii) fournissent à chaque recherche un quartet isolé dans un octet (bit~7 nul) ; (iii) ne font pas deux recherches pour le même couple (élément, paire) hors du recouvrement entre registres ; (iv) utilisent librement XOR, ET, décalages, permutations, chargements. Sont \emph{hors} de $\mathcal{C}$ : GFNI, représentations \emph{bitsliced}, tables de 256 octets.
+Algorithmes qui (i) obtiennent chaque produit $c_kv_j$ par une recherche dans une table de 16 octets ; (ii) donnent à chaque recherche un quartet seul dans un octet (bit~7 nul) ; (iii) ne font pas deux recherches pour le même couple (élément, paire), sauf pour le recouvrement entre registres ; (iv) utilisent librement XOR, ET, décalages, permutations et chargements. Sont \emph{hors} de $\mathcal{C}$ : GFNI, les représentations \emph{bitsliced}, les tables de 256 octets.
 \end{definition}
-La quantité comptée est $N(\text{algo},m)$ : nombre de \vpshufb{} exécutés \emph{par paire de scalaires et par $m$-vec}.
+La quantité comptée est $N(\text{algo},m)$ : le nombre de \vpshufb{} exécutés \emph{par paire de nombres et par $m$-vec}.
 
 \subsection{Énoncés}
-\begin{proposition}[Borne]\label{prop:borne}
+\begin{proposition}[Limite]\label{prop:borne}
 Tout algorithme de $\mathcal{C}$ vérifie $N\ge\lceil m/32\rceil$.
 \end{proposition}
 \begin{proof}
-Chaque élément $v_j$ ($j<m$) exige au moins une recherche par paire ; une instruction en fournit au plus $W\le32$. Donc $32N\ge m$.
+Chaque élément $v_j$ ($j<m$) demande au moins une recherche par paire, et une instruction en fait au plus $W\le32$. Donc $32N\ge m$.
 \end{proof}
 
 \begin{proposition}[Schéma officiel avec recouvrement]\label{prop:off}
-Le schéma qui couvre les $b$ octets par $\lceil b/32\rceil$ chargements de 32 octets, le dernier reculé, et traite chaque registre par deux \vpshufb{} (impairs, pairs) a $N_{\mathrm{off}}(m)=2\lceil m/64\rceil$.
+Le schéma qui couvre les $b$ octets avec $\lceil b/32\rceil$ chargements de 32 octets (le dernier est reculé) et qui traite chaque registre avec deux \vpshufb{} (impairs, pairs) a $N_{\mathrm{off}}(m)=2\lceil m/64\rceil$.
 \end{proposition}
 \begin{proof}
-$\lceil b/32\rceil=\lceil m/64\rceil$ chargements, chacun fournissant 32 indices impairs et 32 pairs, soit deux \vpshufb{}.
+Il y a $\lceil b/32\rceil=\lceil m/64\rceil$ chargements. Chacun donne 32 indices impairs et 32 indices pairs, donc deux \vpshufb{}.
 \end{proof}
 
-\begin{proposition}[Réalisation de la borne si $0<r\le32$]\label{prop:real}
-Écrivons $m=64q+r$, $0\le r<64$, et $t=r/2$ le nombre d'octets de la queue. Si $0<r\le32$, l'algorithme suivant est dans $\mathcal{C}$ et a $N=2q+1=\lceil m/32\rceil$ :
+\begin{proposition}[Mise en œuvre de la limite si $0<r\le32$]\label{prop:real}
+Écrivons $m=64q+r$ avec $0\le r<64$, et $t=r/2$ le nombre d'octets de la fin du vecteur. Si $0<r\le32$, l'algorithme suivant est dans $\mathcal{C}$ et a $N=2q+1=\lceil m/32\rceil$ :
 \begin{enumerate}[nosep]
-\item pour $g<q$ : charger l'intervalle $[32g,32g+32)$ et le traiter par deux \vpshufb{} ymm ;
-\item pour la queue : charger les $t$ octets de $[32q,32q+t)$, construire $X=[\text{quartets bas des }t\text{ octets}\mid\text{quartets hauts des }t\text{ octets}]$ ($r\le32$ indices dans un seul registre) et appliquer \emph{un} \vpshufb{} ;
-\item réassembler les sorties de la queue (même formule qu'un registre complet, restreinte aux $r$ positions).
+\item pour $g<q$ : charger l'intervalle $[32g,32g+32)$ et le traiter avec deux \vpshufb{} ymm ;
+\item pour la fin du vecteur : charger les $t$ octets de $[32q,32q+t)$, construire $X=[\text{quartets bas des }t\text{ octets}\mid\text{quartets hauts des }t\text{ octets}]$ (cela met les $r\le32$ indices dans un seul registre), puis appliquer \emph{un seul} \vpshufb{} ;
+\item remettre en ordre les sorties de la fin du vecteur (même formule que pour un registre complet, limitée aux $r$ positions).
 \end{enumerate}
 \end{proposition}
 \begin{proof}
-Le décompte est $2q+1$, et $\lceil m/32\rceil=2q+\lceil r/32\rceil=2q+1$ pour $0<r\le32$.
+On compte $2q+1$ instructions, et $\lceil m/32\rceil=2q+\lceil r/32\rceil=2q+1$ quand $0<r\le32$.
 \end{proof}
-\emph{Conditions de réalisation} (à satisfaire par le code, non par le modèle) : (a) le chargement de la queue ne lit que des octets de l'entrée ; (b) si $r\le16$ ($t\le8$), $X$ tient dans un registre 128 bits et la table utilisée est la \emph{voie basse} de $T_p$ ; si $16<r\le32$, $X$ occupe un registre 256 bits (voie basse = impairs, haute = pairs), ce qui exige l'égalité des deux voies ; (c) le surcoût de préparation de la queue est payé une fois par entrée, celui du réassemblage une fois par paire.
+\emph{Conditions de mise en œuvre} (le code doit les respecter ; le modèle ne les garantit pas) : (a) le chargement de la fin du vecteur ne lit que des octets de l'entrée ; (b) si $r\le16$ ($t\le8$), $X$ tient dans un registre de 128 bits et on utilise la \emph{voie basse} de $T_p$ ; si $16<r\le32$, $X$ occupe un registre de 256 bits (voie basse = impairs, voie haute = pairs), ce qui demande que les deux voies soient égales ; (c) le coût de préparation de la fin du vecteur est payé une fois par entrée, et celui de la remise en ordre une fois par paire.
 
 \begin{corollaire}[Limite exacte]
-Pour $m\le192$, $\Delta(m):=N_{\mathrm{off}}(m)-\lceil m/32\rceil=1$ si $0<(m\bmod64)\le32$ et $0$ sinon. Dans le second cas, le code officiel atteint déjà la borne : aucun algorithme de $\mathcal{C}$ ne peut faire mieux en nombre de \vpshufb{}.
+Pour $m\le192$, $\Delta(m):=N_{\mathrm{off}}(m)-\lceil m/32\rceil=1$ si $0<(m\bmod64)\le32$, et $0$ sinon. Dans le second cas, le code officiel atteint déjà la limite : aucun algorithme de $\mathcal{C}$ ne peut faire mieux en nombre de \vpshufb{}.
 \end{corollaire}
 
 \begin{table}[ht]\centering\small
 \caption{Application aux paramètres actuels.}\label{tab:delta}
 \begin{tabular}{@{}lrrrrrrl@{}}\toprule
  & $m$ & $q$ & $r$ & $N_{\mathrm{off}}$ & $\lceil m/32\rceil$ & $\Delta$ & Statut\\\midrule
-MAYO-1 & 80 & 1 & 16 & 4 & 3 & 1 & implémentée (A2), queue de 8 octets\\
+MAYO-1 & 80 & 1 & 16 & 4 & 3 & 1 & implémentée (A2), fin de 8 octets\\
 MAYO-2 & 64 & 1 & 0 & 2 & 2 & 0 & sans objet\\
 MAYO-3 & 108 & 1 & 44 & 4 & 4 & 0 & impossible dans $\mathcal{C}$\\
-MAYO-5 & 142 & 2 & 14 & 6 & 5 & 1 & implémentée (A2), queue de 7 octets + 1 de bourrage\\\bottomrule
+MAYO-5 & 142 & 2 & 14 & 6 & 5 & 1 & implémentée (A2), fin de 7 octets + 1 de bourrage\\\bottomrule
 \end{tabular}
 \end{table}
 
-\paragraph{Ce qui est implémenté et ce qui ne l'est pas.} Le prototype traite les queues d'au plus 16 éléments ($t\le8$, $r\le16$). La variante pour $16<r\le32$ \textbf{n'est ni implémentée ni testée} ; elle n'est pas un résultat acquis. Aucun des quatre paramètres actuels n'a $r\in(16,32]$.
+\paragraph{Ce qui est fait et ce qui ne l'est pas.} Le prototype traite les fins de vecteur d'au plus 16 éléments ($t\le8$, $r\le16$). La variante pour $16<r\le32$ \textbf{n'est ni réalisée ni testée} : ce n'est pas un résultat acquis. Aucun des quatre paramètres actuels n'a $r\in(16,32]$.
 
 \subsection{Conception d'A2}
 \subsubsection{Structure du noyau}
-Pour une entrée de $P_1$ et une ligne d'accumulateurs de $K$ vecteurs, A2 conserve inchangés les $q=\lfloor m/64\rfloor$ registres ymm complets sur les $32q$ premiers octets, puis traite la queue ainsi :
+Pour une entrée de $P_1$ et une ligne d'accumulateurs de $K$ vecteurs, A2 garde tels quels les $q=\lfloor m/64\rfloor$ registres ymm complets sur les $32q$ premiers octets. Il traite ensuite la fin du vecteur ainsi :
 \begin{enumerate}[nosep]
-\item \textbf{Préparation (une fois par entrée)} : chargement de 8 octets (\code{_mm_loadl_epi64}), décalage de 4 bits (\code{vpsrlw}), entrelacement \code{vpunpcklqdq} (quartets bas dans les octets 0--7, hauts dans 8--15), ET avec \code{0x0f} : quatre instructions (cinq dans la variante SAFE, qui ajoute un décalage d'octets).
+\item \textbf{Préparation (une fois par entrée)} : chargement de 8 octets (\code{_mm_loadl_epi64}), décalage de 4 bits (\code{vpsrlw}), entrelacement \code{vpunpcklqdq} (quartets bas dans les octets 0 à 7, quartets hauts dans les octets 8 à 15), ET avec \code{0x0f}. Cela fait quatre instructions (cinq dans la variante SAFE, qui ajoute un décalage d'octets).
 \item \textbf{Produits} : un \code{vpshufb} xmm avec la \emph{moitié basse} de la table de multiplication déjà chargée, et un \code{vpxor} xmm dans un accumulateur xmm.
-\item \textbf{Réassemblage (fin de ligne)} : séparation impair/pair identique à la partie ymm, et lecture-modification-écriture d'\emph{un} limbe de 64 bits (le limbe d'indice $4q=L-1$, soit 4 pour MAYO-1 et 8 pour MAYO-5).
+\item \textbf{Remise en ordre (fin de ligne)} : séparation impair/pair comme pour la partie ymm, puis lecture, modification et écriture d'\emph{un seul} limbe de 64 bits (le limbe d'indice $4q=L-1$, soit 4 pour MAYO-1 et 8 pour MAYO-5).
 \end{enumerate}
-Dans l'assembleur de GCC~16.2.0, la boucle interne passe donc, par entrée, de 20 à 15 \code{vpshufb} pour MAYO-1 (10 ymm + 5 xmm) et de 36 à 30 pour MAYO-5 (24 ymm + 6 xmm).
+Dans l'assembleur produit par GCC~16.2.0, la boucle interne passe donc, par entrée, de 20 à 15 \code{vpshufb} pour MAYO-1 (10 ymm + 5 xmm) et de 36 à 30 pour MAYO-5 (24 ymm + 6 xmm).
 
 \subsubsection{Variante par défaut et variante SAFE (MAYO-5)}
-Pour MAYO-1, $b=40=32+8$ : la queue est exactement la fin de l'entrée, $[32,40)$. Pour MAYO-5, $b=71$ et $64+8=72$ :
+Pour MAYO-1, $b=40=32+8$ : la fin du vecteur est exactement la fin de l'entrée, $[32,40)$. Pour MAYO-5, $b=71$ et $64+8=72$ :
 \begin{itemize}[nosep]
-\item \emph{défaut} : lit $[64,72)$, soit \textbf{un octet au-delà} de l'entrée (comme le noyau officiel, dont le dernier chargement couvre $[40,72)$) ;
-\item \emph{SAFE} : lit $[63,71)$ puis décale le registre de 8 bits vers les poids faibles ; l'octet 63 est éliminé, les octets 64--70 sont placés aux positions 0--6, la position 7 reçoit 0. \textbf{Toute lecture reste dans l'entrée.}
+\item \emph{par défaut} : lit $[64,72)$, donc \textbf{un octet après} l'entrée (comme le noyau officiel, dont le dernier chargement couvre $[40,72)$) ;
+\item \emph{SAFE} : lit $[63,71)$ puis décale le registre de 8 bits vers les poids faibles ; l'octet 63 est éliminé, les octets 64 à 70 passent aux positions 0 à 6, et la position 7 reçoit 0. \textbf{Toutes les lectures restent dans l'entrée.}
 \end{itemize}
-La variante retenue pour une éventuelle intégration est SAFE seule. Les quartets de bourrage (positions 142 et 143 de MAYO-5, car $16L=144$) n'ont pas d'influence sur les positions utiles (section~\ref{sec:bourrage}).
+Si l'on intègre un jour A2, on ne retiendrait que la variante SAFE. Les quartets de bourrage (positions 142 et 143 de MAYO-5, car $16L=144$) n'ont pas d'effet sur les positions utiles (section~\ref{sec:bourrage}).
 
 \subsubsection{Préconditions}
-(P1) $P_1$ est dans la disposition empaquetée, sans bourrage entre entrées, à l'adresse $P_1+e\cdot b$ ; (P2) les accumulateurs ont $L$ limbes avec bourrage de quartets seulement en fin de dernier limbe ; (P3) les tables de multiplication sont construites par la routine officielle (voies égales, lemme~\ref{lem:voies}) ; (P4) $m\in\{80,142\}$ : les noyaux A2 ne sont pas actifs pour les autres paramètres (condition de compilation \code{MAYO_TAIL_XMM_ACTIVE}) ; (P5) compilation sans \code{ENABLE_PARAMS_DYNAMIC}.
+(P1) $P_1$ est rangé à plat, sans bourrage entre les entrées, à l'adresse $P_1+e\cdot b$ ; (P2) les accumulateurs ont $L$ limbes, avec du bourrage de quartets seulement à la fin du dernier limbe ; (P3) les tables de multiplication sont construites par la routine officielle (voies égales, lemme~\ref{lem:voies}) ; (P4) $m\in\{80,142\}$ : les noyaux A2 ne sont pas actifs pour les autres paramètres (condition de compilation \code{MAYO_TAIL_XMM_ACTIVE}) ; (P5) compilation sans \code{ENABLE_PARAMS_DYNAMIC}.
 
-\subsection{La borne n'implique pas l'accélération}\label{sec:perfborne}
-Une réduction du nombre de \vpshufb{} ne garantit pas une réduction du temps : s'y ajoutent le coût de préparation de la queue, les dépendances, les rechargements depuis la pile, les chargements non alignés et le débit des unités. Si seule la contrainte de débit du \vpshufb{} (un par cycle sur Skylake~\cite{nibbling}) bornait la boucle, le rapport de temps attendu serait $N_{A2}/N_{\mathrm{off}}$ : $15/20=0{,}750$ (MAYO-1) et $30/36=0{,}833$ (MAYO-5).
+\subsection{La limite n'implique pas l'accélération}\label{sec:perfborne}
+Faire moins de \vpshufb{} ne garantit pas d'aller plus vite : il faut ajouter le coût de préparation de la fin du vecteur, les dépendances entre instructions, les rechargements depuis la pile, les chargements non alignés et le débit des unités de calcul. Si seul le débit du \vpshufb{} (un par cycle sur Skylake~\cite{nibbling}) limitait la boucle, le rapport de temps attendu serait $N_{A2}/N_{\mathrm{off}}$ : $15/20=0{,}750$ (MAYO-1) et $30/36=0{,}833$ (MAYO-5).
 
 \begin{table}[ht]\centering\small
 \caption{Rapport attendu par le seul débit de \vpshufb{} et rapport mesuré (S1, A2/officiel, noyaux isolés).}\label{tab:borne-mesure}
 \begin{tabular}{@{}lccl@{}}\toprule
-Noyau & Borne « débit seul » & Mesuré (S1) & Lecture\\\midrule
-MAYO-1 \code{P1_times_Vt} & 0,750 & 0,780 & plus lent que la borne\\
-MAYO-1 \code{P1t_times_Vt} & 0,750 & 0,710 & plus rapide que la borne\\
-MAYO-5 \code{P1_times_Vt} & 0,833 & 0,807 & plus rapide que la borne\\
-MAYO-5 \code{P1t_times_Vt} & 0,833 & 0,880 & plus lent que la borne\\\bottomrule
+Noyau & Limite « débit seul » & Mesuré (S1) & Lecture\\\midrule
+MAYO-1 \code{P1_times_Vt} & 0,750 & 0,780 & plus lent que la limite\\
+MAYO-1 \code{P1t_times_Vt} & 0,750 & 0,710 & plus rapide que la limite\\
+MAYO-5 \code{P1_times_Vt} & 0,833 & 0,807 & plus rapide que la limite\\
+MAYO-5 \code{P1t_times_Vt} & 0,833 & 0,880 & plus lent que la limite\\\bottomrule
 \end{tabular}
 \end{table}
-Deux cas sur quatre sont plus rapides que ne le permet le seul comptage de \vpshufb{} : d'autres mécanismes contribuent (par exemple moins de rechargements de pile : 11 $\to$ 5 pour MAYO-1 \code{P1_times_Vt}, 30 $\to$ 24 pour MAYO-5), sans que cela soit établi. Le modèle de débit n'explique donc pas à lui seul les gains. Une hypothèse de performance H-P (« sur une microarchitecture où le débit des shuffles est le goulot, le temps est borné inférieurement par $N\cdot P$ cycles par entrée ») ne peut se tester qu'avec des cycles cœur, pas des ticks TSC ; elle est postérieure à ce travail et reste ouverte.
+Deux cas sur quatre sont plus rapides que ce que permettrait le seul comptage des \vpshufb{} : d'autres effets jouent (par exemple moins de rechargements depuis la pile : de 11 à 5 pour MAYO-1 \code{P1_times_Vt}, de 30 à 24 pour MAYO-5), mais ce n'est pas établi. Le modèle fondé sur le débit n'explique donc pas à lui seul les gains. Une hypothèse de performance H-P (« sur un processeur où le débit des permutations est le facteur limitant, le temps est au moins $N\cdot P$ cycles par entrée ») ne peut se tester qu'avec des cycles d'horloge, pas avec des ticks TSC. Elle vient après ce travail et reste ouverte.
 
 \section{Propriétés de correction et de sûreté}\label{sec:surete}
-Ce chapitre répond à la partie « sûreté » de QR2. Chaque propriété porte son étiquette : \Pc{} (déduite du code et de ses invariants, par relecture et assertions de compilation), \Pe{} (vérifiée expérimentalement) ou \Hy{} (hypothèse sur la machine ou le compilateur). Une propriété \Pe{} seule n'est pas une démonstration. Notation : $n_y=\lfloor m/64\rfloor$ (1 pour MAYO-1, 2 pour MAYO-5), $T_{\mathrm{OFF}}=32n_y$ (32 ; 64), $T_{\mathrm{LIMB}}=4n_y$ (4 ; 8).
+Cette section répond à la partie « sûreté » de QR2. Chaque propriété porte une étiquette : \Pc{} (déduite du code et de ses invariants, par relecture et par des assertions à la compilation), \Pe{} (vérifiée par des tests) ou \Hy{} (hypothèse sur la machine ou le compilateur). Une propriété \Pe{} seule n'est pas une démonstration. Notation : $n_y=\lfloor m/64\rfloor$ (1 pour MAYO-1, 2 pour MAYO-5), $T_{\mathrm{OFF}}=32n_y$ (32 ; 64), $T_{\mathrm{LIMB}}=4n_y$ (4 ; 8).
 
-\subsection{Bornes de lecture de $P_1$}
+\subsection{Limites de lecture de $P_1$}
 L'entrée $e$ occupe les octets $[eb,(e+1)b)$.
 \begin{itemize}
-\item \Pc{} Les $n_y$ chargements ymm lisent $[eb+32g,eb+32g+32)$, $g<n_y$ ; comme $32n_y\le b$ ($32\le40$ ; $64\le71$) ils restent dans l'entrée.
-\item \Pc{} MAYO-1 : la queue lit $[eb+32,eb+40)$, exactement la fin de l'entrée.
-\item \Pc{} MAYO-5, SAFE : la queue lit $[eb+63,eb+71)$ puis décale de 8 bits ; toute lecture reste dans l'entrée.
-\item \Pc{} (variante par défaut, non retenue) MAYO-5 lit $[eb+64,eb+72)$ : un octet au-delà. Pour $e<N_{\mathrm{ent}}-1$, c'est le premier octet de l'entrée suivante ; pour la dernière, c'est l'octet 720\,863 du tampon, alloué (zone de $8\cdot$\code{P1_LIMBS_MAX}$=731\,016$ octets). Des \code{_Static_assert} imposent $N_{\mathrm{ent}}b+\text{OVERREAD}\le8\cdot$\code{P1_LIMBS_MAX} et OVERREAD$\le1$.
-\item \Pe{} Test « garde-page » (fin de $P_1$ collée à une page interdite, marge 0) : l'officiel et A2 par défaut déclenchent SIGSEGV en MAYO-5 ; A2 SAFE non ; MAYO-1 : aucun des trois. Ce test contrôle la propriété ci-dessus sans la démontrer.
+\item \Pc{} Les $n_y$ chargements ymm lisent $[eb+32g,eb+32g+32)$ pour $g<n_y$ ; comme $32n_y\le b$ ($32\le40$ ; $64\le71$), ils restent dans l'entrée.
+\item \Pc{} MAYO-1 : la fin du vecteur lit $[eb+32,eb+40)$, exactement la fin de l'entrée.
+\item \Pc{} MAYO-5, SAFE : la fin du vecteur lit $[eb+63,eb+71)$ puis décale de 8 bits ; toutes les lectures restent dans l'entrée.
+\item \Pc{} (variante par défaut, non retenue) MAYO-5 lit $[eb+64,eb+72)$ : un octet après l'entrée. Pour $e<N_{\mathrm{ent}}-1$, c'est le premier octet de l'entrée suivante. Pour la dernière entrée, c'est l'octet 720\,863 du tampon, qui est alloué (zone de $8\cdot$\code{P1_LIMBS_MAX}$=731\,016$ octets). Des \code{_Static_assert} imposent $N_{\mathrm{ent}}b+\text{OVERREAD}\le8\cdot$\code{P1_LIMBS_MAX} et OVERREAD$\le1$.
+\item \Pe{} Test « garde-page » (la fin de $P_1$ est collée à une page interdite, sans marge) : le code officiel et A2 par défaut provoquent une erreur SIGSEGV pour MAYO-5, A2 SAFE non ; pour MAYO-1, aucun des trois. Ce test contrôle la propriété ci-dessus sans la démontrer.
 \end{itemize}
-Le noyau officiel de MAYO-5 lit lui aussi 1 octet au-delà (dernier ymm sur les octets 40--71) et celui de MAYO-3 en lit 2 (second ymm sur $[24,56)$ pour $b=54$). A2 SAFE ne dépend d'aucune marge.
+Le noyau officiel de MAYO-5 lit lui aussi 1 octet de trop (son dernier ymm couvre les octets 40 à 71), et celui de MAYO-3 en lit 2 (son second ymm couvre $[24,56)$ pour $b=54$). A2 SAFE n'a besoin d'aucune marge.
 
-\subsection{Bornes d'écriture}
-Pour la ligne $r$, l'accumulateur est à $\mathrm{acc}+rKL$ (limbes) ; le vecteur $k$ occupe $[kL,(k+1)L)$.
+\subsection{Limites d'écriture}
+Pour la ligne $r$, l'accumulateur est à $\mathrm{acc}+rKL$ (en limbes) ; le vecteur $k$ occupe $[kL,(k+1)L)$.
 \begin{itemize}
-\item \Pc{} Les stockages ymm écrivent les limbes $[kL+4g,kL+4g+4)$, $g<n_y$, jamais au-delà du limbe $4n_y-1\le L-1$.
-\item \Pc{} La queue lit-modifie-écrit un seul limbe de 64 bits, d'indice $T_{\mathrm{LIMB}}=L-1$, pour $k<K$ (et $k+1<K$ pour le second, garde explicite). Toutes les écritures sont donc dans les $VKL$ limbes de \code{acc}. Le noyau officiel écrit un ymm à $L-4$ : même étendue.
-\item \Pe{} Un « canari » placé après \code{acc} n'est pas modifié ; $P_1$, passé en \code{const}, n'est pas modifié (copie de l'entrée inchangée).
+\item \Pc{} Les écritures ymm touchent les limbes $[kL+4g,kL+4g+4)$ pour $g<n_y$, et jamais au-delà du limbe $4n_y-1\le L-1$.
+\item \Pc{} La fin du vecteur est traitée par lecture, modification puis écriture d'un seul limbe de 64 bits, d'indice $T_{\mathrm{LIMB}}=L-1$, pour $k<K$ (et $k+1<K$ pour le second, avec une garde explicite). Toutes les écritures sont donc dans les $VKL$ limbes de \code{acc}. Le noyau officiel écrit un ymm à $L-4$ : même étendue.
+\item \Pe{} Un « canari » placé après \code{acc} n'est pas modifié ; $P_1$, passé en \code{const}, n'est pas modifié non plus (la copie de l'entrée est inchangée).
 \end{itemize}
 
 \subsection{Invariant des deux voies des tables}
-A2 lit la \emph{voie basse} de chaque table et suppose qu'elle égale la voie haute.
+A2 lit la \emph{voie basse} de chaque table et suppose qu'elle est égale à la voie haute.
 \begin{lemme}\label{lem:voies}\Pc{} Pour tout $i$, \code{V_multabs[i]} a ses deux voies de 128 bits égales.
 \end{lemme}
-\emph{Justification.} (i) Chacune des quatre lignes de 32 octets de \code{__gf16_mulbase} répète deux fois la même suite de 16 octets (constantes lues dans \code{arithmetic_common.h}, lignes 12--17) ; (ii) \code{tbl32_gf16_multab2(b)} est un OU exclusif de ET entre ces lignes et des masques obtenus par \code{_mm256_set1_epi16(b & 0xf)} décalé et comparé, opérations agissant par élément de 16 bits donc par voie, avec des masques identiques dans les deux voies ; (iii) \code{mayo_V_multabs} combine deux telles tables par \code{^} et \code{_mm256_slli_epi16(.,4)}, également par voie. Par induction l'égalité est conservée.
+\emph{Justification.} (i) Chacune des quatre lignes de 32 octets de \code{__gf16_mulbase} répète deux fois la même suite de 16 octets (constantes lues dans \code{arithmetic_common.h}, lignes 12 à 17). (ii) \code{tbl32_gf16_multab2(b)} est un OU exclusif de ET entre ces lignes et des masques obtenus par \code{_mm256_set1_epi16(b & 0xf)} décalé puis comparé ; ces opérations agissent par élément de 16 bits, donc voie par voie, avec des masques identiques dans les deux voies. (iii) \code{mayo_V_multabs} combine deux telles tables par \code{^} et \code{_mm256_slli_epi16(.,4)}, aussi voie par voie. Par récurrence, l'égalité est conservée.
 
-\Pe{} 272 tables vérifiées par le mode \code{MAYO_TAIL_XMM_CHECK} (arrêt en cas d'écart) sur les tables passées aux noyaux. C'est une \emph{précondition} d'A2 : si les tables étaient construites autrement (autre routine, autre backend), l'invariant devrait être revérifié.
+\Pe{} Nous avons vérifié 272 tables avec le mode \code{MAYO_TAIL_XMM_CHECK} (arrêt en cas d'écart), sur les tables données aux noyaux. C'est une \emph{condition préalable} d'A2 : si les tables étaient construites autrement (autre routine, autre version du code), il faudrait revérifier cet invariant.
 
 \subsection{Influence des quartets de bourrage}\label{sec:bourrage}
-Seul MAYO-5 a des quartets de bourrage (positions 142 et 143 ; MAYO-1 : $80=5\cdot16$).
+Seul MAYO-5 a des quartets de bourrage (positions 142 et 143 ; pour MAYO-1, $80=5\cdot16$).
 \begin{itemize}
-\item \Pc{} \emph{Indépendance positionnelle.} La sortie à la position $j$ ne dépend que des entrées à la position $j$ de chaque $m$-vec : une recherche lit un index et une table, jamais un autre index ; les décalages \code{srli/slli_epi16} mélangent deux octets voisins mais chaque résultat est suivi d'un ET avec \code{0x0f} (ou provient d'un registre déjà masqué).
-\item \Pc{} Les deux seules différences entre officiel et A2 aux positions de bourrage sont : officiel : produits de l'octet 71 (premier octet de l'entrée suivante) ; A2 SAFE : 0.
-\item \Pc{} Les noyaux alimentent \code{Pv}, puis \code{Vt_times_Pv} produit \code{VP1V}, consommé par \code{compute_rhs}, premier consommateur qui mélange des positions ; il annule les quartets de bourrage avant usage (\code{src/mayo.c}, lignes 50--60, masque $(1\ll((m\bmod16)\cdot4))-1$). Entre les noyaux et \code{compute_rhs}, les opérations sont positionnelles.
-\item \Pe{} Tests unitaires (20\,000 cas par taille, 8 familles d'entrées) : 0 écart sur les $M/2$ octets utiles et sur les limbes complets après masquage ; sur 30\,010 signatures appariées de MAYO-5 (15\,005 pour MAYO-1 et MAYO-2), 0 signature différente.
+\item \Pc{} \emph{Chaque position est indépendante.} La sortie à la position $j$ ne dépend que des entrées à la position $j$ de chaque $m$-vec : une recherche lit un index et une table, jamais un autre index. Les décalages \code{srli/slli_epi16} mélangent deux octets voisins, mais chaque résultat est suivi d'un ET avec \code{0x0f} (ou vient d'un registre déjà masqué).
+\item \Pc{} Les deux seules différences entre le code officiel et A2 aux positions de bourrage sont : pour l'officiel, les produits de l'octet 71 (premier octet de l'entrée suivante) ; pour A2 SAFE, 0.
+\item \Pc{} Les noyaux alimentent \code{Pv}, puis \code{Vt_times_Pv} produit \code{VP1V}, qui est utilisé par \code{compute_rhs}. C'est le premier endroit qui mélange des positions, et il met à zéro les quartets de bourrage avant de les utiliser (\code{src/mayo.c}, lignes 50 à 60, masque $(1\ll((m\bmod16)\cdot4))-1$). Entre les noyaux et \code{compute_rhs}, toutes les opérations travaillent position par position.
+\item \Pe{} Tests unitaires (20\,000 cas par taille, 8 familles d'entrées) : 0 écart sur les $M/2$ octets utiles et sur les limbes complets après masquage. Sur 30\,010 signatures appariées de MAYO-5 (15\,005 pour MAYO-1 et pour MAYO-2), aucune signature n'est différente.
 \end{itemize}
-\textbf{Limite.} Cette propriété suppose que \code{Pv} n'est consommé que par les chemins énumérés, par recherche dans le source du backend AVX2 ; une modification future qui lirait le bourrage de \code{Pv} devrait être réexaminée.
+\textbf{Limite.} Cette propriété suppose que \code{Pv} n'est utilisé que par les chemins listés, ce que nous avons établi en cherchant dans le code source de la version AVX2. Si une modification future lisait le bourrage de \code{Pv}, il faudrait réexaminer la question.
 
 \subsection{Temps constant : ce qui est établi et ce qui ne l'est pas}
 \begin{itemize}
-\item \Pc{} Bornes de boucle ($V$, $K$) et adresses de chargement ($eb$) ne dépendent que de paramètres publics ; les tables dérivées du vinaigre sont des opérandes de données de \vpshufb{}, jamais des adresses ni des conditions. L'officiel a la même structure.
-\item \Pc{}$\to$à vérifier sur le binaire : A2 introduit, au réassemblage de la queue, deux \code{vmovq} d'un registre vectoriel vers un registre général (\code{ar[...] ^= (uint64_t)_mm_cvtsi128_si64(...)}) : des données dérivées du secret transitent par un registre général, uniquement comme opérande d'un XOR vers la mémoire. L'inspection de l'assembleur (script \code{inspect_asm.py}) ne trouve aucun usage non conforme (adresse, branche, drapeau) : résultat pour \emph{une} version de GCC, pas une garantie générale.
-\item \Pe{} (indicateur) Valgrind en mode temps constant (données secrètes marquées indéfinies), dans la VM seulement ; il détecte branches et adresses dépendant de données marquées sur les exécutions testées.
-\item \Hy{} Les instructions \vpshufb{}, \code{vpxor}, \code{vpand}, décalages, chargements et stockages ont un temps indépendant des données sur les microarchitectures visées (documentation constructeur, non vérifiée ici).
+\item \Pc{} Les bornes des boucles ($V$, $K$) et les adresses de chargement ($eb$) ne dépendent que de paramètres publics. Les tables calculées à partir du vinaigre ne sont que des données pour \vpshufb{} : ce ne sont jamais des adresses ni des conditions. Le code officiel a la même structure.
+\item \Pc{}$\to$à vérifier sur le programme compilé : à la remise en ordre de la fin du vecteur, A2 ajoute deux \code{vmovq} d'un registre vectoriel vers un registre général (\code{ar[...] ^= (uint64_t)_mm_cvtsi128_si64(...)}). Des données liées au secret passent donc par un registre général, mais seulement comme donnée d'un XOR vers la mémoire. Nous avons inspecté l'assembleur (script \code{inspect_asm.py}) et n'avons trouvé aucun usage non conforme (adresse, branche, drapeau). Ce résultat vaut pour \emph{une} version de GCC, pas en général.
+\item \Pe{} (indice) Valgrind en mode temps constant (données secrètes marquées comme indéfinies), dans la VM seulement : il repère les branches et les adresses qui dépendent de données marquées, sur les exécutions testées.
+\item \Hy{} Les instructions \vpshufb{}, \code{vpxor}, \code{vpand}, les décalages, les chargements et les écritures prennent un temps qui ne dépend pas des données sur les processeurs visés (d'après la documentation du constructeur, non vérifiée ici).
 \end{itemize}
-\textbf{Aucune preuve formelle de temps constant n'est fournie.} La réussite des KAT et l'absence de différence fonctionnelle ne démontrent pas le temps constant.
+\textbf{Nous ne fournissons aucune preuve formelle de temps constant.} Que les KAT réussissent et qu'il n'y ait pas de différence de résultat ne démontre pas le temps constant.
 
 \subsection{Correction fonctionnelle}
-KAT officiels réussis pour MAYO-1, 2, 3 et 5 (toutes les sessions), tests de schéma réussis, tests unitaires précédents, zéro signature différente dans toutes les paires A/B, nombre de tentatives de signature identique. La correction est donc établie \emph{sur les entrées testées} ; l'argument général repose sur les propriétés \Pc{} ci-dessus.
+Les KAT officiels réussissent pour MAYO-1, 2, 3 et 5 (toutes les sessions), ainsi que les tests du schéma et les tests unitaires précédents. Il y a zéro signature différente dans toutes les paires A/B, et le nombre de tentatives de signature est le même. La correction est donc établie \emph{sur les entrées testées} ; l'argument général repose sur les propriétés \Pc{} ci-dessus.
 
 \section{Protocole expérimental}\label{sec:protocole}
-L'objectif est qu'un lecteur disposant du dépôt, des archives et d'une machine comparable puisse refaire chaque analyse et, à des variations de bruit près, chaque mesure. Les commandes figurent à l'annexe~\ref{app:inventaire}.
+L'objectif est qu'un lecteur qui a le dépôt, les archives et une machine comparable puisse refaire chaque analyse et, au bruit près, chaque mesure. Les commandes sont à l'annexe~\ref{app:inventaire}.
 
 \subsection{Plateforme}
 \paragraph{Machine physique (toutes les mesures citées au chapitre~\ref{ch:resultats}).} Portable Intel Core i9-9880H (8 cœurs, 16 threads, microcode \code{0x104}) ; \code{systemd-detect-virt} = \code{none}, drapeau hyperviseur = 0 ; Kali 7.1.5 (démarrage sur disque, double amorçage) ; GCC 16.2.0 (Debian 16.2.0-3), cmake 4.3.4, Python 3.14.8, numpy 2.4.6. Gouverneur \code{performance}, turbo actif, SMT actif, secteur branché. Processus épinglé sur le cœur 1 (\code{taskset}). La fréquence instantanée du cœur n'est enregistrée qu'au lancement (de 800 MHz au repos à 4\,540 MHz selon les sessions) ; elle n'est pas une fréquence soutenue. Horloge du portable à UTC+2 ; les journaux \code{machine.txt} sont en UTC.
@@ -164,12 +164,12 @@ L'objectif est qu'un lecteur disposant du dépôt, des archives et d'une machine
 Base amont : dépôt officiel \code{PQCMayo/MAYO-C}, commit \code{74de637a7c4a7f9fafa888183bc05f5cf920cd2d}. Les modifications sont appliquées par \code{git am} dans l'ordre : \code{0001} (prototype A2), \code{0002} (sondes de décomposition, inertes par défaut), \code{0003} (contrôle de l'effet des sondes), \code{0004} (analyse statique E1, aucun noyau modifié). Les identifiants de commit changent avec \code{git am} ; les arbres, non (annexe~\ref{app:inventaire}). L'arbre des mesures S1/S2 est celui après \code{0001} ; celui de PH1/CT1 après \code{0003}. Les noyaux optimisés n'ont pas été modifiés pendant la phase d'analyse.
 
 \subsection{Protocole de mesure apparié}
-Pour chaque niveau mesuré (\code{P1_times_Vt}, \code{P1t_times_Vt}, \code{m_calculate}, \code{mayo_sign}), un processus exécute des paires (officiel, A2) en ordre \emph{aléatoire}, avec la même graine et le même message dans les deux bras. Le temps est lu par \code{rdtscp} (ticks TSC) ; l'ordre d'exécution de chaque paire est enregistré (\code{xmm_first}). Un processus comprend 3\,001 paires. Les signatures des deux bras sont comparées octet à octet et le nombre de tentatives de signature est vérifié.
+Pour chaque niveau mesuré (\code{P1_times_Vt}, \code{P1t_times_Vt}, \code{m_calculate}, \code{mayo_sign}), un processus exécute des paires (officiel, A2) dans un ordre \emph{aléatoire}, avec la même graine et le même message pour les deux versions. Le temps est lu par \code{rdtscp} (ticks TSC). L'ordre d'exécution de chaque paire est enregistré (\code{xmm_first}). Un processus comprend 3\,001 paires. Les signatures des deux versions sont comparées octet par octet, et le nombre de tentatives de signature est vérifié.
 
 \subsection{Unité statistique et intervalles}
-Les 3\,001 paires d'un même processus ne sont pas des répétitions indépendantes (même état de la machine, même fréquence) : l'IC95 « naïf » calculé sur les paires est de l'ordre de $\pm0{,}0001$ pour \code{mayo_sign}, alors que la dispersion entre processus est 5 à 15 fois plus grande. \textbf{L'unité statistique est le processus.} Pour chaque niveau et chaque processus on calcule la médiane du rapport A2/officiel ; la valeur rapportée est la médiane de ces médianes, avec un IC95 \emph{bootstrap sur les processus}. Une seule différence entre sessions est testée (S2$-$S1) : avec deux démarrages, la composante « entre sessions » n'est pas estimable séparément ; on donne l'écart et son IC bootstrap.
+Les 3\,001 paires d'un même processus ne sont pas des répétitions indépendantes (même état de la machine, même fréquence). L'intervalle à 95\,\% « naïf », calculé sur les paires, est d'environ $\pm0{,}0001$ pour \code{mayo_sign}, alors que la dispersion entre processus est 5 à 15 fois plus grande. \textbf{L'unité statistique est le processus.} Pour chaque niveau et chaque processus, on calcule la médiane du rapport A2/officiel. La valeur donnée est la médiane de ces médianes, avec un intervalle à 95\,\% obtenu par \emph{bootstrap sur les processus}. Nous testons une seule différence entre sessions (S2$-$S1) : avec deux démarrages, on ne peut pas estimer à part la variation « entre sessions » ; nous donnons donc l'écart et son intervalle bootstrap.
 
-\paragraph{Effet d'ordre.} Pour chaque processus : médiane du rapport sur les paires « A2 en premier » et sur les paires « officiel en premier » ; l'effet d'ordre est la différence, avec IC bootstrap sur les processus ; il est jugé relativement au gain.
+\paragraph{Effet d'ordre.} Pour chaque processus, on calcule la médiane du rapport sur les paires « A2 en premier » et sur les paires « officiel en premier ». L'effet d'ordre est la différence, avec un intervalle bootstrap sur les processus ; on le juge par rapport au gain.
 
 \subsection{Sessions}
 \begin{table}[ht]\centering\small
@@ -182,25 +182,25 @@ PH1 & 21 oct. 19:13 ; nouveau démarrage & MAYO-5 : 10 processus ; MAYO-1, MAYO-
 CT1 & 21 oct. 19:28 ; même démarrage que PH1 & 5 configurations $\times$ 10 processus (graines 41--50) & effet des sondes\\\bottomrule
 \end{tabularx}
 \end{table}
-Les scripts de lancement refusent d'écraser un dossier ou une archive existants ; aucune campagne n'écrase la précédente. S1 et S2 comparent deux démarrages distincts avec le même code, la même machine et le même compilateur. Temps absolus : S2 est environ 7\,\% plus lent que S1 pour tous les niveaux, témoins compris ; la cause n'est pas mesurée et les rapports ne sont pas affectés.
+Les scripts de lancement refusent d'écraser un dossier ou une archive existants : aucune campagne n'écrase la précédente. S1 et S2 comparent deux démarrages différents avec le même code, la même machine et le même compilateur. Pour les temps absolus, S2 est environ 7\,\% plus lent que S1 pour tous les niveaux, témoins compris ; nous n'avons pas mesuré la cause, et les rapports ne sont pas touchés.
 
 \subsection{Instrumentation de décomposition}
-Des sondes (\code{rdtscp} précédé d'un \code{lfence}) mesurent, pour chaque signature et chaque bras, le temps total, le nombre de tentatives et, pour chaque phase, le temps et le nombre d'appels. Elles sont inertes par défaut : sans la macro correspondante, le code objet de \code{mayo.c} et \code{arithmetic.c} est identique à l'original (vérifié par \code{cmp} et \code{objdump}). Le patch \code{0003} ajoute un masque de sondes pour activer individuellement chaque sonde ; les cinq configurations de CT1 sont : \code{plain} (bibliothèque d'origine, aucune sonde), \code{none} (sondes compilées, toutes désactivées), \code{esk} (sonde sur \code{expand_sk_internal} seule), \code{mcalc} (sonde sur \code{m_calculate_M_and_VPV} seule), \code{all} (toutes les sondes).
+Des sondes (\code{rdtscp} précédé d'un \code{lfence}) mesurent, pour chaque signature et chaque version, le temps total, le nombre de tentatives et, pour chaque phase, le temps et le nombre d'appels. Elles sont inactives par défaut : sans la macro correspondante, le code objet de \code{mayo.c} et de \code{arithmetic.c} est identique à l'original (vérifié par \code{cmp} et \code{objdump}). Le patch \code{0003} ajoute un masque pour activer chaque sonde séparément. Les cinq configurations de CT1 sont : \code{plain} (bibliothèque d'origine, aucune sonde), \code{none} (sondes compilées mais toutes désactivées), \code{esk} (sonde sur \code{expand_sk_internal} seule), \code{mcalc} (sonde sur \code{m_calculate_M_and_VPV} seule) et \code{all} (toutes les sondes).
 
 \subsection{Analyse statique du code généré (E1)}
-Pour chaque construction, l'objet est recompilé par la commande enregistrée, désassemblé (\code{objdump -d -M intel}) et les boucles de travail sont repérées par leur nombre de \code{vpshufb} (36 ymm pour l'officiel de MAYO-5 ; 24 ymm + 6 xmm pour A2). Les comptes sont normalisés par le facteur de déroulage de boucle (ici $u=1$). Le noyau est identifié par le \emph{pas d'adresse sur $P_1$} : \code{add reg,0x47} (entrées de 71 octets, pas d'une entrée) pour \code{P1_times_Vt}, \code{imul ...,0x47} pour \code{P1t_times_Vt} ; les marqueurs de débogage de GCC ne sont pas fiables (les corps identiques sont fusionnés et étiquetés \code{P1_times_O}). Toute attribution d'une différence de code à une cause exige d'avoir écarté les autres modifications du code (section~\ref{sec:e1b}).
+Pour chaque construction, nous recompilons l'objet avec la commande enregistrée, nous le désassemblons (\code{objdump -d -M intel}) et nous repérons les boucles de travail par leur nombre de \code{vpshufb} (36 ymm pour l'officiel de MAYO-5 ; 24 ymm + 6 xmm pour A2). Les comptes sont ramenés au facteur de déroulage de boucle (ici $u=1$). Nous identifions le noyau par le \emph{pas d'adresse sur $P_1$} : \code{add reg,0x47} (entrées de 71 octets, le pas d'une entrée) pour \code{P1_times_Vt} et \code{imul ...,0x47} pour \code{P1t_times_Vt}. Les repères de débogage de GCC ne sont pas fiables (les corps identiques sont fusionnés et étiquetés \code{P1_times_O}). Pour attribuer une différence de code à une cause, il faut d'abord avoir écarté les autres modifications du code (section~\ref{sec:e1b}).
 
 \subsection{Protocole E1b (analyse statique de l'origine des écritures)}\label{sec:e1b}
-E1b recompile \code{src/mayo.c} avec \emph{la commande exacte} de E1 plus une seule option supplémentaire, sans aucune mesure de temps. Constructions : \code{P_none} (sans sondes), \code{P_all} (toutes sondes), \code{TAB} (construction des mesures S1/S2). Variantes : \code{base} (contrôle : doit redonner exactement le code de E1) ; \code{dump} (sorties \code{-fdump-tree-optimized}, \code{-fdump-tree-sra-details}, \code{-fdump-tree-esra-details}, \code{-fdump-rtl-expand}, \code{-fdump-rtl-ira}, \code{-fopt-info-inline-optimized} ; contrôle : code identique) ; \code{nosra} (\code{-fno-tree-sra}) ; \code{noipasra} (\code{-fno-ipa-sra}) ; \code{nodse} ; \code{nopre} ; \code{nofre}.
+E1b recompile \code{src/mayo.c} avec \emph{la commande exacte} de E1 plus une seule option en plus, sans aucune mesure de temps. Constructions : \code{P_none} (sans sondes), \code{P_all} (toutes les sondes), \code{TAB} (construction des mesures S1/S2). Variantes : \code{base} (contrôle : doit redonner exactement le code de E1) ; \code{dump} (fichiers de sortie \code{-fdump-tree-optimized}, \code{-fdump-tree-sra-details}, \code{-fdump-tree-esra-details}, \code{-fdump-rtl-expand}, \code{-fdump-rtl-ira}, \code{-fopt-info-inline-optimized} ; contrôle : le code doit être identique) ; \code{nosra} (\code{-fno-tree-sra}) ; \code{noipasra} (\code{-fno-ipa-sra}) ; \code{nodse} ; \code{nopre} ; \code{nofre}.
 
-Pour chaque variante, le rapport donne : les boucles de travail avec nombre d'instructions et d'écritures de 32 octets ; le nombre d'instructions de \code{sign_signature_internal} \emph{hors boucles de travail} ; la distance entre histogrammes de mnémoniques hors boucles par rapport à \code{base} ; le nombre de lignes GIMPLE mentionnant \code{temp}. \textbf{Règle d'interprétation :} la disparition des écritures dans une variante n'est jamais lue seule ; elle n'est attribuée à une passe que si la distance hors boucles est faible, c'est-à-dire si rien d'autre n'a changé.
+Pour chaque variante, le rapport donne : les boucles de travail avec leur nombre d'instructions et d'écritures de 32 octets ; le nombre d'instructions de \code{sign_signature_internal} \emph{en dehors des boucles de travail} ; la distance entre les histogrammes de mnémoniques, hors boucles, par rapport à \code{base} ; et le nombre de lignes GIMPLE qui mentionnent \code{temp}. \textbf{Règle de lecture :} on ne lit jamais seule la disparition des écritures dans une variante. On ne l'attribue à une passe que si la distance hors boucles est faible, c'est-à-dire si rien d'autre n'a changé.
 
 
 \begin{table}[ht]\centering\small
 \caption{Issues possibles d'E1b et conclusions autorisées (fixées avant exécution).}\label{tab:e1b-issues}
 \begin{tabularx}{\linewidth}{@{}lXX@{}}\toprule
  & Observation (GCC~16.2.0) & Conclusion autorisée / non autorisée\\\midrule
-1 & Doublon absent avec \code{-fno-tree-sra} \emph{et} distance hors boucles faible & la passe conditionne le doublon dans cette compilation / non : que \code{temp[]} en soit la cause sans les dumps\\
+1 & Doublon absent avec \code{-fno-tree-sra} \emph{et} distance en dehors des boucles faible & la passe conditionne le doublon dans cette compilation / non : que \code{temp[]} en soit la cause sans les fichiers d'analyse\\
 2 & Doublon absent mais distance élevée & l'attribution est \emph{non établie}\\
 3 & Doublon présent dans toutes les variantes & les passes testées ne le suppriment pas, hypothèse non confirmée / non : que le doublon soit sans cause compilateur\\
 4 & \code{base} $\ne$ code de E1 & E1 non reproduit : arrêter l'interprétation\\\bottomrule
@@ -208,7 +208,7 @@ Pour chaque variante, le rapport donne : les boucles de travail avec nombre d'in
 \end{table}
 
 \subsection{Traçabilité et reproduction}
-Les données brutes (S1, S2, PH1, CT1) sont déposées avec leurs empreintes SHA-256 (annexe~\ref{app:inventaire}). Le script de reproduction réextrait les archives, vérifie les empreintes, relance les neuf analyses et compare les sorties : \textbf{9 analyses sur 9 identiques} lors de la dernière exécution. La reproduction des \emph{analyses} est exacte ; celle des \emph{mesures} donnera des valeurs voisines mais non identiques (ticks TSC, fréquence, bruit).
+Les données brutes (S1, S2, PH1, CT1) sont publiées avec leurs empreintes SHA-256 (annexe~\ref{app:inventaire}). Le script de reproduction réextrait les archives, vérifie les empreintes, relance les neuf analyses et compare les sorties : \textbf{9 analyses sur 9 identiques} lors de la dernière exécution. On retrouve \emph{exactement} les analyses ; pour les \emph{mesures}, on obtiendra des valeurs proches mais pas identiques (ticks TSC, fréquence, bruit).
 
 \subsection{Menaces à la validité identifiées a priori}
 \begin{itemize}

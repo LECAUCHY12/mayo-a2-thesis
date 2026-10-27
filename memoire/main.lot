@@ -1,0 +1,42 @@
+\xpginauxfiletrue 
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {1}{\ignorespaces Statut des contributions.}}{5}{table.caption.13}%
+\addvspace {10\p@ }
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {1.1}{\ignorespaces Paramètres des noyaux étudiés. $m$ : longueur du $m$-vecteur ; $b=m/2$ : octets par $m$-vecteur ; $L$ : limbes de 64 bits d'un accumulateur ; $K$ : nombre de vecteurs de $V$ ; $V$ : dimension de la partie vinaigre ; $N_{\mathrm {ent}}=V(V+1)/2$ : nombre d'entrées de $P_1$.}}{9}{table.caption.15}%
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {1.2}{\ignorespaces Situation d'A2 par rapport aux sources consultées.}}{13}{table.caption.17}%
+\addvspace {10\p@ }
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {2.1}{\ignorespaces Application aux paramètres actuels.}}{15}{table.caption.18}%
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {2.2}{\ignorespaces Rapport attendu par le seul débit de \texttt {vpshufb}{} et rapport mesuré (S1, A2/officiel, noyaux isolés).}}{17}{table.caption.20}%
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {2.3}{\ignorespaces Sessions de mesure sur machine physique (dates UTC).}}{22}{table.caption.25}%
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {2.4}{\ignorespaces Issues possibles d'E1b et conclusions autorisées (fixées avant exécution).}}{23}{table.caption.26}%
+\addvspace {10\p@ }
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {3.1}{\ignorespaces Rapport A2/officiel, médiane des processus [IC95 bootstrap entre processus]. S1 : 20 processus ; S2 : 5 processus. Gain = 1 $-$ rapport.}}{24}{table.caption.27}%
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {3.2}{\ignorespaces Rapport A2/officiel selon l'ordre d'exécution, et écart par processus [IC95].}}{26}{table.caption.31}%
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {3.3}{\ignorespaces Cinq configurations du même programme (10 processus chacune, graines 41--50, un démarrage). Ticks par signature.}}{26}{table.caption.32}%
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {3.4}{\ignorespaces Décomposition directe de la signature MAYO-5 (ticks par signature).}}{27}{table.caption.34}%
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {3.5}{\ignorespaces Instructions de la boucle interne par entrée de $P_1$ (MAYO-5) selon la construction.}}{28}{table.caption.36}%
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {3.6}{\ignorespaces E1b : boucles de travail selon l'option ajoutée (instructions / écritures de 32 ou 16 octets). « Dist. » : distance entre histogrammes de mnémoniques en dehors des boucles de travail, par rapport à \texttt {base}.}}{30}{table.caption.39}%
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {3.7}{\ignorespaces Ce qui est établi, déduit ou supposé.}}{34}{table.caption.40}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\setforeignlanguage {french}
+\contentsline {table}{\numberline {B.1}{\ignorespaces Instructions / écritures de 32 octets des boucles de travail selon la construction.}}{40}{table.caption.46}%
+\addvspace {10\p@ }
+\xpginauxfilefalse 

@@ -3,24 +3,24 @@
 \markboth{Conclusion générale et perspectives}{Conclusion générale et perspectives}
 
 \section*{Contributions effectives}
-Ce mémoire a étudié, sur MAYO-C, le traitement des queues de $m$-vecteurs dans les noyaux AVX2 \code{P1_times_Vt} et \code{P1t_times_Vt}. Les contributions établies sont les suivantes.
+Ce mémoire a étudié, dans MAYO-C, la façon dont les noyaux AVX2 \code{P1_times_Vt} et \code{P1t_times_Vt} traitent la fin des $m$-vecteurs. Les contributions établies sont les suivantes.
 \begin{enumerate}
-\item Un \textbf{comptage rigoureux} dans un modèle défini : borne $\lceil m/32\rceil$, schéma officiel $2\lceil m/64\rceil$, et caractérisation exacte des $m$ pour lesquels un gain de \vpshufb{} est possible ($0<m\bmod64\le32$). MAYO-1 et MAYO-5 en bénéficient, MAYO-2 et MAYO-3 non.
-\item Une \textbf{réalisation} (A2) pour les queues d'au plus 16 éléments, avec une variante SAFE qui ne lit rien au-delà de l'entrée de $P_1$, et un ensemble de propriétés de lecture, d'écriture, de tables et de bourrage, avec leurs preuves de code et leurs tests.
-\item Des \textbf{gains mesurés} sur machine physique avec une unité statistique explicitée : 12--29\,\% sur les noyaux, 10,3\,\% sur \code{mayo_sign} de MAYO-1, 1,3\,\% sur celui de MAYO-5, reproduits sur deux démarrages.
-\item La \textbf{localisation} de la perte de gain de MAYO-5 dans \code{m_calculate} en contexte de signature, et la mise en évidence d'écritures supplémentaires asymétriques dans le code généré par GCC~16.2.0, concordantes avec la perte ; l'analyse statique E1b les identifie à des stockages de tableaux d'accumulateurs maintenus dans la boucle et écarte la passe SRA comme cause.
-\item Un \textbf{dépôt reproductible} (scripts, données brutes, empreintes) dont les neuf analyses se reproduisent à l'identique.
+\item Un \textbf{comptage rigoureux} dans un modèle précis : le minimum est $\lceil m/32\rceil$ instructions \vpshufb{}, le schéma officiel en utilise $2\lceil m/64\rceil$, et un gain n'est possible que si $0<m\bmod64\le32$. MAYO-1 et MAYO-5 en profitent, pas MAYO-2 ni MAYO-3.
+\item Une \textbf{mise en œuvre} (A2) pour une fin de vecteur d'au plus 16 éléments, avec une variante SAFE qui ne lit rien au-delà de l'entrée de $P_1$. Les propriétés de lecture, d'écriture, de tables et de bourrage sont justifiées par le code et vérifiées par des tests.
+\item Des \textbf{gains mesurés} sur une machine physique, avec une unité statistique précisée : 12 à 29\,\% sur les noyaux, 10,3\,\% sur \code{mayo_sign} pour MAYO-1 et 1,3\,\% pour MAYO-5, retrouvés lors de deux démarrages de la machine.
+\item La \textbf{localisation} de la perte de gain de MAYO-5 dans \code{m_calculate}, quand on mesure la signature complète. On observe aussi, dans le code produit par GCC~16.2.0, des écritures mémoire en plus et inégales entre les deux versions, qui correspondent à cette perte. L'analyse E1b montre que ce sont des stockages de tableaux d'accumulateurs refaits à chaque tour de boucle, et écarte la passe SRA comme cause.
+\item Un \textbf{dépôt reproductible} (scripts, données brutes, empreintes) avec lequel les neuf analyses donnent exactement les mêmes résultats.
 \end{enumerate}
 
 \section*{Limites}
-Le gain de signature de MAYO-5 est faible et dépend de la décision du compilateur. Le lien causal entre écritures supplémentaires et perte de gain n'est pas établi et le modèle quantitatif le surestime d'environ 40\,\%. Les mesures proviennent d'une machine et d'un compilateur ; elles sont en ticks TSC. Le temps constant n'est étayé que par des indicateurs. La variante pour queues de 17 à 32 éléments n'est pas implémentée. Aucune nouveauté absolue n'est revendiquée.
+Le gain sur la signature de MAYO-5 est faible et dépend du choix du compilateur. Le lien de cause à effet entre les écritures en plus et la perte de gain n'est pas démontré, et le modèle chiffré exagère l'effet d'environ 40\,\%. Les mesures viennent d'une seule machine et d'un seul compilateur, en ticks TSC. Le temps d'exécution indépendant du secret n'est appuyé que par des indices, pas par une preuve. La variante pour une fin de vecteur de 17 à 32 éléments n'est pas réalisée. Nous ne prétendons à aucune nouveauté absolue.
 
 \section*{Questions ouvertes et perspectives}\label{sec:persp}
 \begin{description}
-\item[Q1 -- Décision du compilateur.] Comprendre pourquoi GCC~16.2.0 laisse ces stockages dans la boucle sans toutes les sondes et les sort avec toutes les sondes. E1b a écarté SRA, DSE, PRE et IPA-SRA comme causes uniques (désactivés un à un, le doublon persiste) et n'autorise aucune attribution à FRE (le code change ailleurs). La suite naturelle, restant statique, est de produire les dumps des passes de motion de stockages et de PRE (\code{-fdump-tree-lim2-details}, \code{-fdump-tree-pre-details}) ; elle n'a pas été lancée et attend l'accord de l'encadrant.
-\item[Q2 -- Causalité.] Si, et seulement si, un moyen de supprimer le doublon sans autre modification de code est identifié, comparer les temps avec et sans doublon à code constant. Les expériences E2 à E5 initialement envisagées restent suspendues jusqu'à la décision de l'encadrant.
-\item[Q3 -- Robustesse.] Reproduire l'analyse statique avec Clang et d'autres versions de GCC ; mesurer sur une seconde machine, idéalement avec compteurs matériels et en cycles cœur (hypothèse de performance H-P).
-\item[Q4 -- Extension.] Implémenter et valider la variante pour $16<r\le32$ ; examiner les paramètres hors de la famille actuelle.
-\item[Q5 -- Assurance.] Vérification formelle ou outillée du temps constant du binaire.
-\item[Q6 -- Intégration.] Décision en fonction des réponses ci-dessus et des critères de l'encadrant.
+\item[Q1 -- Le choix du compilateur.] Comprendre pourquoi GCC~16.2.0 laisse ces écritures dans la boucle quand toutes les sondes ne sont pas actives, et les sort de la boucle quand elles le sont. L'analyse E1b a écarté SRA, DSE, PRE et IPA-SRA comme causes uniques (en les désactivant une à une, le doublon reste) et ne permet pas d'accuser FRE (le code change aussi ailleurs). La suite naturelle, toujours sans exécuter le programme, est de produire les fichiers d'analyse des passes qui déplacent les stockages et de PRE (\code{-fdump-tree-lim2-details}, \code{-fdump-tree-pre-details}). Ce n'a pas encore été fait : cela attend l'accord de l'encadrant.
+\item[Q2 -- La cause.] Si l'on trouve un moyen de supprimer le doublon sans toucher à autre chose dans le code, comparer alors les temps avec et sans doublon, sur le même code. Les expériences E2 à E5 prévues au départ restent en attente de la décision de l'encadrant.
+\item[Q3 -- La solidité des résultats.] Refaire l'analyse avec Clang et d'autres versions de GCC, et mesurer sur une deuxième machine, si possible avec les compteurs du processeur et en cycles d'horloge (hypothèse de performance H-P).
+\item[Q4 -- L'extension.] Réaliser et valider la variante pour $16<r\le32$ ; examiner d'autres paramètres que ceux étudiés ici.
+\item[Q5 -- La garantie.] Vérifier, de façon formelle ou avec un outil, que le programme compilé s'exécute en temps indépendant du secret.
+\item[Q6 -- L'intégration.] Décider, en fonction des réponses précédentes et des critères de l'encadrant.
 \end{description}
