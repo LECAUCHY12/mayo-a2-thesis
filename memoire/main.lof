@@ -1,0 +1,31 @@
+\xpginauxfiletrue 
+\setforeignlanguage {french}
+\addvspace {10\p@ }
+\setforeignlanguage {french}
+\contentsline {figure}{\numberline {1.1}{\ignorespaces Une tentative de signature dans le code de référence. Les noyaux optimisés se trouvent dans l'étape en rouge, répétée à chaque tentative.}}{9}{figure.caption.14}%
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\contentsline {figure}{\numberline {1.2}{\ignorespaces Chargements pour une entrée de $P_1$ de MAYO-5 (octets). Le noyau officiel recouvre l'intervalle $[40,64)$ et dépasse l'entrée d'un octet ; A2 SAFE lit exactement $[0,71)$.}}{11}{figure.caption.16}%
+\setforeignlanguage {french}
+\addvspace {10\p@ }
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\addvspace {10\p@ }
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Rapports A2/officiel mesurés (S1). Le gain se dilue de la couche noyau à la signature complète, fortement pour MAYO-5.}}{25}{figure.caption.28}%
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\contentsline {figure}{\numberline {3.2}{\ignorespaces MAYO-5, rapport \texttt {mayo\_sign} A2/officiel selon la configuration de sondes (CT1). Seule la configuration « toutes les sondes » change le résultat.}}{27}{figure.caption.33}%
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\setforeignlanguage {french}
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\setforeignlanguage {french}
+\addvspace {10\p@ }
+\xpginauxfilefalse 

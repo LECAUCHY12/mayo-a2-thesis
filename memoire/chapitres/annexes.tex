@@ -63,3 +63,26 @@ Construction & \code{P1} off. & \code{P1} A2 & \code{P1t} off. & \code{P1t} A2\\
 \end{table}
 Les différences « sans toutes les sondes » moins « toutes sondes » sont : A2 \code{P1} $+30$ (52$-$22), A2 \code{P1t} $+30$, officiel \code{P1t} $+36$ (65$-$29), officiel \code{P1} $0$.
 
+
+\chapter{Exemple jouet complet de MAYO sur $\mathbb{F}_{16}$}\label{app:jouet}
+Cet exemple, calculé à la main et vérifié par un programme, illustre la section~\ref{sec:schema}. Les éléments de $\mathbb{F}_{16}=\mathbb{F}_2[x]/(x^4+x+1)$ sont écrits en hexadécimal (A $=10$, B $=11$, \dots, F $=15$) ; l'addition est le OU exclusif.
+
+\section*{Paramètres}
+$n=3$, $v=2$, $o=1$, $m=2$, $k=2$ : on a bien $o<m$ et $k\,o=m$. Le secret est $O=(\mathrm{B},8)^{\mathsf T}$.
+
+\section*{Clé publique (blocs de chaque équation $\ell=1,2$)}
+\[P^{(1)}_1=\begin{pmatrix}8&9\\0&6\end{pmatrix},\ P^{(1)}_2=\begin{pmatrix}2\\2\end{pmatrix},\ P^{(1)}_3=(6);\qquad
+P^{(2)}_1=\begin{pmatrix}8&\mathrm{A}\\0&8\end{pmatrix},\ P^{(2)}_2=\begin{pmatrix}\mathrm{B}\\\mathrm{C}\end{pmatrix},\ P^{(2)}_3=(\mathrm{E}).\]
+Le bloc $P^{(\ell)}_3=\mathrm{Upper}\bigl(-O^{\mathsf T}(P^{(\ell)}_1O-P^{(\ell)}_2)\bigr)$ est calculé avec le secret.
+
+\section*{Signature}
+Le haché salé est supposé égal à $t=(\mathrm{F},9)$. Vinaigres tirés : $V=\begin{pmatrix}2&3\\3&\mathrm{A}\end{pmatrix}$ (lignes $v_1,v_2$). On calcule
+\[Y^{(1)}=VP^{(1)}_1V^{\mathsf T}=\begin{pmatrix}8&7\\6&4\end{pmatrix},\qquad Y^{(2)}=VP^{(2)}_1V^{\mathsf T}=\begin{pmatrix}1&4\\3&9\end{pmatrix}.\]
+Le second membre est $y=t+\bigl(u_{11}+z\,u_{12}+z^2u_{22}\bigr)=(8,7)$, où $z$ est la classe de $x$ modulo $z^2+z+1$ et $u_{ij}$ le $m$-vecteur des coefficients de $Y^{(\cdot)}$. La matrice du système est $A=\begin{pmatrix}2&1\\\mathrm{F}&\mathrm{D}\end{pmatrix}$ ; son déterminant vaut $6\neq0$, donc il y a une solution unique $x=(x_1,x_2)=(8,\mathrm{B})$. La signature est $S=(s_1,s_2)$ avec $s_i=(v_i+Ox_i\,\|\,x_i)$ :
+\[s_1=(5,\mathrm{F},8),\qquad s_2=(\mathrm{A},\mathrm{D},\mathrm{B}).\]
+
+\section*{Vérification}
+On évalue $P^{(\ell)}(s_1)$, $P^{(\ell)}(s_2)$ et $P'^{(\ell)}(s_1,s_2)$ :
+$P(s_1)=(\mathrm{A},5)$, $P(s_2)=(9,\mathrm{B})$, $P'(s_1,s_2)=(\mathrm{D},4)$. Alors
+\[P^\star(S)=P(s_1)+z\,P'(s_1,s_2)+z^2P(s_2)=(\mathrm{A},5)+(6,9)+(3,5)=(\mathrm{F},9)=t.\]
+La signature est acceptée. Si l'on modifie un seul élément de $s_1$, l'égalité est perdue et la signature est refusée.
