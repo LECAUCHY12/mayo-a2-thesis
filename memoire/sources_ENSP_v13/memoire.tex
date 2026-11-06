@@ -38,7 +38,7 @@
 %\usepackage[version=0.96]{pgf}			%PGF/TikZ is a tandem of languages for producing vector graphics from a 
 
 \usepackage{tcolorbox}
-\usepackage[cyr]{aeguill}
+
 \newtcolorbox{bidentidad}[2][]{
   enhanced,
   skin=enhancedlast jigsaw,
@@ -556,8 +556,8 @@ expansion=true]{microtype}
 %
 % Theorem styles used in my thesis
 %
-\AtBeginDocument{\renewcommand{\bibname}{References}}
-\AtBeginDocument{\renewcommand{\refname}{Bibliographical References}}
+\AtBeginDocument{\renewcommand{\bibname}{Références}}
+\AtBeginDocument{\renewcommand{\refname}{Références}}
 
 \theoremstyle{plain}
 \newtheorem{theo}{Theorem}[chapter]
@@ -734,13 +734,13 @@ expansion=true]{microtype}
 \clearemptydoublepage
 
 
-\listoffigures
+\selectlanguage{french}\renewcommand{\listfigurename}{Liste des figures}\listoffigures
 %\addtocontents{lof}{\par\nobreak\textbf{{\scshape Figure} \hfill Page}\par\nobreak}
 \cleardoublepage
 %
 
 
-\listoftables
+\renewcommand{\listtablename}{Liste des tableaux}\listoftables
 
 %\addtocontents{lot}{\par\nobreak\textbf{{\scshape Tableau} \hfill Page}\par\nobreak}
 \clearemptydoublepage

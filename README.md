@@ -46,9 +46,9 @@ Les patchs modifient `PQCMayo/MAYO-C` (Apache-2.0) ; ils sont publiés sous la m
 
 ## Mémoire
 
-**Lire le mémoire (PDF révisé, format ENSPY) : [`memoire/memoire_ENSP_v11.pdf`](https://github.com/LECAUCHY12/mayo-a2-thesis/blob/main/memoire/memoire_ENSP_v11.pdf)**
+**Lire le mémoire (PDF révisé, format ENSPY) : [`memoire/memoire_ENSP_v13.pdf`](https://github.com/LECAUCHY12/mayo-a2-thesis/blob/main/memoire/memoire_ENSP_v13.pdf)**
 
-Sources LaTeX : `memoire/sources_ENSP_v11/` (compiler `memoire.tex` avec pdflatex, trois fois) ; version xelatex du même texte dans `memoire/` (`main.tex`). Les logos sont dans `memoire/logos/`.
+Sources LaTeX : `memoire/sources_ENSP_v13/` (compiler `memoire.tex` avec pdflatex, trois fois) ; version xelatex du même texte dans `memoire/` (`main.tex`). Les logos sont dans `memoire/logos/`.
 
 ## Comparaison ciblée (GCC 16.2.0, 6 nov. 2026)
 Demandée par l'encadrant : MAYO-C officiel et A2 SAFE compilés séparément, sans sondes ni `MAYO_TAIL_AB`, signature complète, MAYO-1 et MAYO-5, mêmes entrées, ordre alterné, le processus comme unité statistique.
