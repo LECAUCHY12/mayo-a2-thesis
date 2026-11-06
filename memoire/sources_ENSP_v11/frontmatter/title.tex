@@ -1,0 +1,119 @@
+%
+% File: Title.tex
+% Author: V?ctor Bre?a-Medina
+% Description: Contains the title page
+%
+% UoB guidelines:
+% 
+% At the top of the title page, within the margins, the dissertation should give the title and, if 
+% necessary, sub-title and volume number. If the dissertation is in a language other than English, the 
+% title must be given in that language and in English. The full name of the author should be in the 
+% centre of the page. At the bottom centre should be the words ?A dissertation submitted to the 
+% University of Bristol in accordance with the requirements for award of the degree of ? in the 
+% Faculty of ...?, with the name of the school and month and year of submission. The word count of 
+% the dissertation (text only) should be entered at the bottom right-hand side of the page.
+%
+%
+%\hspace{5cm}
+%\pagecolor{fondpaille}%\afterpage{\nopagecolor}
+\bord
+\begin{titlingpage}
+\begin{SingleSpace}
+
+%\calccentering{\unitlength} 
+\begin{adjustwidth*}{\unitlength}{-\unitlength}
+\vspace*{13mm}
+\vspace{-4cm}
+\centering
+\begin{center}
+ 	\begin{tabular}{ccc}
+				{\large UNIVERSITE DE YAOUNDE I} & \multirow{8}{*}{\includegraphics[ width =3cm , height =3cm]{logos/uy1.png}} & \large{UNIVERSITY OF YAOUNDE I}\\
+				%& & \\
+				\textbf{*******} &    & \textbf{*******} \\
+				%& & \\
+				\textcolor{black}{ECOLE NATIONALE SUPERIEURE}& & \textcolor{black}{NATIONAL ADVANCED SCHOOL}\\ 
+				\textcolor{black}{POLYTECHNIQUE DE YAOUNDE}	  & & \textcolor{black}{OF ENGINEERING OF YAOUNDE} \\
+				%& & \\
+				\textbf{********}    & & \textbf{*******} \\
+				%& & \\
+				DEPARTEMENT DE GENIE& & DEPARTMENT OF COMPUTER \\ 
+				INFORMATIQUE & & ENGINEERING \\
+				\end{tabular}
+	
+\end{center}
+\hspace{3cm}
+\vspace{0.3cm}
+\begin{center}
+\rule[0.5ex]{\linewidth}{2pt}\vspace*{-\baselineskip}\vspace*{3.2pt}
+\rule[0.6ex]{\linewidth}{1pt}\\[\baselineskip]
+{\Large {\textcolor{blue}{\textsc{ \textbf{OPTIMISATION DU TRAITEMENT DES QUEUES DE $m$-VECTEURS
+DANS LES NOYAUX AVX2 DE MAYO-C :
+L'APPROCHE A2
+} }}
+} }\\
+\rule[0.5ex]{\linewidth}{1pt}\vspace*{-\baselineskip}\vspace{3.2pt}
+\rule[0.5ex]{\linewidth}{2pt}\\
+\vspace{4mm}
+{\Large \textbf{Mémoire de Master II}}\\
+\vspace{4mm}
+{\Large Présenté et soutenu par : } \\
+\vspace{4mm}
+{\large \textsc{\textbf{\textcolor{blue}{MARCEL ERIC ANGOAH}}}}\\
+\vspace{4mm}
+{\Large En vue de l'obtention du :} \\
+\vspace{4mm}
+{\large \textbf{\textcolor{blue}{Master II en Génie Informatique}}}\\
+\vspace{4mm}
+{\Large Sous la supervision de :}\\
+\vspace{4mm}
+
+{\normalsize \textsc{\textbf{\textcolor{blue}{Hervé Talé Kalachi, Chargé de Cours, UY1}}}}\
+\vspace{4mm}
+
+\vspace{6mm}
+
+\vspace{3mm}
+
+
+\begin{tabular}{c}
+{\Large \textcolor{blue}{Année académique 2025-2026}}\\ \\
+
+\end{tabular}
+
+%Front page corner design...read ornaments documentation for more info
+%Peterson Yuhala
+%\begin{tikzpicture}[remember picture, overlay, start chain, node distance=-2mm,color=orange]
+%\node (nworn) [shift={(5mm,-5mm)}, anchor=north west, on chain ] at (current page.north west) {\pgfornament[width=8mm]{24}};
+%\foreach \i in {1,...,21}
+%\node [on chain] {\pgfornament[width=8mm]{19}};
+%\node (neorn) [on chain] {\pgfornament[width=8mm]{24}};
+%\foreach \i in {1,...,33}
+%\node [continue chain=going below, on chain] {\pgfornament[width=8mm]{24}};
+%\node (seorn) [on chain] {\pgfornament[width=8mm]{24}};
+%\foreach \i in {1,...,21}
+%\node [continue chain=going left, on chain] {\pgfornament[width=8mm]{24}};
+%\node (sworn) [on chain] {\pgfornament[width=8mm]{24}};
+%\foreach \i in {1,...,33}
+%\node [continue chain=going above, on chain] {\pgfornament[width=8mm]{24}};
+%\end{tikzpicture}
+% \begin{tikzpicture}[remember picture, overlay]
+%  \begin{scope}[shift={(current page.south west)},shift={(1,1)},scale=1]
+%  \shade[ball color=blue,opacity=.6] (0,0) circle (10ex);
+%  \shade[ball color=blue,opacity=.8] (1.7,1) circle (6ex);
+%  \shade[ball color=blue,opacity=.8] (1.5,3) circle (2ex);
+%  \shade[ball color=blue,opacity=.5] (-0.5,3) circle (1ex);
+%  \shade[ball color=blue,opacity=.8] (1,4) circle (1ex);
+%  \shade[ball color=blue,opacity=.6] (3.5,2.5) circle (2ex);
+%  \shade[ball color=blue,opacity=.8] (2.5,3.5) circle (2ex);
+%  \end{scope}
+%  \end{tikzpicture}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\cornerplus{41}{88}
+\end{center}
+
+
+\end{adjustwidth*}
+
+\end{SingleSpace}
+\end{titlingpage}

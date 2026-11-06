@@ -1,0 +1,8 @@
+MAYO-1 : 401 paires de processus ; rapport A2 SAFE / officiel (mediane) = 0.8988 [0.8980 ; 0.8994] ; gain = 10.1 %
+   ordre a2_puis_off  : mediane des rapports = 0.8990 (200 paires)
+   ordre off_puis_a2  : mediane des rapports = 0.8988 (201 paires)
+   empreintes de signatures differentes entre les deux constructions : 0 ; verifications non reussies : 0
+MAYO-5 : 401 paires de processus ; rapport A2 SAFE / officiel (mediane) = 0.9854 [0.9851 ; 0.9858] ; gain = 1.5 %
+   ordre a2_puis_off  : mediane des rapports = 0.9855 (200 paires)
+   ordre off_puis_a2  : mediane des rapports = 0.9852 (201 paires)
+   empreintes de signatures differentes entre les deux constructions : 0 ; verifications non reussies : 0

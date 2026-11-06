@@ -1,52 +1,307 @@
-\chapter[Fondements et revue de littérature]{Fondements théoriques et revue de littérature}
+\chapter[Généralités et état de l'art]{Généralités et état de l'art}
 \label{ch:etat}
 
-Ce chapitre donne au lecteur ce qui est nécessaire pour suivre la suite sans autre source : le schéma de signature MAYO et ses algorithmes (section~\ref{sec:schema}), leur traduction dans le code de référence et la place des noyaux étudiés (section~\ref{sec:code}), la représentation des données et l'arithmétique par \vpshufb{} sur $\mathbb{F}_{16}$ (section~\ref{sec:arith}), un panorama des analyses menées (section~\ref{sec:panorama}), puis les implémentations existantes et le positionnement de l'optimisation étudiée (sections~\ref{sec:revue} et suivantes).
+Ce chapitre fixe les concepts mathématiques, présente le schéma MAYO et ses ancêtres, son code de référence et les outils d'analyse, puis fait l'état de l'art.
 
-\section{Fondements théoriques}
-\subsection{Le schéma MAYO}\label{sec:schema}
-\subsubsection{Des signatures multivariées à Oil-and-Vinegar, puis à UOV}
-Une signature « multivariée » repose sur une fonction publique $\mathcal{P}:\mathbb{F}_q^n\to\mathbb{F}_q^m$ formée de $m$ polynômes de degré~2 en $n$ variables. Signer un message $M$, c'est trouver un point $s$ tel que $\mathcal{P}(s)=H(M)$, où $H$ est une fonction de hachage (avec un « sel » aléatoire) qui donne $m$ valeurs de $\mathbb{F}_q$. Vérifier une signature, c'est simplement calculer $\mathcal{P}(s)$. Le schéma Oil-and-Vinegar (OV), proposé par Patarin en 1997~\cite{patarin}, cache un secret : un sous-espace $\mathcal{O}\subset\mathbb{F}_q^n$ (« l'huile »), de dimension $o$, sur lequel $\mathcal{P}$ vaut zéro. Les $n$ variables se séparent en $v=n-o$ variables « vinaigre » et $o$ variables « huile ». Dans OV, on prend $o=m$. Pour signer, on choisit les variables vinaigre au hasard. Il reste alors un \emph{système linéaire} de $m$ équations avec $o$ inconnues (les variables huile), parce que, dans la base secrète, aucun terme ne multiplie deux variables huile entre elles. On le résout directement.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Concepts mathématiques}\label{sec:maths}
+Cette section donne les définitions mathématiques utilisées dans tout notre travail. Chaque définition est suivie d'un exemple calculé.
 
-Dans la version d'origine, dite \emph{équilibrée}, on avait $v=o$. Cette version a été cassée en 1998 par Kipnis et Shamir~\cite{kipnisshamir}. La correction, proposée en 1999 par Kipnis, Patarin et Goubin, s'appelle \emph{Unbalanced Oil and Vinegar} (UOV)~\cite{uov} : on prend $v>o$ (beaucoup plus de vinaigre que d'huile) et on garde $o=m$. La signature se déroule comme dans OV (vinaigre au hasard, puis système linéaire de $m$ équations). Mais l'attaque contre la version équilibrée ne marche plus, et UOV n'a pas été cassé depuis. Son défaut est la taille de la clé publique : $n=v+o$ est grand, et la clé contient $m$ matrices triangulaires de taille $n\times n$.
+\paragraph{Notations.} Les éléments d'un corps sont notés en italique ($a$, $x_i$). Les vecteurs sont notés par des lettres minuscules en gras ($\mathbf{x}$, $\mathbf{v}$) et les matrices par des lettres majuscules en gras ($\mathbf{A}$, $\mathbf{P}$). La transposée d'une matrice $\mathbf{A}$ est notée $\mathbf{A}^{\top}$. Les nombres de $\mathbb{F}_{16}$ sont écrits en hexadécimal, avec les lettres en minuscules (voir la section~\ref{sec:corps}).
 
-\subsubsection{Le schéma MAYO}
-MAYO~\cite{mayo,nibbling} part d'UOV (où $o=m$) et choisit un espace d'huile \emph{trop petit} ($o<m$). Cela réduit beaucoup la taille des clés, mais on ne peut plus résoudre le système directement : il y a $m$ équations pour seulement $o$ inconnues. La solution est le « fouettage » (\emph{whipping}). On étend la fonction publique $\mathcal{P}$ en une fonction $\mathcal{P}^\star:\mathbb{F}_q^{kn}\to\mathbb{F}_q^m$ qui prend $k$ blocs de $n$ variables :
-\[\mathcal{P}^\star(x_1,\dots,x_k)=\sum_{i=1}^{k}E_{ii}\,\mathcal{P}(x_i)+\sum_{i=1}^{k}\sum_{j=i+1}^{k}E_{ij}\,\mathcal{P}'(x_i,x_j),\qquad \mathcal{P}'(x,y)=\mathcal{P}(x+y)-\mathcal{P}(x)-\mathcal{P}(y),\]
-où les matrices publiques $E_{ij}\in\mathbb{F}_q^{m\times m}$ servent à multiplier par des puissances de $X$, modulo un polynôme irréductible de degré~$m$. Une signature est $S=(s_1,\dots,s_k)$ ; elle est valide si $\mathcal{P}^\star(S)=H(M)$. Ici $q=16$. Les paramètres $m$, $k$, $o$, $n$ définissent quatre jeux (MAYO-1, 2, 3 et 5), selon le niveau de sécurité demandé par le NIST~\cite{nistadd}. Les inconnues sont maintenant $k\cdot o$, ce qui permet d'avoir assez d'inconnues pour les $m$ équations.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Corps fini}\label{sec:corps}
+\begin{definition}[Corps~\cite{lidl}]
+Un \emph{corps} est un ensemble $F$ muni de deux opérations, l'addition $+$ et la multiplication $\cdot$, tel que $(F,+)$ est un groupe commutatif d'élément neutre $0$, $(F\setminus\{0\},\cdot)$ est un groupe commutatif d'élément neutre $1$, et la multiplication est distributive par rapport à l'addition. Un corps est \emph{fini} s'il a un nombre fini d'éléments ; ce nombre est son \emph{ordre}.
+\end{definition}
+On sait~\cite{lidl} que l'ordre d'un corps fini est de la forme $p^n$ avec $p$ premier et $n\ge1$, et que, pour chaque tel nombre, il existe un seul corps fini à $p^n$ éléments (à isomorphisme près), noté $\mathbb{F}_{p^n}$. Le nombre premier $p$ est la \emph{caractéristique} du corps : c'est le plus petit entier $k\ge1$ tel que $k\cdot1=0$.
 
-\subsubsection{Évaluation par produits de matrices}
-Les $m$ polynômes de $\mathcal{P}$ s'écrivent $p_\ell(x)=x^{\top}P_\ell\,x$, où $P_\ell$ est une matrice triangulaire supérieure. On la découpe en blocs :
-\[P_\ell=\begin{pmatrix}P^{(1)}_\ell&P^{(2)}_\ell\\0&P^{(3)}_\ell\end{pmatrix},\]
-où $P^{(1)}_\ell$ est de taille $v\times v$ avec $v=n-o$ (notée $V$ dans le code et dans le tableau~\ref{tab:params}), $P^{(2)}_\ell$ de taille $v\times o$ et $P^{(3)}_\ell$ de taille $o\times o$. Les blocs $P^{(1)}$ et $P^{(2)}$ sont recalculés à partir d'une graine par une fonction à base d'AES ; seul $P^{(3)}$ est stocké dans la clé publique~\cite{nibbling}. Soit $S$ la matrice dont les colonnes sont $s_1,\dots,s_k$. Tout se déduit de $S^{\top}P_\ell S$ : $\mathcal{P}(s_i)_\ell$ est l'élément $(i,i)$ de cette matrice, et $\mathcal{P}'(s_i,s_j)_\ell$ est la somme des éléments $(i,j)$ et $(j,i)$. \emph{Ce sont donc les produits de matrices qui coûtent le plus cher}, d'où l'intérêt de les optimiser~\cite{nibbling}.
-\[P_\ell=\begin{pmatrix}P^{(1)}_\ell&P^{(2)}_\ell\\0&P^{(3)}_\ell\end{pmatrix},\]
-où $P^{(1)}_\ell$ est de taille $v\times v$ avec $v=n-o$ (noté $V$ dans le code et au tableau~\ref{tab:params}), $P^{(2)}_\ell$ de taille $v\times o$ et $P^{(3)}_\ell$ de taille $o\times o$. Les blocs $P^{(1)}$ et $P^{(2)}$ sont dérivés d'une graine par une fonction d'expansion à base d'AES ; seul $P^{(3)}$ est stocké dans la clé publique~\cite{nibbling}. Si $S$ est la matrice dont les colonnes sont $s_1,\dots,s_k$, tout se déduit de $S^{\top}P_\ell S$ : $\mathcal{P}(s_i)_\ell$ est son élément diagonal $(i,i)$ et $\mathcal{P}'(s_i,s_j)_\ell$ la somme des éléments $(i,j)$ et $(j,i)$. \emph{Les produits matrice $\times$ matrice dominent donc le coût}, ce qui motive leur optimisation~\cite{nibbling}.
+\paragraph{Exemple : le corps $\mathbb{F}_2$.} Prenons $p=2$ et $n=1$ : $\mathbb{F}_2=\{0,1\}$. L'addition est le « ou exclusif » (XOR) : $0+0=0$, $0+1=1$, $1+1=0$. La multiplication est le « et » logique : $1\cdot1=1$ et tous les autres produits valent~$0$. Comme $1+1=0$, on a $a+a=0$ pour tout $a$ : soustraire revient à additionner. La caractéristique est $2$.
 
-\subsubsection{Algorithmes (version simplifiée)}
+\medskip
+Pour construire un corps à $p^n$ éléments avec $n>1$, on utilise des polynômes.
+\begin{definition}[Polynôme~\cite{lidl}]
+Soit $F$ un corps. Un \emph{polynôme} sur $F$ en l'indéterminée $x$ est une expression $f=a_0+a_1x+\cdots+a_dx^d$ avec $a_0,\dots,a_d\in F$. Si $a_d\neq0$, l'entier $d$ est le \emph{degré} de $f$. L'ensemble des polynômes sur $F$ est noté $F[x]$. On additionne deux polynômes coefficient par coefficient, et on les multiplie en distribuant et en utilisant $x^i\cdot x^j=x^{i+j}$.
+\end{definition}
+
+\paragraph{Exemple.} Sur $\mathbb{F}_2$, soit $f=x^3+x+1$ (de degré $3$) et $g=x+1$ (de degré $1$). Alors $f+g=x^3+(x+x)+(1+1)=x^3$, car $1+1=0$. Et
+\[f\cdot g=(x^3+x+1)(x+1)=x^4+x^3+x^2+x+x+1=x^4+x^3+x^2+1.\]
+
+\begin{definition}[Polynôme irréductible~\cite{lidl}]
+Soit $F$ un corps. Un polynôme $f\in F[x]$ de degré au moins $1$ est \emph{irréductible sur $F$} s'il ne peut pas s'écrire comme un produit de deux polynômes de $F[x]$ de degrés strictement plus petits que celui de $f$.
+\end{definition}
+
+\paragraph{Exemple.} Sur $\mathbb{F}_2$, le polynôme $x^2+1$ n'est pas irréductible : $x^2+1=(x+1)^2$. Le polynôme $x^2+x+1$ est irréductible : de degré~2, il ne pourrait être réductible qu'en un produit de deux polynômes de degré~1, donc s'il avait une racine ; or sa valeur en $0$ et en $1$ est $1$.
+
+\begin{theorem}[Construction de $\mathbb{F}_{p^n}$~\cite{lidl}]
+Si $f$ est un polynôme irréductible de degré $n$ sur $\mathbb{F}_p$, alors l'ensemble des restes de la division par $f$ des polynômes de $\mathbb{F}_p[x]$, muni de l'addition des polynômes et de la multiplication des polynômes suivie d'une réduction modulo $f$, est un corps à $p^n$ éléments. On le note $\mathbb{F}_p[x]/(f)$.
+\end{theorem}
+
+\paragraph{Le corps utilisé dans notre travail : $\mathbb{F}_{16}$.} Nous utilisons $\mathbb{F}_{16}$ ($p=2$, $n=4$), construit avec $f(x)=x^4+x+1$ :
+\[\mathbb{F}_{16}=\mathbb{F}_2[x]/(x^4+x+1).\]
+Ce polynôme est bien irréductible sur $\mathbb{F}_2$. Il n'a pas de racine, car $f(0)=1$ et $f(1)=1+1+1=1$. Il n'est pas non plus un produit de deux polynômes de degré~2 : le seul polynôme irréductible de degré~2 sur $\mathbb{F}_2$ est $x^2+x+1$, et son carré vaut $x^4+x^2+1\neq f$.
+
+Un élément de $\mathbb{F}_{16}$ est un polynôme $a_0+a_1x+a_2x^2+a_3x^3$ à coefficients dans $\mathbb{F}_2$. On le note par la suite de ses quatre coefficients $a_3a_2a_1a_0$, donc par \emph{4 bits}. Ces 4 bits se lisent comme un chiffre en base~16 : $0000$ vaut $0$, $1001$ vaut $9$, $1010$ vaut $10$, et ainsi de suite jusqu'à $1111$ qui vaut $15$. Comme il n'y a que dix chiffres (de 0 à 9), on utilise les lettres \texttt{a}, \texttt{b}, \texttt{c}, \texttt{d}, \texttt{e}, \texttt{f} pour les valeurs $10$ à $15$ ; nous les écrivons en minuscules (tableau~\ref{tab:f16}).
+
+\begin{table}[ht]\centering\small
+\caption{Les 16 éléments de $\mathbb{F}_{16}$ : chiffre hexadécimal, 4 bits et polynôme.}\label{tab:f16}
+\begin{tabular}{@{}llll@{\qquad}llll@{}}\toprule
+Chiffre & 4 bits & Polynôme & & Chiffre & 4 bits & Polynôme\\\midrule
+0&0000&$0$ & & 8&1000&$x^3$\\
+1&0001&$1$ & & 9&1001&$x^3+1$\\
+2&0010&$x$ & & \texttt{a}&1010&$x^3+x$\\
+3&0011&$x+1$ & & \texttt{b}&1011&$x^3+x+1$\\
+4&0100&$x^2$ & & \texttt{c}&1100&$x^3+x^2$\\
+5&0101&$x^2+1$ & & \texttt{d}&1101&$x^3+x^2+1$\\
+6&0110&$x^2+x$ & & \texttt{e}&1110&$x^3+x^2+x$\\
+7&0111&$x^2+x+1$ & & \texttt{f}&1111&$x^3+x^2+x+1$\\\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Pourquoi $\mathbb{F}_{16}$ ?} C'est le corps choisi par les spécifications de MAYO~\cite{mayo}. Il a deux avantages pour un programme : un élément tient dans 4 bits, donc un octet contient deux éléments ; et il n'a que 16 éléments, donc toute table de multiplication par une constante n'a que 16 cases.
+
+\paragraph{Les deux opérations.} L'\emph{addition} est le XOR des 4 bits (on additionne les coefficients modulo~2). La \emph{multiplication} multiplie les polynômes puis remplace $x^4$ par $x+1$ (car $x^4+x+1=0$ dans le corps).
+
+\paragraph{Exemple : calculs dans $\mathbb{F}_{16}$.} Addition : $0110+0011=0101$, soit $6+3=5$. Pour la multiplication, on utilise $x^4=x+1$, donc $x^5=x^2+x$ et $x^6=x^3+x^2$ :
+\begin{align*}
+\mathrm{b}\cdot8&=(x^3+x+1)\,x^3=x^6+x^4+x^3=(x^3+x^2)+(x+1)+x^3=x^2+x+1=7,\\
+9\cdot8&=(x^3+1)\,x^3=x^6+x^3=(x^3+x^2)+x^3=x^2=4,\\
+8\cdot7&=x^3(x^2+x+1)=x^5+x^4+x^3=(x^2+x)+(x+1)+x^3=x^3+x^2+1=\mathrm{d}.
+\end{align*}
+Pour l'inverse : $6\cdot7=(x^2+x)(x^2+x+1)=x^4+x=(x+1)+x=1$. Donc $7$ est l'inverse de $6$ : diviser par $6$ revient à multiplier par $7$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Formes quadratiques et formes bilinéaires}
+Dans cette section, $F$ est un corps (par exemple $\mathbb{F}_{16}$), et $n$ un entier $\ge1$. Rappelons~\cite{horn} que, pour des matrices, la transposée $\mathbf{A}^{\top}$ a pour coefficient $(i,j)$ le coefficient $(j,i)$ de $\mathbf{A}$, que le produit $\mathbf{A}\mathbf{B}$ a pour coefficient $(i,j)$ la somme $\sum_k a_{ik}b_{kj}$, et qu'une matrice est \emph{triangulaire supérieure} si ses coefficients sous la diagonale sont nuls.
+
+\begin{definition}[Forme bilinéaire~\cite{lang}]
+Une application $B:F^n\times F^n\to F$ est une \emph{forme bilinéaire} si elle est linéaire par rapport à chacune de ses deux variables : pour tous $\mathbf{x},\mathbf{x}',\mathbf{y},\mathbf{y}'\in F^n$ et tout $c\in F$,
+\begin{align*}
+B(\mathbf{x}+\mathbf{x}',\mathbf{y})&=B(\mathbf{x},\mathbf{y})+B(\mathbf{x}',\mathbf{y}), & B(c\,\mathbf{x},\mathbf{y})&=c\,B(\mathbf{x},\mathbf{y}),\\
+B(\mathbf{x},\mathbf{y}+\mathbf{y}')&=B(\mathbf{x},\mathbf{y})+B(\mathbf{x},\mathbf{y}'), & B(\mathbf{x},c\,\mathbf{y})&=c\,B(\mathbf{x},\mathbf{y}).
+\end{align*}
+\end{definition}
+
+\paragraph{Exemple : une forme bilinéaire.} Sur $\mathbb{F}_{16}$, avec $n=2$, soit $\mathbf{A}=\begin{pmatrix}1&2\\0&3\end{pmatrix}$ et
+\[B(\mathbf{x},\mathbf{y})=\mathbf{x}^{\top}\mathbf{A}\,\mathbf{y}=x_1y_1+2\,x_1y_2+3\,x_2y_2.\]
+\emph{Preuve de la bilinéarité.} Pour $\mathbf{y}$ fixé, $\mathbf{x}\mapsto\mathbf{x}^{\top}(\mathbf{A}\mathbf{y})$ est un produit scalaire par le vecteur fixe $\mathbf{A}\mathbf{y}$ ; il est donc additif et vérifie $B(c\mathbf{x},\mathbf{y})=c\,B(\mathbf{x},\mathbf{y})$, par distributivité de la multiplication sur l'addition dans $\mathbb{F}_{16}$. De même, pour $\mathbf{x}$ fixé, $\mathbf{y}\mapsto(\mathbf{x}^{\top}\mathbf{A})\mathbf{y}$ est linéaire.
+
+\emph{Vérification sur des nombres.} Prenons $\mathbf{x}=(1,2)$, $\mathbf{x}'=(3,0)$, $\mathbf{y}=(2,1)$, $\mathbf{y}'=(1,1)$ et $c=2$. On trouve $B(\mathbf{x},\mathbf{y})=6$ et $B(\mathbf{x}',\mathbf{y})=0$ ; comme $\mathbf{x}+\mathbf{x}'=(2,2)$, $B(\mathbf{x}+\mathbf{x}',\mathbf{y})=6=6+0$. De même $B(\mathbf{x},\mathbf{y}')=5$ et $B(\mathbf{x},\mathbf{y}+\mathbf{y}')=B(\mathbf{x},(3,0))=3=6+5$. Enfin $B(c\mathbf{x},\mathbf{y})=B((2,4),\mathbf{y})=\mathrm{c}=2\cdot6=c\,B(\mathbf{x},\mathbf{y})$.
+
+\begin{definition}[Forme quadratique~\cite{lidl}]
+Une \emph{forme quadratique} en $n$ variables sur $F$ est un polynôme homogène de degré~2 en $x_1,\dots,x_n$ :
+\[p(\mathbf{x})=\sum_{1\le i\le j\le n}a_{ij}\,x_i\,x_j,\qquad a_{ij}\in F.\]
+Si $\mathbf{P}$ est la matrice triangulaire supérieure de coefficients $a_{ij}$ ($a_{ij}=0$ pour $i>j$), alors $p(\mathbf{x})=\mathbf{x}^{\top}\mathbf{P}\,\mathbf{x}$. Elle vérifie $p(c\,\mathbf{x})=c^2\,p(\mathbf{x})$ pour tout $c\in F$.
+\end{definition}
+
+\paragraph{Exemple : une forme quadratique.} Sur $\mathbb{F}_{16}$, soit $\mathbf{P}=\begin{pmatrix}1&2\\0&3\end{pmatrix}$, donc $p(\mathbf{x})=x_1^2+2\,x_1x_2+3\,x_2^2$ : chaque terme est de degré~2, c'est bien une forme quadratique. Pour $\mathbf{x}=(1,2)$,
+\[p(\mathbf{x})=1\cdot1^2+2\cdot(1\cdot2)+3\cdot2^2=1+4+\mathrm{c}=9.\]
+\emph{Vérification de $p(c\,\mathbf{x})=c^2p(\mathbf{x})$.} Avec $c=2$, $c\,\mathbf{x}=(2,4)$ et $p(2,4)=2$ ; or $c^2=4$ et $4\cdot9=2$. Les deux valeurs sont égales.
+
+\begin{proposition}[Forme polaire]
+Soit $p(\mathbf{x})=\mathbf{x}^{\top}\mathbf{P}\mathbf{x}$ une forme quadratique. L'application $p'(\mathbf{x},\mathbf{y})=p(\mathbf{x}+\mathbf{y})-p(\mathbf{x})-p(\mathbf{y})$ est une forme bilinéaire, et $p'(\mathbf{x},\mathbf{y})=\mathbf{x}^{\top}(\mathbf{P}+\mathbf{P}^{\top})\,\mathbf{y}$ lorsque le corps est de caractéristique~2.
+\end{proposition}
+\begin{proof}
+On développe $p(\mathbf{x}+\mathbf{y})=(\mathbf{x}+\mathbf{y})^{\top}\mathbf{P}(\mathbf{x}+\mathbf{y})=p(\mathbf{x})+p(\mathbf{y})+\mathbf{x}^{\top}\mathbf{P}\mathbf{y}+\mathbf{y}^{\top}\mathbf{P}\mathbf{x}$. Un nombre est égal à sa transposée, donc $\mathbf{y}^{\top}\mathbf{P}\mathbf{x}=\mathbf{x}^{\top}\mathbf{P}^{\top}\mathbf{y}$ et $p'(\mathbf{x},\mathbf{y})=\mathbf{x}^{\top}(\mathbf{P}+\mathbf{P}^{\top})\mathbf{y}$. Cette expression est linéaire en $\mathbf{x}$ et en $\mathbf{y}$ (voir l'exemple de forme bilinéaire). En caractéristique~2, « moins » est égal à « plus ».
+\end{proof}
+
+\paragraph{Exemple : la forme polaire.} Avec la même matrice $\mathbf{P}$, prenons $\mathbf{x}=(1,2)$ et $\mathbf{y}=(2,1)$. On a $p(\mathbf{x})=9$, $p(\mathbf{y})=1\cdot4+2\cdot2+3\cdot1=3$, $\mathbf{x}+\mathbf{y}=(3,3)$ et $p(\mathbf{x}+\mathbf{y})=(1+2+3)\cdot(3\cdot3)=0$. Donc $p'(\mathbf{x},\mathbf{y})=0+9+3=\mathrm{a}$. Avec la formule : $\mathbf{P}+\mathbf{P}^{\top}=\begin{pmatrix}0&2\\2&0\end{pmatrix}$, donc $\mathbf{x}^{\top}(\mathbf{P}+\mathbf{P}^{\top})\mathbf{y}=2\cdot(1\cdot1)+2\cdot(2\cdot2)=2+8=\mathrm{a}$. Les deux méthodes donnent le même résultat. Bilinéarité : avec $\mathbf{x}'=(3,0)$, $p'(\mathbf{x}',\mathbf{y})=2\cdot(3\cdot1)=6$ et $p'(\mathbf{x}+\mathbf{x}',\mathbf{y})=p'((2,2),\mathbf{y})=2\cdot(2\cdot1)+2\cdot(2\cdot2)=4+8=\mathrm{c}=\mathrm{a}+6$.
+
+\begin{definition}[Application quadratique]
+Soient $p_1,\dots,p_m$ des formes quadratiques en $n$ variables sur $\mathbb{F}_q$. L'application
+\[\mathcal{P}:\mathbb{F}_q^{\,n}\longrightarrow\mathbb{F}_q^{\,m},\qquad \mathcal{P}(\mathbf{x})=\bigl(p_1(\mathbf{x}),\dots,p_m(\mathbf{x})\bigr)\]
+est une \emph{application quadratique}. Son application polaire est $\mathcal{P}'(\mathbf{x},\mathbf{y})=\mathcal{P}(\mathbf{x}+\mathbf{y})-\mathcal{P}(\mathbf{x})-\mathcal{P}(\mathbf{y})$ ; elle est bilinéaire, composante par composante.
+\end{definition}
+
+\paragraph{Exemple.} Avec $n=m=2$ sur $\mathbb{F}_{16}$, prenons $p_1=p$ (la forme de l'exemple précédent) et $p_2(\mathbf{x})=x_1^2+x_2^2$. Alors $\mathcal{P}:\mathbb{F}_{16}^2\to\mathbb{F}_{16}^2$ et $\mathcal{P}(1,2)=(9,\;1+4)=(9,5)$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Systèmes linéaires}\label{sec:math-lin}
+\begin{definition}[Système linéaire~\cite{horn}]
+Soit $\mathbf{A}\in F^{m\times n}$ une matrice et $\mathbf{b}\in F^m$ un vecteur. Le \emph{système linéaire} $\mathbf{A}\mathbf{x}=\mathbf{b}$ a pour inconnue $\mathbf{x}\in F^n$ ; une \emph{solution} est un vecteur $\mathbf{x}$ qui vérifie les $m$ équations.
+\end{definition}
+L'\emph{élimination de Gauss}~\cite{horn} résout un tel système : on peut échanger deux lignes, multiplier une ligne par un nombre non nul, ou ajouter à une ligne un multiple d'une autre, sans changer l'ensemble des solutions ; on se ramène ainsi à un système où les inconnues apparaissent une à une. Un système peut n'avoir aucune solution, une seule, ou plusieurs ; si $\mathbf{A}$ est carrée et inversible, la solution est unique.
+
+\paragraph{Exemple avec une solution.} Sur $\mathbb{F}_{16}$, soit $x_1+x_2=3$ et $x_1+2x_2=5$. On additionne les deux lignes : $(2+1)\,x_2=5+3$, soit $3x_2=6$. L'inverse de $3$ est $\mathrm{e}$, donc $x_2=6\cdot\mathrm{e}=2$. Puis $x_1=3+2=1$. Contrôle : $1+2\cdot2=1+4=5$.
+
+\paragraph{Exemple sans solution.} Soit $x_1+x_2=1$ et $x_1+x_2=2$. Les deux lignes ont le même membre de gauche mais deux résultats différents : aucune valeur ne convient.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Le problème difficile : MQ}\label{sec:signature}
+Cette section présente le problème mathématique sur lequel repose la sécurité de MAYO. La notion de signature est introduite plus loin, au moment où on en a besoin, pour chacun des trois schémas : Oil and Vinegar, UOV, puis MAYO.
+
+\begin{definition}[Problème MQ~\cite{mayo}]
+Soient $q$ une puissance d'un nombre premier et $n,m$ des entiers. Étant donnés une application quadratique $\mathcal{P}:\mathbb{F}_q^{\,n}\to\mathbb{F}_q^{\,m}$ et une cible $\mathbf{t}\in\mathbb{F}_q^{\,m}$, le problème \emph{MQ} (\emph{Multivariate Quadratic}) consiste à trouver $\mathbf{s}\in\mathbb{F}_q^{\,n}$ tel que $\mathcal{P}(\mathbf{s})=\mathbf{t}$.
+\end{definition}
+Pour des paramètres bien choisis, on ne connaît pas de méthode rapide pour résoudre ce problème. Par contre, \emph{vérifier} qu'un point $\mathbf{s}$ est une solution est facile : il suffit de calculer $\mathcal{P}(\mathbf{s})$.
+
+\paragraph{Exemple : un tout petit problème MQ.} Sur $\mathbb{F}_2$, avec $n=3$ variables et $m=2$ polynômes :
+\[p_1(\mathbf{x})=x_1x_2+x_3^2,\qquad p_2(\mathbf{x})=x_1^2+x_2x_3,\qquad \mathbf{t}=(1,0).\]
+Avec 3 variables, on peut tester les 8 points : $\mathbf{s}=(0,0,1)$ convient, car $p_1(\mathbf{s})=0\cdot0+1\cdot1=1$ et $p_2(\mathbf{s})=0\cdot0+0\cdot1=0$. Avec 100 variables, tout tester serait impossible. Les schémas qui suivent utilisent cette différence de difficulté : résoudre est dur, vérifier est facile, \emph{sauf pour celui qui connaît un secret}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Le schéma MAYO}\label{sec:schema}
+Cette section construit MAYO en trois étapes : Oil and Vinegar (OV), puis UOV, puis MAYO. Pour chaque étape, nous donnons la définition, nous précisons ce que signifie « signer » dans ce schéma, puis nous déroulons un \emph{exemple complet} : génération des clés, signature, vérification. Les paramètres des exemples sont minuscules pour que l'on puisse tout vérifier à la main.
+
+\subsection{Oil and Vinegar (OV)}
+Avant de définir OV, rappelons ce qu'est une signature numérique.
+\begin{definition}[Schéma de signature~\cite{hac}]
+Un \emph{schéma de signature numérique} est formé de trois algorithmes :
+\begin{itemize}[itemsep=1pt]
+\item $\mathsf{KeyGen}$ produit une paire (clé publique, clé secrète) ;
+\item $\mathsf{Sign}$ prend la clé secrète et un message $M$ et produit une signature ;
+\item $\mathsf{Verify}$ prend la clé publique, un message et une signature, et répond « accepté » ou « refusé ».
+\end{itemize}
+Un schéma est \emph{correct} si toute signature produite par $\mathsf{Sign}$ avec la clé secrète est acceptée par $\mathsf{Verify}$ avec la clé publique correspondante.
+\end{definition}
+Un message peut être très long : on le transforme d'abord en une courte liste de nombres, son \emph{empreinte} $\mathbf{t}$, avec une \emph{fonction de hachage} $H$~\cite{hac} (dans MAYO, on ajoute aussi au message un \emph{sel}, valeur aléatoire : $\mathbf{t}=H(M\,\|\,\text{sel})$).
+
+\begin{definition}[Oil and Vinegar~\cite{patarin,uov,mayo}]
+Soient $v$ et $o$ des entiers, $n=v+o$ et $m=o$. La \emph{clé secrète} est une matrice $\mathbf{O}\in\mathbb{F}_q^{\,v\times o}$ ; elle définit l'\emph{espace d'huile}
+\[\mathcal{O}=\Bigl\{\begin{pmatrix}\mathbf{O}\,\mathbf{x}\\ \mathbf{x}\end{pmatrix}:\ \mathbf{x}\in\mathbb{F}_q^{\,o}\Bigr\}\subset\mathbb{F}_q^{\,n}.\]
+La \emph{clé publique} est une application quadratique $\mathcal{P}:\mathbb{F}_q^{\,n}\to\mathbb{F}_q^{\,m}$ qui vaut zéro sur $\mathcal{O}$. Les $v$ premières variables sont dites « vinaigre », les $o$ dernières « huile ». Dans la version d'origine, dite \emph{équilibrée}, $v=o$.
+\end{definition}
+Chaque polynôme s'écrit $p_\ell(\mathbf{y})=\mathbf{y}^{\top}\mathbf{P}_\ell\,\mathbf{y}$, où $\mathbf{P}_\ell=\begin{pmatrix}\mathbf{P}^{(1)}_\ell&\mathbf{P}^{(2)}_\ell\\\mathbf{0}&\mathbf{P}^{(3)}_\ell\end{pmatrix}$ est triangulaire supérieure, découpée en blocs (vinaigre--vinaigre, vinaigre--huile, huile--huile). Pour que $p_\ell$ s'annule sur $\mathcal{O}$, on pose $\mathbf{P}^{(3)}_\ell=\mathrm{Upper}\bigl(\mathbf{O}^{\top}(\mathbf{P}^{(1)}_\ell\mathbf{O}+\mathbf{P}^{(2)}_\ell)\bigr)$, où $\mathrm{Upper}$ ajoute à chaque case au-dessus de la diagonale la case symétrique et met à zéro les cases en dessous.
+
+\paragraph{Ce que « signer » veut dire ici.} \emph{Signer} $M$ revient à trouver $\mathbf{s}$ tel que $\mathcal{P}(\mathbf{s})=\mathbf{t}$, c'est-à-dire à résoudre un problème MQ \emph{grâce au secret}. \emph{Vérifier} revient à calculer $\mathcal{P}(\mathbf{s})$ et à comparer avec $\mathbf{t}$.
+
+\paragraph{Comment le secret aide.} On tire d'abord les variables vinaigre $\mathbf{v}$ au hasard. On cherche alors $\mathbf{s}=(\mathbf{v}+\mathbf{O}\mathbf{x},\;\mathbf{x})$. Comme $p_\ell$ vaut zéro sur l'huile, on obtient (calcul fait dans la partie MAYO)
+\[p_\ell(\mathbf{v}+\mathbf{O}\mathbf{x},\mathbf{x})=\mathbf{v}^{\top}\mathbf{P}^{(1)}_\ell\mathbf{v}+\mathbf{v}^{\top}\mathbf{L}_\ell\,\mathbf{x},\qquad \mathbf{L}_\ell=(\mathbf{P}^{(1)}_\ell+\mathbf{P}^{(1)\top}_\ell)\,\mathbf{O}+\mathbf{P}^{(2)}_\ell,\]
+qui est \emph{linéaire} en $\mathbf{x}$. Il reste un système linéaire de $m$ équations à $o$ inconnues (section~\ref{sec:math-lin}).
+
+\paragraph{Exemple complet OV.} Corps $\mathbb{F}_{16}$, $v=o=m=2$ donc $n=4$. Le secret est $\mathbf{O}=\begin{pmatrix}2&1\\1&3\end{pmatrix}$.
+
+\emph{Génération des clés.} On tire au hasard
+\[\mathbf{P}^{(1)}_1=\begin{pmatrix}1&2\\0&3\end{pmatrix},\ \mathbf{P}^{(2)}_1=\begin{pmatrix}1&0\\2&1\end{pmatrix};\qquad \mathbf{P}^{(1)}_2=\begin{pmatrix}2&1\\0&1\end{pmatrix},\ \mathbf{P}^{(2)}_2=\begin{pmatrix}1&1\\0&2\end{pmatrix}.\]
+La formule ci-dessus donne
+\[\mathbf{P}^{(3)}_1=\begin{pmatrix}3&8\\0&\mathrm{b}\end{pmatrix},\qquad \mathbf{P}^{(3)}_2=\begin{pmatrix}9&6\\0&3\end{pmatrix}.\]
+La clé publique est formée des deux matrices $\mathbf{P}_1,\mathbf{P}_2$ complètes ; la clé secrète est $\mathbf{O}$.
+
+\emph{Signature.} L'empreinte est $\mathbf{t}=(3,7)$. On tire les vinaigres $\mathbf{v}=(1,2)$. On calcule
+\[\mathbf{L}_1=\begin{pmatrix}3&6\\6&3\end{pmatrix},\ \mathbf{L}_2=\begin{pmatrix}0&2\\2&3\end{pmatrix};\qquad \mathbf{v}^{\top}\mathbf{L}_1=(\mathrm{f},0),\ \mathbf{v}^{\top}\mathbf{L}_2=(4,4);\qquad \bigl(\mathbf{v}^{\top}\mathbf{P}^{(1)}_\ell\mathbf{v}\bigr)_\ell=(9,4).\]
+Les inconnues $\mathbf{x}=(x_1,x_2)$ vérifient donc
+\[\mathrm{f}\,x_1=3+9=\mathrm{a},\qquad 4\,x_1+4\,x_2=7+4=3.\]
+La première équation donne $x_1=\mathrm{f}$ (car $\mathrm{f}\cdot\mathrm{f}=\mathrm{a}$). La seconde donne $4x_2=3+4\cdot\mathrm{f}=3+9=\mathrm{a}$, donc $x_2=\mathrm{b}$. On a alors $\mathbf{O}\mathbf{x}=(6,1)$ et la signature est
+\[\mathbf{s}=(\mathbf{v}+\mathbf{O}\mathbf{x},\;\mathbf{x})=(7,3,\mathrm{f},\mathrm{b}).\]
+
+\emph{Vérification.} On évalue la clé publique complète en $\mathbf{s}$ : $p_1(\mathbf{s})=3$ et $p_2(\mathbf{s})=7$. On retrouve $\mathbf{t}=(3,7)$ : la signature est \emph{acceptée}. Si l'on change un seul élément (par exemple $7\to6$ au début de $\mathbf{s}$), on obtient $(\mathrm{b},2)\neq\mathbf{t}$ : la signature est \emph{refusée}.
+
+\paragraph{La fin d'OV.} La version équilibrée ($v=o$) a été cassée en 1998 par Kipnis et Shamir~\cite{kipnisshamir}. Il a donc fallu la corriger : c'est UOV.
+
+\subsection{Unbalanced Oil and Vinegar (UOV)}
+\begin{definition}[UOV~\cite{uov}]
+Le schéma \emph{Unbalanced Oil and Vinegar} (UOV), proposé en 1999 par Kipnis, Patarin et Goubin, est le schéma OV avec $v>o$ (beaucoup plus de variables vinaigre que de variables huile) et $m=o$.
+\end{definition}
+L'attaque contre la version équilibrée ne marche plus, et UOV n'a pas été cassé depuis. Son défaut est la taille de la clé publique : $n=v+o$ est grand, et la clé contient $m$ matrices triangulaires de taille $n\times n$.
+
+\paragraph{Ce que « signer » veut dire ici.} Rien ne change dans les trois algorithmes ni dans le rôle de l'empreinte $\mathbf{t}$ : signer, c'est trouver $\mathbf{s}$ avec $\mathcal{P}(\mathbf{s})=\mathbf{t}$ ; vérifier, c'est calculer $\mathcal{P}(\mathbf{s})$. Seuls les paramètres changent ($v>o$).
+
+\paragraph{Exemple complet UOV (notre exemple fil rouge).}\label{sec:fil} Corps $\mathbb{F}_{16}$, $v=2$, $o=1$, $m=1$, donc $n=3$. Le secret est $\mathbf{O}=(\mathrm{b},8)^{\top}$ : l'espace d'huile est formé des points $(\mathrm{b}x,\;8x,\;x)$.
+
+\emph{Génération des clés.} Le polynôme public est $p_1(\mathbf{y})=\mathbf{y}^{\top}\mathbf{P}_1\,\mathbf{y}$ avec
+\[\mathbf{P}^{(1)}_1=\begin{pmatrix}8&9\\0&6\end{pmatrix},\quad \mathbf{P}^{(2)}_1=\begin{pmatrix}2\\2\end{pmatrix},\quad \mathbf{P}^{(3)}_1=\mathrm{Upper}\bigl(\mathbf{O}^{\top}(\mathbf{P}^{(1)}_1\mathbf{O}+\mathbf{P}^{(2)}_1)\bigr)=(6),\]
+c'est-à-dire $p_1(\mathbf{y})=8y_1^2+9y_1y_2+2y_1y_3+6y_2^2+2y_2y_3+6y_3^2$.
+
+\emph{Propriété de l'huile.} Pour $x=1$, les six termes de $p_1(\mathrm{b},8,1)$ valent $4,\mathrm{a},5,\mathrm{e},3,6$ ; leur somme (XOR) vaut $0$. Donc $p_1$ s'annule sur l'espace d'huile.
+
+\emph{Signature.} On vise la valeur $t=\mathrm{f}$. On tire les vinaigres $\mathbf{v}=(2,3)$. Alors $c=p_1(2,3,0)=8$, et il reste à atteindre $\mathrm{f}+8=7$. On a $\mathbf{L}_1=(6,\mathrm{e})^{\top}$ et $\mathbf{v}^{\top}\mathbf{L}_1=\mathrm{d}$. On résout $\mathrm{d}\cdot x=7$, ce qui donne $x=7\cdot4=\mathrm{f}$ (l'inverse de $\mathrm{d}$ est $4$). La signature est
+\[\mathbf{s}=(\mathbf{v}+\mathbf{O}x,\;x)=(2+\mathrm{b}\cdot\mathrm{f},\;3+8\cdot\mathrm{f},\;\mathrm{f})=(1,2,\mathrm{f}).\]
+
+\emph{Vérification.} On calcule $p_1(1,2,\mathrm{f})=\mathrm{f}=t$ : la signature est acceptée.
+
+\subsection{MAYO : une huile plus petite, puis le fouettage}
+\begin{definition}[MAYO~\cite{mayo}]
+Soient $q=16$ et des entiers $n,m,o,k$ avec $o<m$ et $v=n-o$. Un schéma \emph{MAYO} est un schéma OV dont l'espace d'huile est \emph{trop petit} ($o<m$), muni de la fonction publique étendue « fouettée » $\mathcal{P}^\star:\mathbb{F}_q^{\,kn}\to\mathbb{F}_q^{\,m}$ et d'un terme linéaire $L$, définis ci-dessous (spécification du troisième tour~\cite{mayospec}). Une signature est $\mathbf{S}=(\mathbf{s}_0,\dots,\mathbf{s}_{k-1})$ avec $\mathbf{s}_i\in\mathbb{F}_q^{\,n}$, accompagnée d'un sel.
+\end{definition}
+Un espace d'huile plus petit réduit beaucoup la taille des clés, mais on ne peut plus résoudre directement : il y a $m$ équations pour seulement $o$ inconnues.
+
+\paragraph{Exemple : pourquoi $k=1$ ne suffit pas.} Ajoutons à l'exemple UOV une seconde équation ($m=2$ pour $o=1$) :
+\[p_2(\mathbf{y})=8y_1^2+\mathrm{a}y_1y_2+\mathrm{b}y_1y_3+8y_2^2+\mathrm{c}y_2y_3+\mathrm{e}y_3^2\quad\bigl(\mathbf{P}^{(1)}_2=\begin{pmatrix}8&\mathrm{a}\\0&8\end{pmatrix},\ \mathbf{P}^{(2)}_2=\begin{pmatrix}\mathrm{b}\\\mathrm{c}\end{pmatrix},\ \mathbf{P}^{(3)}_2=(\mathrm{e})\bigr).\]
+Prenons $\mathbf{t}=(\mathrm{f},9)$ et les mêmes vinaigres $\mathbf{v}=(2,3)$. On a $p_2(\mathbf{v},0)=1$ et, pour $p_2$, le coefficient $\mathbf{v}^{\top}\mathbf{L}_2=9$. Avec la seule inconnue $x$, on doit résoudre
+\[p_1:\ \mathrm{d}\cdot x=\mathrm{f}+8=7\qquad\text{et}\qquad p_2:\ 9\cdot x=9+1=8.\]
+La première équation donne $x=\mathrm{f}$, la seconde donne $x=3$. Les deux valeurs sont différentes : \emph{pas de solution}. C'est le problème d'une huile trop petite : deux équations pour une seule inconnue.
+
+\paragraph{Le fouettage et le terme linéaire.} La spécification du troisième tour~\cite{mayospec} définit la fonction publique de MAYO à partir de $\mathcal{P}$ et de deux ingrédients supplémentaires. Dans cette section, les indices des $k$ vecteurs vont de $0$ à $k-1$, comme dans la spécification.
+\begin{itemize}[itemsep=1pt]
+\item Le \emph{fouettage} (\emph{whipping}) : $\displaystyle\mathcal{P}^\star(\mathbf{s}_0,\dots,\mathbf{s}_{k-1})=\sum_{i=0}^{k-1}\mathbf{E}_{ii}\,\mathcal{P}(\mathbf{s}_i)+\sum_{i=0}^{k-1}\sum_{j=i+1}^{k-1}\mathbf{E}_{ij}\,\mathcal{P}'(\mathbf{s}_i,\mathbf{s}_j)$, où $\mathcal{P}'$ est l'application polaire (section~\ref{sec:maths}). La matrice publique $\mathbf{E}_{ij}\in\mathbb{F}_q^{\,m\times m}$ représente la multiplication par $Z[i,j]$ modulo un polynôme irréductible $f(z)$ de degré $m$, où $Z$ est une matrice symétrique $k\times k$ dont les coefficients sont des puissances de $z$.
+\item Le \emph{terme linéaire dérivé de $\boldsymbol{\Lambda}$} : $\displaystyle L(\boldsymbol{\Lambda},\mathbf{s}_0,\dots,\mathbf{s}_{k-1})=\sum_{i=0}^{k-1}\mathbf{E}_{i0}\,\boldsymbol{\Lambda}\,\mathbf{s}_i$, où $\boldsymbol{\Lambda}\in\mathbb{F}_q^{\,m\times n}$ est une matrice publique, calculée à partir du message et du sel (voir ci-dessous).
+\end{itemize}
+Une \emph{signature} d'un message $M$ est un couple $(\mathbf{S},\text{sel})$, avec $\mathbf{S}=(\mathbf{s}_0,\dots,\mathbf{s}_{k-1})$, tel que
+\[\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})=\mathbf{t},\]
+où $\mathbf{t}$ et $\boldsymbol{\Lambda}$ sont tirés d'un même haché : $\mathrm{SHAKE256}(\mathrm{SHAKE256}(M)\,\|\,\text{sel})$~\cite{mayospec}. Les paramètres $m,k,o,n$ définissent quatre jeux (MAYO-1, 2, 3 et 5), selon le niveau de sécurité demandé par le NIST~\cite{nistadd}. Les inconnues sont maintenant $k\cdot o$, ce qui donne assez d'inconnues pour les $m$ équations.
+
+\paragraph{Ce que « signer » veut dire ici.} Signer $M$, c'est trouver $\mathbf{S}$ tel que $\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})=\mathbf{t}$ (algorithme~7 de la spécification~\cite{mayospec}). Vérifier, c'est recalculer $\mathbf{t}$ et $\boldsymbol{\Lambda}$ à partir du message et du sel, calculer le membre de gauche avec la clé publique et comparer à $\mathbf{t}$ (algorithme~8). Les trois algorithmes ont la même forme que dans OV et UOV ; la différence est que l'on résout pour $k$ vecteurs à la fois, et que le terme linéaire s'ajoute à la fois dans la construction du système et dans la vérification.
+
+\paragraph{Où intervient le terme linéaire.} Avec $\mathbf{s}_i=(\mathbf{v}_i+\mathbf{O}\mathbf{x}_i,\ \mathbf{x}_i)$ et $\boldsymbol{\Lambda}=(\boldsymbol{\Lambda}_v\ \boldsymbol{\Lambda}_o)$ (les $n-o$ premières colonnes, puis les $o$ dernières), on a $\boldsymbol{\Lambda}\mathbf{s}_i=\boldsymbol{\Lambda}_v\mathbf{v}_i+(\boldsymbol{\Lambda}_v\mathbf{O}+\boldsymbol{\Lambda}_o)\,\mathbf{x}_i$. Le terme linéaire a donc deux effets pour la signature :
+\begin{itemize}[itemsep=1pt]
+\item il ajoute au second membre le nombre connu $\mathbf{E}_{i0}\boldsymbol{\Lambda}_v\mathbf{v}_i$ (on le passe de l'autre côté : $\mathbf{y}\leftarrow\mathbf{y}-\mathbf{E}_{i0}\boldsymbol{\Lambda}_v\mathbf{v}_i$) ;
+\item il ajoute au coefficient des inconnues le terme $\mathbf{E}_{i0}(\boldsymbol{\Lambda}_v\mathbf{O}+\boldsymbol{\Lambda}_o)$, que l'algorithme~7 obtient en remplaçant $\mathbf{M}_0$ par $\mathbf{M}_0+\boldsymbol{\Lambda}_v\mathbf{O}+\boldsymbol{\Lambda}_o$.
+\end{itemize}
+À la vérification, le terme linéaire s'ajoute simplement : $\mathbf{y}\leftarrow\mathbf{y}+\mathbf{E}_{i0}\boldsymbol{\Lambda}\mathbf{s}_i$ pour chaque $i$ (algorithme~8).
+
+\paragraph{Exemple : le fouettage pour $k=2$.} On prend $k=2$ vecteurs, $s_0$ et $s_1$, donc deux inconnues $x_0$ et $x_1$ pour les deux équations. Une liste de $m=2$ éléments $(a_0,a_1)$ représente le polynôme $a_0+a_1z$, et l'on calcule modulo $f(z)=z^2+z+8$ (ce polynôme n'a aucune racine dans $\mathbb{F}_{16}$ : on l'a vérifié en testant les 16 valeurs ; il est donc irréductible, car il est de degré~2). Multiplier par $z$ s'écrit
+\[z\cdot(a_0,a_1)=(8\cdot a_1,\;a_0+a_1).\]
+Par exemple $z\cdot(\mathrm{d},4)=(8\cdot4,\;\mathrm{d}+4)=(6,9)$. Pour $k=2$ nous prenons, comme illustration simplifiée, $Z=\begin{pmatrix}1&z\\z&z^2\end{pmatrix}$ : c'est une matrice symétrique dont les coefficients sont des puissances de $z$. Les vraies matrices $Z$ de la spécification sont plus grandes et choisies de façon plus soignée. On a donc $\mathbf{E}_{00}=\mathbf{I}$ (multiplication par $1$), $\mathbf{E}_{01}=\mathbf{E}_{10}$ (multiplication par $z$) et $\mathbf{E}_{11}$ (multiplication par $z^2$), et
+\[\mathcal{P}^\star(\mathbf{s}_0,\mathbf{s}_1)=\mathcal{P}(\mathbf{s}_0)+z\cdot\mathcal{P}'(\mathbf{s}_0,\mathbf{s}_1)+z^2\cdot\mathcal{P}(\mathbf{s}_1),\qquad L(\boldsymbol{\Lambda},\mathbf{S})=\boldsymbol{\Lambda}\mathbf{s}_0+z\cdot\boldsymbol{\Lambda}\mathbf{s}_1.\]
+Chaque terme est une liste de 2 éléments (un par équation).
+
+\subsection{Évaluation par produits de matrices}
+Les $m$ polynômes s'écrivent $p_\ell(\mathbf{y})=\mathbf{y}^{\top}\mathbf{P}_\ell\,\mathbf{y}$ avec $\mathbf{P}_\ell=\begin{pmatrix}\mathbf{P}^{(1)}_\ell&\mathbf{P}^{(2)}_\ell\\\mathbf{0}&\mathbf{P}^{(3)}_\ell\end{pmatrix}$ ; $\mathbf{P}^{(1)}_\ell$ est de taille $v\times v$, $\mathbf{P}^{(2)}_\ell$ de taille $v\times o$ et $\mathbf{P}^{(3)}_\ell$ de taille $o\times o$. Les blocs $\mathbf{P}^{(1)}$ et $\mathbf{P}^{(2)}$ sont recalculés à partir d'une graine par une fonction à base d'AES ; seul $\mathbf{P}^{(3)}$ est stocké dans la clé publique~\cite{nibbling}. Soit $\mathbf{S}$ la matrice dont les lignes sont $\mathbf{s}_0,\dots,\mathbf{s}_{k-1}$. Tout se déduit de $\mathbf{S}\mathbf{P}_\ell\mathbf{S}^{\top}$ : $\mathcal{P}(\mathbf{s}_i)_\ell$ est l'élément $(i,i)$ de cette matrice, et $\mathcal{P}'(\mathbf{s}_i,\mathbf{s}_j)_\ell$ est la somme des éléments $(i,j)$ et $(j,i)$. \emph{Ce sont donc les produits de matrices qui coûtent le plus cher}, d'où l'intérêt de les optimiser~\cite{nibbling}. Le terme linéaire, lui, ne demande que $k$ produits d'une matrice $m\times n$ par un vecteur.
+
+\subsection{Algorithmes (version simplifiée de la spécification)}
 \begin{encadre}
-\textbf{KeyGen.} Tirer \code{seed_sk} ; en dériver \code{seed_pk} et $O\in\mathbb{F}_{16}^{v\times o}$ ; développer $\{P^{(1)}_\ell,P^{(2)}_\ell\}$ depuis \code{seed_pk} ; calculer $P^{(3)}_\ell=\mathrm{Upper}\big(-O^{\top}(P^{(1)}_\ell O-P^{(2)}_\ell)\big)$. Clé publique : \code{seed_pk} et $\{P^{(3)}_\ell\}$ ; clé secrète : \code{seed_sk}.\\[2pt]
-\textbf{Sign}$(M)$. (1)~Tirer un sel et calculer $t=H(M\,\|\,\text{sel})\in\mathbb{F}_{16}^m$. (2)~Tirer $V\in\mathbb{F}_{16}^{k\times v}$ (les « vinaigres »). (3)~Pour chaque $\ell<m$ : $L_\ell=(P^{(1)}_\ell+P^{(1)\top}_\ell)\,O+P^{(2)}_\ell$ ; $M_\ell=V\,L_\ell$ ; $Y_\ell=V\,P^{(1)}_\ell\,V^{\top}$. (4)~Assembler le système linéaire $Ax=y$, où $A$ provient des $M_\ell$ et $y=t+(\text{combinaison des }Y_\ell)$. (5)~Si le système n'a pas de solution, retourner à l'étape~2 (nouveaux vinaigres) ; sinon tirer une solution $x$ au hasard. (6)~Signature : $S=(V+(OX)^{\top},X)$, où $X$ est $x$ mis en matrice $k\times o$.\\[2pt]
-\textbf{Verify.} Redévelopper $P^{(1)},P^{(2)}$ ; calculer $t=H(M\,\|\,\text{sel})$ ; calculer $Y_\ell=S\begin{pmatrix}P^{(1)}_\ell&P^{(2)}_\ell\\0&P^{(3)}_\ell\end{pmatrix}S^{\top}$, combiner en $\mathcal{P}^\star(S)$ ; accepter si le résultat égale $t$.
+\textbf{KeyGen.} Tirer \code{seed_sk} ; en dériver \code{seed_pk} et $\mathbf{O}\in\mathbb{F}_{16}^{v\times o}$ ; développer $\{\mathbf{P}^{(1)}_\ell,\mathbf{P}^{(2)}_\ell\}$ depuis \code{seed_pk} ; calculer $\mathbf{P}^{(3)}_\ell=\mathrm{Upper}\big(\mathbf{O}^{\top}(\mathbf{P}^{(1)}_\ell\mathbf{O}+\mathbf{P}^{(2)}_\ell)\big)$ et $\mathbf{L}_\ell=(\mathbf{P}^{(1)}_\ell+\mathbf{P}^{(1)\top}_\ell)\,\mathbf{O}+\mathbf{P}^{(2)}_\ell$. Clé publique : \code{seed_pk} et $\{\mathbf{P}^{(3)}_\ell\}$ ; clé secrète : \code{seed_sk}.\\[2pt]
+\textbf{Sign}$(M)$ (algorithme~7~\cite{mayospec}). (1)~Calculer $\text{sel}$ puis $\mathrm{SHAKE256}(\mathrm{SHAKE256}(M)\|\text{sel})$ ; en tirer $\mathbf{t}\in\mathbb{F}_{16}^m$ et développer la matrice $\boldsymbol{\Lambda}=(\boldsymbol{\Lambda}_v\ \boldsymbol{\Lambda}_o)$ avec AES-128-CTR. (2)~Pour $\text{ctr}=0,\dots,255$ : tirer les vinaigres $\mathbf{v}_0,\dots,\mathbf{v}_{k-1}\in\mathbb{F}_{16}^{v}$ et une valeur $\mathbf{r}$. (3)~Pour chaque $i$ : $\mathbf{M}_i$ est la matrice $m\times o$ dont la ligne $\ell$ est $\mathbf{v}_i^{\top}\mathbf{L}_\ell$ ; puis $\mathbf{M}_0\leftarrow\mathbf{M}_0+\boldsymbol{\Lambda}_v\mathbf{O}+\boldsymbol{\Lambda}_o$. (4)~Poser $\mathbf{y}\leftarrow\mathbf{t}$ et $\mathbf{A}\leftarrow\mathbf{0}$ ; pour chaque $i$ : $\mathbf{y}\leftarrow\mathbf{y}-\mathbf{E}_{i0}\boldsymbol{\Lambda}_v\mathbf{v}_i$ ; pour chaque $j\ge i$ : calculer $\mathbf{u}$ ($=\mathbf{v}_i^{\top}\mathbf{P}^{(1)}_\ell\mathbf{v}_i$ si $i=j$, sinon $\mathbf{v}_i^{\top}\mathbf{P}^{(1)}_\ell\mathbf{v}_j+\mathbf{v}_j^{\top}\mathbf{P}^{(1)}_\ell\mathbf{v}_i$) ; $\mathbf{y}\leftarrow\mathbf{y}-\mathbf{E}_{ij}\mathbf{u}$ ; ajouter $\mathbf{E}_{ij}\mathbf{M}_j$ au bloc de colonnes $i$ de $\mathbf{A}$, et, si $i\ne j$, ajouter $\mathbf{E}_{ij}\mathbf{M}_i$ au bloc de colonnes $j$. (5)~Résoudre $\mathbf{A}\mathbf{x}=\mathbf{y}$ ; si le système n'a pas de solution, passer au $\text{ctr}$ suivant ; sinon choisir une solution à l'aide de $\mathbf{r}$. (6)~Signature : $\mathbf{s}_i=(\mathbf{v}_i+\mathbf{O}\mathbf{x}_i,\ \mathbf{x}_i)$ pour chaque $i$, et $\text{sel}$.\\[2pt]
+\textbf{Verify} (algorithme~8~\cite{mayospec}). Redévelopper $\mathbf{P}^{(1)},\mathbf{P}^{(2)}$ ; recalculer $\mathbf{t}$ et $\boldsymbol{\Lambda}$ ; poser $\mathbf{y}\leftarrow\mathbf{0}$ ; pour chaque $i$ : $\mathbf{y}\leftarrow\mathbf{y}+\mathbf{E}_{i0}\boldsymbol{\Lambda}\mathbf{s}_i$, et pour chaque $j\ge i$ : $\mathbf{y}\leftarrow\mathbf{y}+\mathbf{E}_{ij}\mathbf{u}$ avec $\mathbf{u}$ calculé comme à la signature mais avec la matrice complète $\mathbf{P}_\ell$ ; accepter si $\mathbf{y}=\mathbf{t}$.
 \end{encadre}
-La signature fait donc intervenir trois choses : des produits de matrices (pour $M_\ell$ et $Y_\ell$, à partir de la clé publique développée $P^{(1)}$, $P^{(2)}$), la résolution d'un système linéaire par élimination de Gauss en temps constant, et des reprises quand le système n'a pas de solution. D'après~\cite{nibbling}, ce sont le calcul des évaluations partielles de $\mathcal{P}$ et l'élimination de Gauss qui coûtent le plus ; l'assemblage de $A$ et de $y$ ne coûte presque rien.
+La signature fait donc intervenir trois choses : des produits de matrices (pour $\mathbf{M}_i$ et $\mathbf{u}$, à partir de la clé publique développée $\mathbf{P}^{(1)}$, $\mathbf{P}^{(2)}$), la résolution d'un système linéaire par élimination de Gauss en temps constant, et des reprises quand le système n'a pas de solution. D'après~\cite{nibbling}, ce sont le calcul des évaluations partielles de $\mathcal{P}$ et l'élimination de Gauss qui coûtent le plus ; l'assemblage de $\mathbf{A}$ et de $\mathbf{y}$ ne coûte presque rien. Cette présentation est une version simplifiée ; la spécification~\cite{mayospec} fait foi.
 
-Un exemple complet (génération de clé, signature, vérification) sur $\mathbb{F}_{16}$ avec de très petits paramètres est donné à l'annexe~\ref{app:jouet}.
+\subsection{Exemple complet : génération des clés, signature, vérification}\label{sec:jouet}
+Cet exemple est une \emph{illustration simplifiée} : les paramètres sont minuscules et la matrice $Z$ est celle de la section précédente, plus simple que celle de la spécification. Il suit les étapes des algorithmes~7 et~8, et chaque résultat a été recalculé (par un programme indépendant, qui évalue directement la clé publique). Paramètres : $q=16$, $v=2$, $o=1$, $n=3$, $m=2$, $k=2$ (donc $k\cdot o=m$).
+
+\paragraph{Génération des clés.} Le secret est $\mathbf{O}=(\mathrm{b},8)^{\top}$. Les blocs développés à partir de la graine sont
+\[\mathbf{P}^{(1)}_1=\begin{pmatrix}8&9\\0&6\end{pmatrix},\ \mathbf{P}^{(2)}_1=\begin{pmatrix}2\\2\end{pmatrix};\qquad
+\mathbf{P}^{(1)}_2=\begin{pmatrix}8&\mathrm{a}\\0&8\end{pmatrix},\ \mathbf{P}^{(2)}_2=\begin{pmatrix}\mathrm{b}\\\mathrm{c}\end{pmatrix}.\]
+Le bloc $\mathbf{P}^{(3)}_\ell=\mathrm{Upper}\bigl(\mathbf{O}^{\top}(\mathbf{P}^{(1)}_\ell\mathbf{O}+\mathbf{P}^{(2)}_\ell)\bigr)$ se calcule avec le secret : $\mathbf{P}^{(3)}_1=(6)$ et $\mathbf{P}^{(3)}_2=(\mathrm{e})$. On calcule aussi $\mathbf{L}_1=(6,\mathrm{e})^{\top}$ et $\mathbf{L}_2=(4,\mathrm{e})^{\top}$. La clé publique contient la graine et les deux blocs $\mathbf{P}^{(3)}$.
+
+\paragraph{Données du message.} On suppose que le haché salé donne $\mathbf{t}=(\mathrm{f},9)$ et, pour la matrice du terme linéaire,
+\[\boldsymbol{\Lambda}=\begin{pmatrix}3&1&2\\5&7&1\end{pmatrix},\qquad\boldsymbol{\Lambda}_v=\begin{pmatrix}3&1\\5&7\end{pmatrix},\quad\boldsymbol{\Lambda}_o=\begin{pmatrix}2\\1\end{pmatrix}.\]
+
+\paragraph{Signature.} On tire les vinaigres $\mathbf{v}_0=(2,3)$ et $\mathbf{v}_1=(3,\mathrm{a})$.
+\begin{enumerate}[itemsep=1pt]
+\item \emph{Matrices $\mathbf{M}_i$.} Les lignes de $\mathbf{M}_i$ sont $\mathbf{v}_i^{\top}\mathbf{L}_\ell$ : $\mathbf{M}_0=(\mathrm{d},9)^{\top}$ et $\mathbf{M}_1=(\mathrm{c},\mathrm{a})^{\top}$. Le terme linéaire s'ajoute à $\mathbf{M}_0$ : $\boldsymbol{\Lambda}_v\mathbf{O}+\boldsymbol{\Lambda}_o=(4,\mathrm{d})^{\top}$, donc $\mathbf{M}_0\leftarrow(\mathrm{d}+4,\;9+\mathrm{d})=(9,4)$.
+\item \emph{Second membre.} Les produits $\boldsymbol{\Lambda}_v\mathbf{v}_i$ valent $(5,3)$ pour $i=0$ et $(\mathrm{f},\mathrm{c})$ pour $i=1$ ; avec $\mathbf{E}_{00}=\mathbf{I}$ et $\mathbf{E}_{10}=z$, le terme linéaire retire $(5,3)+z\cdot(\mathrm{f},\mathrm{c})=(5,3)+(\mathrm{a},3)=(\mathrm{f},0)$. Les nombres $\mathbf{u}$ valent $\mathbf{u}_{00}=(8,1)$, $\mathbf{u}_{01}=(1,7)$ et $\mathbf{u}_{11}=(4,9)$ ; leur contribution est $\mathbf{u}_{00}+z\,\mathbf{u}_{01}+z^2\mathbf{u}_{11}=(8,1)+(\mathrm{d},6)+(2,9)=(7,\mathrm{e})$. Donc $\mathbf{y}=\mathbf{t}+(\mathrm{f},0)+(7,\mathrm{e})=(7,7)$.
+\item \emph{Matrice du système.} Le bloc de colonnes $0$ est $\mathbf{M}_0+z\,\mathbf{M}_1=(9,4)+(\mathrm{f},6)=(6,2)$ ; le bloc $1$ est $z\,\mathbf{M}_0+z^2\mathbf{M}_1=(6,\mathrm{d})+(5,9)=(3,4)$. Donc $\mathbf{A}=\begin{pmatrix}6&3\\2&4\end{pmatrix}$, de déterminant $\mathrm{d}\neq0$.
+\item \emph{Résolution.} $\mathbf{A}\mathbf{x}=\mathbf{y}$ a la solution unique $\mathbf{x}=(x_0,x_1)=(\mathrm{b},9)$. Contrôle : $6\cdot\mathrm{b}+3\cdot9=\mathrm{f}+8=7$ et $2\cdot\mathrm{b}+4\cdot9=5+2=7$.
+\item \emph{Signature.} $\mathbf{s}_i=(\mathbf{v}_i+\mathbf{O}x_i,\;x_i)$, soit
+\[\mathbf{s}_0=(\mathrm{b},4,\mathrm{b}),\qquad\mathbf{s}_1=(\mathrm{f},\mathrm{e},9).\]
+\end{enumerate}
+
+\paragraph{Vérification.} On utilise seulement la clé publique complète (avec $\mathbf{P}^{(3)}$), en évaluant directement : $\mathcal{P}(\mathbf{s}_0)=(\mathrm{e},\mathrm{d})$, $\mathcal{P}(\mathbf{s}_1)=(2,\mathrm{c})$ et $\mathcal{P}'(\mathbf{s}_0,\mathbf{s}_1)=(3,8)$. Alors
+\[\mathcal{P}^\star(\mathbf{S})=(\mathrm{e},\mathrm{d})+z\cdot(3,8)+z^2\cdot(2,\mathrm{c})=(\mathrm{e},\mathrm{d})+(\mathrm{c},\mathrm{b})+(9,4)=(\mathrm{b},2).\]
+Pour le terme linéaire, $\boldsymbol{\Lambda}\mathbf{s}_0=(\mathrm{f},5)$ et $\boldsymbol{\Lambda}\mathbf{s}_1=(\mathrm{d},3)$, donc
+\[L(\boldsymbol{\Lambda},\mathbf{S})=(\mathrm{f},5)+z\cdot(\mathrm{d},3)=(\mathrm{f},5)+(\mathrm{b},\mathrm{e})=(4,\mathrm{b}).\]
+On obtient $\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})=(\mathrm{b},2)+(4,\mathrm{b})=(\mathrm{f},9)=\mathbf{t}$ : la signature est acceptée. Sans le terme linéaire, on trouverait $(\mathrm{b},2)\neq\mathbf{t}$ : c'est lui qui rend l'égalité vraie. Si l'on change un seul élément de $\mathbf{s}_0$ (par exemple $\mathrm{b}\to\mathrm{a}$ au début), le résultat devient $(\mathrm{c},\mathrm{f})\neq\mathbf{t}$ et la signature est refusée.
+
+%%%%
+\section{Du schéma au programme}\label{sec:programme}
+Jusqu'ici, MAYO était une suite de formules. Cette section montre comment ces formules deviennent un programme en langage C : le déroulement d'une tentative de signature (section~\ref{sec:code}), la façon dont les nombres de $\mathbb{F}_{16}$ sont rangés en mémoire (section~\ref{sec:repr}), et le calcul des produits avec l'instruction \vpshufb{} (section~\ref{sec:arith}). Un mot sur le vocabulaire : \emph{AVX2} est un ensemble d'instructions des processeurs Intel et AMD qui traitent 256 bits (32 octets) à la fois ; un \emph{octet} est un groupe de 8 bits ; un \emph{quartet} est un groupe de 4 bits, c'est-à-dire un élément de $\mathbb{F}_{16}$.
 
 \subsection{La signature dans le code de référence}\label{sec:code}
 \subsubsection{Le déroulement d'une tentative}
-Dans le code de référence (annexe~\ref{app:inventaire}), la fonction \code{mayo_sign_signature} calcule le sel et $t$, puis fait une boucle d'au plus 256 tentatives (un octet sert de compteur). Chaque tentative enchaîne les étapes suivantes (figure~\ref{fig:pipeline}) :
+Dans le code de référence (annexe~\ref{app:inventaire}), la fonction \code{mayo_sign_signature} calcule le sel et $\mathbf{t}$, puis fait une boucle d'au plus 256 tentatives (un octet sert de compteur). Chaque tentative enchaîne les étapes suivantes (figure~\ref{fig:pipeline}) :
 \begin{enumerate}[itemsep=1pt]
-\item tirer et décoder les vinaigres $V$ (avec SHAKE256) ;
-\item \code{m_calculate_M_and_VPV} : calculer les matrices $M_\ell$ et tous les produits $v_i P^{(1)} v_j$ (c'est ici que se trouvent les noyaux étudiés) ;
-\item \code{compute_rhs} (second membre $y$) puis \code{compute_A} (matrice $A$) ;
-\item \code{sample_solution} : résoudre $Ax=y$ ; en cas d'échec, nouvelle tentative ;
-\item \code{m_compute_s} : assembler la signature $s_i=[\,v_i+Ox_i\mid x_i\,]$.
+\item tirer et décoder les vinaigres $\mathbf{V}$ (avec SHAKE256) ;
+\item \code{m_calculate_M_and_VPV} : calculer les matrices $\mathbf{M}_\ell$ et tous les produits $\mathbf{v}_i^{\top} \mathbf{P}^{(1)} \mathbf{v}_j$ (c'est ici que se trouvent les noyaux étudiés) ;
+\item \code{compute_rhs} (second membre $\mathbf{y}$) puis \code{compute_A} (matrice $\mathbf{A}$) ;
+\item \code{sample_solution} : résoudre $\mathbf{A}\mathbf{x}=\mathbf{y}$ ; en cas d'échec, nouvelle tentative ;
+\item \code{m_compute_s} : assembler la signature $\mathbf{s}_i=[\,\mathbf{v}_i+\mathbf{O}\mathbf{x}_i\mid \mathbf{x}_i\,]$.
 \end{enumerate}
 
 \begin{figure}[ht]\centering
 \begin{tikzpicture}[node distance=5mm,font=\small,box/.style={draw,rounded corners=2pt,fill=ice,minimum width=3.4cm,minimum height=0.7cm,align=center},key/.style={draw=alert,thick,rounded corners=2pt,fill=alert!12,minimum width=3.1cm,minimum height=0.7cm,align=center},>=Stealth]
- \node[box] (a) {sel, $t=H(M\|\text{sel})$};
- \node[box,right=8mm of a] (b) {tirer $V$ (SHAKE256)};
+ \node[box] (a) {sel, $\mathbf{t}=H(M\|\text{sel})$};
+ \node[box,right=8mm of a] (b) {tirer $\mathbf{V}$ (SHAKE256)};
  \node[key,right=8mm of b] (c) {\code{m_calculate_M_and_VPV}\\[-1pt]{\scriptsize noyaux étudiés}};
  \node[box,below=14mm of c] (d) {\code{compute_rhs}, \code{compute_A}};
  \node[box,left=8mm of d] (e) {\code{sample_solution}\\[-1pt]{\scriptsize (Gauss, temps constant)}};
@@ -58,18 +313,18 @@ Dans le code de référence (annexe~\ref{app:inventaire}), la fonction \code{may
 \end{figure}
 
 \subsubsection{Où sont les noyaux étudiés}
-Dans \code{m_calculate_M_and_VPV} (chemin à $L$ implicite, celui où les deux noyaux sont utilisés), les opérations se font dans cet ordre : construction des tables de multiplication de $V$ (\code{mayo_V_multabs}), puis :
+Dans \code{m_calculate_M_and_VPV} (chemin à $L$ implicite, celui où les deux noyaux sont utilisés), les opérations se font dans cet ordre : construction des tables de multiplication de $\mathbf{V}$ (\code{mayo_V_multabs}), puis :
 \begin{itemize}[itemsep=1pt]
-\item \code{P1_times_Vt} : accumule $P^{(1)}\cdot V^{\top}$ dans un tampon ; \code{Vt_times_Pv} en déduit $V P^{(1)}V^{\top}$, c'est-à-dire tous les $v_iP^{(1)}v_j$ ;
-\item \code{P1t_times_Vt} : accumule la contribution transposée $P^{(1)\top}V^{\top}$ sur le même tampon, qui devient $(P^{(1)}+P^{(1)\top})V^{\top}$ (la diagonale s'annule en caractéristique~2) ; le calcul de $M_\ell$ réutilise ce produit, puis \code{Ut_times_O} et \code{Vt_times_L} complètent $M_\ell$.
+\item \code{P1_times_Vt} : accumule $\mathbf{P}^{(1)}\cdot\mathbf{V}^{\top}$ dans un tampon ; \code{Vt_times_Pv} en déduit $\mathbf{V}\mathbf{P}^{(1)}\mathbf{V}^{\top}$, c'est-à-dire tous les $\mathbf{v}_i^{\top}\mathbf{P}^{(1)}\mathbf{v}_j$ ;
+\item \code{P1t_times_Vt} : accumule la contribution transposée $\mathbf{P}^{(1)\top}\mathbf{V}^{\top}$ sur le même tampon, qui devient $(\mathbf{P}^{(1)}+\mathbf{P}^{(1)\top})\mathbf{V}^{\top}$ (la diagonale s'annule en caractéristique~2) ; le calcul de $\mathbf{M}_\ell$ réutilise ce produit, puis \code{Ut_times_O} et \code{Vt_times_L} complètent $M_\ell$.
 \end{itemize}
-Les noyaux \code{P1_times_Vt} et \code{P1t_times_Vt} calculent donc des produits de la \emph{partie vinaigre de la clé publique} $P^{(1)}$ par les multiples de $V$. Ce sont les seuls que ce mémoire optimise (variante A2), pour MAYO-1 et MAYO-5.
+Les noyaux \code{P1_times_Vt} et \code{P1t_times_Vt} calculent donc des produits de la \emph{partie vinaigre de la clé publique} $\mathbf{P}^{(1)}$ par les multiples de $\mathbf{V}$. Ce sont les seuls que notre travail optimise (variante A2), pour MAYO-1 et MAYO-5.
 
-\subsubsection{Rôle de $P_1$ et paramètres}
-$P_1$ est une matrice triangulaire supérieure dont chaque case est un $m$-vecteur de $\mathbb{F}_{16}^m$. Elle est rangée à plat, une entrée après l'autre : l'entrée numéro $e$ commence à la position $e\cdot b$. Chaque noyau calcule, pour chaque entrée de $P_1$ et chaque vecteur de $V$, le produit d'un nombre de $\mathbb{F}_{16}$ par le $m$-vecteur de l'entrée, et l'ajoute à un accumulateur de $L$ « limbes ». Les bornes des boucles ($V$, $K$) et les adresses de lecture ($e\cdot b$) ne dépendent que de paramètres publics. Le tableau~\ref{tab:params} donne les valeurs utiles.
+\subsubsection{Rôle de $\mathbf{P}_1$ et paramètres}
+$\mathbf{P}_1$ est une matrice triangulaire supérieure dont chaque case est un $m$-vecteur de $\mathbb{F}_{16}^m$. Elle est rangée à plat, une entrée après l'autre : l'entrée numéro $e$ commence à la position $e\cdot b$. Chaque noyau calcule, pour chaque entrée de $\mathbf{P}_1$ et chaque vecteur de $V$, le produit d'un nombre de $\mathbb{F}_{16}$ par le $m$-vecteur de l'entrée, et l'ajoute à un accumulateur de $L$ « limbes ». Les bornes des boucles ($V$, $K$) et les adresses de lecture ($e\cdot b$) ne dépendent que de paramètres publics. Le tableau~\ref{tab:params} donne les valeurs utiles.
 
 \begin{table}[ht]\centering\small
-\caption{Paramètres des noyaux étudiés. $m$ : longueur du $m$-vecteur ; $b=m/2$ : octets par $m$-vecteur ; $L$ : limbes de 64 bits d'un accumulateur ; $K$ : nombre de vecteurs de $V$ ; $V$ : dimension de la partie vinaigre ; $N_{\mathrm{ent}}=V(V+1)/2$ : nombre d'entrées de $P_1$.}\label{tab:params}
+\caption{Paramètres des noyaux étudiés. $m$ : longueur du $m$-vecteur ; $b=m/2$ : octets par $m$-vecteur ; $L$ : limbes de 64 bits d'un accumulateur ; $K$ : nombre de vecteurs de $V$ ; $V$ : dimension de la partie vinaigre ; $N_{\mathrm{ent}}=V(V+1)/2$ : nombre d'entrées de $\mathbf{P}_1$.}\label{tab:params}
 \begin{tabular}{@{}lrrrrrrr@{}}\toprule
 Paramètre & $m$ & $b$ & $L$ & $K$ & $V$ & $N_{\mathrm{ent}}$ & $m \bmod 64$\\\midrule
 MAYO-1 & 80 & 40 & 5 & 10 & 80 & 3\,240 & 16\\
@@ -93,17 +348,26 @@ Un registre AVX2 \code{ymm} contient 256 bits, soit deux \emph{voies} de 128 bit
 \subsubsection{Principe}
 Avec des éléments de 4 bits, multiplier un vecteur par un nombre $c$ revient à chercher chaque élément $x$ dans une table de 16 cases qui contient $c\cdot x$. L'instruction \vpshufb{} (\code{_mm256_shuffle_epi8}) fait cette recherche pour chaque octet d'un registre d'index. C'est la méthode des « quatre Russes »~\cite{russes} : on remplace des multiplications par des lectures dans une table. Pour calculer $A\cdot B$, on découpe $A$ en bandes de $t$ colonnes et $B$ en bandes de $t$ lignes. Pour chaque bande de $B$, on prépare toutes les combinaisons de ses lignes ($16^t$ entrées), puis chaque ligne de $A$ sert d'indice dans cette table. Ici la table tient dans un registre, donc $t=1$ (voir aussi~\cite{albrecht2011} pour $\mathbb{F}_2$). Les tables dépendent de $V$ (qui est secret), mais elles ne servent que de données pour \vpshufb{} : elles ne servent jamais d'adresse mémoire.
 
+\paragraph{Exemple : multiplier par 8 avec une table.} La table $T$ de $c=8$ contient $T[x]=8\cdot x$ :
+\begin{center}\small\begin{tabular}{@{}c|cccccccccccccccc@{}}
+$x$&0&1&2&3&4&5&6&7&8&9&a&b&c&d&e&f\\\hline
+$8\cdot x$&0&8&3&b&6&e&5&d&c&4&f&7&a&2&9&1
+\end{tabular}\end{center}
+Pour le vecteur $(1,2,3,\mathrm{b})$, chaque élément sert d'indice : $T[1]=8$, $T[2]=3$, $T[3]=\mathrm{b}$, $T[\mathrm{b}]=7$. Donc $8\cdot(1,2,3,\mathrm{b})=(8,3,\mathrm{b},7)$. Vérification pour $T[3]$ : $8\cdot3=x^3(x+1)=x^4+x^3=(x+1)+x^3=\mathrm{b}$. L'instruction \vpshufb{} lit ces 16 cases pour 32 éléments à la fois.
+
 \subsubsection{Deux produits par recherche}
 Pour une paire de nombres $(c_{2p},c_{2p+1})$, la table $T_p[x]=(c_{2p}x)\oplus\big((c_{2p+1}x)\ll4\big)$ donne \emph{les deux} produits dans un seul octet. Le code range $T_p$ dans un registre de 256 bits dont les deux voies sont identiques (lemme~\ref{lem:voies}). Un registre de données de 32 octets contient 64 éléments. Il faut séparer les quartets impairs et pairs (ET avec \code{0x0f}, puis décalage de 4 bits), donc deux \vpshufb{} par registre et par paire. Les accumulateurs « impairs » et « pairs » restent séparés jusqu'à la fin de la ligne, où on les remet ensemble. Cette technique est décrite dans l'article \emph{Nibbling MAYO}~\cite{nibbling}.
 
+\paragraph{Exemple : deux produits par recherche.} Prenons la paire $(c_0,c_1)=(2,3)$. La table $T_p[x]$ range $2\cdot x$ dans le quartet bas et $3\cdot x$ dans le quartet haut. Pour $x=5$ : $2\cdot5=\mathrm{a}$ et $3\cdot5=\mathrm{f}$, donc l'octet \texttt{fa}. Pour $x=\mathrm{b}$ : $2\cdot\mathrm{b}=5$ et $3\cdot\mathrm{b}=\mathrm{e}$, donc l'octet \texttt{e5}. Soit maintenant l'octet de données \texttt{b5}, qui contient les deux éléments 5 (quartet bas) et b (quartet haut). Une première recherche, avec l'indice 5, donne \texttt{fa} ; une seconde, avec l'indice b (après décalage de 4 bits et masquage), donne \texttt{e5}. Deux instructions \vpshufb{} ont donc fourni les 4 produits ($2\cdot5$, $3\cdot5$, $2\cdot\mathrm{b}$, $3\cdot\mathrm{b}$).
+
 \subsubsection{Recouvrement en fin de vecteur}
-Pour $m\le64$, $64<m\le128$ et $128<m\le192$, le code officiel utilise respectivement 1, 2 et 3 chargements de 32 octets. Le dernier est \emph{reculé} pour se terminer à l'octet $b$ (adresse \code{vec + M_VEC_LIMBS_MAX - 4} limbes). Les octets communs sont donc traités deux fois, et les écritures finales se recouvrent avec les mêmes valeurs. Pour MAYO-5, on a les chargements $[0,32)$, $[32,64)$ et $[40,72)$ : 192 éléments sont calculés pour 142 utiles, et le dernier chargement lit un octet de trop après l'entrée de $P_1$ (figure~\ref{fig:charge}).
+Pour $m\le64$, $64<m\le128$ et $128<m\le192$, le code officiel utilise respectivement 1, 2 et 3 chargements de 32 octets. Le dernier est \emph{reculé} pour se terminer à l'octet $b$ (adresse \code{vec + M_VEC_LIMBS_MAX - 4} limbes). Les octets communs sont donc traités deux fois, et les écritures finales se recouvrent avec les mêmes valeurs. Pour MAYO-5, on a les chargements $[0,32)$, $[32,64)$ et $[40,72)$ : 192 éléments sont calculés pour 142 utiles, et le dernier chargement lit un octet de trop après l'entrée de $\mathbf{P}_1$ (figure~\ref{fig:charge}).
 
 \begin{figure}[ht]\centering
 \begin{tikzpicture}[x=0.105cm,y=1cm,>=Stealth,font=\small]
  \def\h{0.45}
  % echelle : 1 unite = 1 octet, entree de 71 octets : 0..71
- \node[anchor=east] at (-2,4.2) {Entrée de $P_1$ (71 octets)};
+ \node[anchor=east] at (-2,4.2) {Entrée de $\mathbf{P}_1$ (71 octets)};
  \fill[ice] (0,4) rectangle (71,4.5); \draw (0,4) rectangle (71,4.5);
  \foreach \x in {0,32,64,71}{\draw[muted] (\x,3.9)--(\x,4.6); \node[font=\scriptsize,muted] at (\x,4.85) {\x};}
  % officiel
@@ -120,10 +384,60 @@ Pour $m\le64$, $64<m\le128$ et $128<m\le192$, le code officiel utilise respectiv
  \node[font=\scriptsize] at (16,1.22) {$[0,32)$}; \node[font=\scriptsize] at (48,1.22) {$[32,64)$};
  \node[font=\scriptsize,anchor=east] at (62,0.67) {queue $[63,71)$, puis décalage de 8 bits};
 \end{tikzpicture}
-\caption{Chargements pour une entrée de $P_1$ de MAYO-5 (octets). Le noyau officiel recouvre l'intervalle $[40,64)$ et dépasse l'entrée d'un octet ; A2 SAFE lit exactement $[0,71)$.}\label{fig:charge}
+\caption{Chargements pour une entrée de $\mathbf{P}_1$ de MAYO-5 (octets). Le noyau officiel recouvre l'intervalle $[40,64)$ et dépasse l'entrée d'un octet ; A2 SAFE lit exactement $[0,71)$.}\label{fig:charge}
 \end{figure}
 
 
+
+\paragraph{Lien avec notre étude.} la fin des vecteurs est traitée par recouvrement : c'est le point de départ de la question centrale.
+
+%%%%
+\section{Outils pour comprendre les analyses}\label{sec:outils}
+Les chapitres suivants utilisent quatre outils : un compteur de temps, une méthode de comparaison par paires, un compilateur, et la lecture de l'assembleur. Cette section les explique sans supposer de connaissance préalable. Elle précise aussi ce que chaque outil permet de conclure, et ce qu'il ne permet pas de conclure.
+
+\subsection{Mesurer le temps : le compteur TSC}
+Le processeur contient un \emph{compteur de ticks}, appelé TSC (\emph{Time Stamp Counter}). On lit ce compteur avant et après le code à mesurer (instruction \code{rdtscp}). Le temps mesuré est la différence des deux lectures, exprimée en \emph{ticks}.
+
+\textbf{Attention :} un tick TSC n'est pas un cycle du processeur. Le compteur avance à vitesse constante, même quand le processeur ralentit ou accélère. On ne peut donc pas dire « tant de cycles ». On peut seulement comparer deux versions d'un programme \emph{dans les mêmes conditions}, sur la même machine.
+
+\subsection{Comparer deux versions : mesure par paires}\label{sec:outil-paires}
+Pour savoir si la version A2 est plus rapide que la version officielle, on ne peut pas mesurer l'une un matin et l'autre le soir : la machine change (température, autres programmes, fréquence). On utilise donc une \emph{mesure par paires} : à chaque tour, on exécute les deux versions avec les mêmes données, dans un ordre \emph{tiré au hasard}. L'ordre au hasard évite qu'une version soit toujours favorisée (par exemple parce que l'autre « réchauffe » la mémoire cache).
+
+Chaque tour donne un \emph{rapport} $\text{temps A2}/\text{temps officiel}$, et le \emph{gain} est $1-\text{rapport}$. Un gain de $10\,\%$ veut dire que A2 prend $90\,\%$ du temps de la version officielle.
+
+Un même \emph{processus} (une exécution du programme de mesure) enchaîne des milliers de tours (3\,001). Ces tours ne sont pas indépendants : ils partagent le même état de la machine. Si on les comptait comme des mesures indépendantes, on croirait être beaucoup plus précis qu'on ne l'est. L'\emph{unité statistique} est donc le processus, pas le tour. On calcule la médiane des rapports par processus, puis un intervalle de confiance à 95\,\% par \emph{bootstrap} : on retire au hasard, avec remise, des processus parmi ceux qu'on a mesurés, des milliers de fois, et l'on regarde de combien la médiane varie.
+
+\subsection{Le compilateur et ses passes}\label{sec:outil-compilo}
+Le code est écrit en langage C. Le processeur ne comprend pas le C : un programme appelé \emph{compilateur} (ici GCC, \emph{GNU Compiler Collection}) le transforme en \emph{assembleur}, c'est-à-dire en une suite d'instructions du processeur. Pour que le programme aille vite, GCC applique des « passes » d'optimisation. Trois d'entre elles reviendront dans notre travail :
+\begin{itemize}[itemsep=1pt]
+\item \textbf{SRA} (\emph{Scalar Replacement of Aggregates}) : découper un tableau ou une structure en variables séparées, gardées dans des registres du processeur plutôt qu'en mémoire ;
+\item \textbf{PRE} (\emph{Partial Redundancy Elimination}) : éviter de refaire un calcul déjà fait ;
+\item \textbf{DSE} (\emph{Dead Store Elimination}) : supprimer une écriture en mémoire qui ne sert à rien.
+\end{itemize}
+Le même code C peut donner des assembleurs différents selon la version du compilateur, ses options et le contexte. Un changement dans le C (par exemple une modification d'A2) peut donc changer le code produit \emph{ailleurs} que là où on l'a fait. \textbf{Règle de notre travail :} on n'attribue jamais une différence à une passe précise (par exemple SRA) sans avoir d'abord écarté les autres changements.
+
+\subsection{Lire l'assembleur sans exécuter}\label{sec:outil-asm}
+On peut recompiler le code, le désassembler (par exemple avec \code{objdump}) et \emph{compter} les instructions : combien de \vpshufb{}, combien d'écritures de 32 octets, combien de rechargements depuis la pile (zone de mémoire où le programme met temporairement ses valeurs). C'est l'\emph{analyse statique}, notée E1 puis E1b dans la suite : aucune mesure de temps n'est lancée.
+\begin{itemize}[itemsep=1pt]
+\item \textbf{Ce qu'on peut conclure :} le nombre exact d'instructions d'un type donné, et ce qui change entre deux versions du code ou entre deux options du compilateur.
+\item \textbf{Ce qu'on ne peut pas conclure :} que le programme est plus rapide ou plus lent. Le temps dépend aussi de la machine (débit des unités de calcul, mémoire cache, dépendances entre instructions).
+\end{itemize}
+Pour parler de vitesse, il faut mesurer (section~\ref{sec:outil-paires}) ; pour parler du code, il faut le lire. Les deux se complètent, mais ne se remplacent pas.
+
+\subsection{Comment sont présentés les résultats}
+Pour que le lecteur sache toujours ce qui est établi, chaque résultat porte une étiquette : \F{} \emph{fait} (lu dans le code produit ou dans des mesures publiées), \I{} \emph{déduction} tirée des faits, \Hy{} \emph{hypothèse} non testée. Pour la sûreté du code, \Pc{} veut dire « justifiée par le code » et \Pe{} « vérifiée par des tests ».
+
+\begin{table}[ht]\centering\small
+\caption{Quelques abréviations utilisées dans les analyses.}\label{tab:abrev}
+\begin{tabularx}{\linewidth}{@{}lX@{}}\toprule
+Abréviation & Sens\\\midrule
+KAT & \emph{Known-Answer Test} : test de « réponses connues » ; on compare la sortie du programme à des valeurs de référence officielles\\
+TSC & \emph{Time Stamp Counter} : compteur de ticks du processeur\\
+E1, E1b & analyses statiques du code produit par le compilateur (E1b : avec une option du compilateur en plus)\\
+SAFE & variante d'A2 qui ne lit rien en dehors de l'entrée\\
+A2 & l'optimisation étudiée : traiter la fin du vecteur avec un seul registre de 128 bits\\\bottomrule
+\end{tabularx}
+\end{table}
 
 \subsection{Panorama des analyses menées}\label{sec:panorama}
 Pour s'y retrouver dans la suite, voici les analyses et ce qu'elles établissent (détails aux chapitres~\ref{ch:methodo} et~\ref{ch:resultats}) :
@@ -135,18 +449,23 @@ Pour s'y retrouver dans la suite, voici les analyses et ce qu'elles établissent
 \item \textbf{Chaque résultat porte une étiquette} : \F{} fait établi, \I{} déduction, \Hy{} hypothèse non testée.
 \end{itemize}
 
+
+\paragraph{Lien avec notre étude.} ces outils ne disent pas la même chose (le temps d'un côté, le code de l'autre) ; les chapitres suivants les utilisent ensemble, en distinguant toujours ce qui est établi de ce qui est supposé.
+
 \section{Revue de littérature}\label{sec:revue}
 \subsection{Implémentations existantes}
 \begin{description}[leftmargin=0.5cm]
 \item[Référence C.] Arithmétique ordinaire, sans \vpshufb{}.
 \item[AVX2 officiel (MAYO-C).] Fichier \code{src/AVX2/shuffle_arithmetic.h} : macros \code{MULTIPLY_ACCUMULATE_M_VEC} et \code{DISENTANGLE_AND_ACCUMULATE_M_VECS}, avec le recouvrement décrit plus haut. C'est la base de ce travail : version amont \code{74de637}~\cite{mayoc}.
 \item[\emph{Nibbling MAYO}~\cite{nibbling}.] Implémentation AVX2 et Cortex-M4 optimisée, avec la représentation en quartets. Au paragraphe 5.1, un \vpshufb{} donne 64 multiplications, les accumulateurs impairs et pairs sont séparés et, pour $m=96$ (MAYO-3 de l'époque), un recouvrement « duplique 32 opérations ». Le débit est d'un \vpshufb{} par cycle sur Skylake et de deux sur Ice Lake. Nous avons lu l'article en entier. Il utilise les paramètres du tour~1 ($m=64$ pour MAYO-1 et MAYO-2, $96$ pour MAYO-3, $128$ pour MAYO-5) : MAYO-1 et MAYO-5 n'y ont donc \emph{pas} de fin de vecteur à traiter. Les mesures ont été faites sur Skylake (Xeon E3-1245~v5) et Ice Lake (Xeon Gold 6338), avec \code{clang-14}, Turbo Boost désactivé, médiane de 10\,000 répétitions. Les tables de multiplication sont construites par la méthode de~\cite{bch23}, appliquée deux fois puis entrelacée. L'approche par \vpshufb{} se distingue de~\cite{bch23} en cherchant \emph{deux} produits par recherche. L'article évoque le recouvrement pour $m$ non multiple de 64 (cas MAYO-3), mais sans traitement spécial de la fin du vecteur. Le code publié avec l'article (\code{shuffle_arithmetic_\{64,96,128\}.h}) charge aux positions de limbes 0 et 2 (octets $[0,32)$ et $[16,48)$) et utilise quatre \vpshufb{} par paire pour $m=96$.
-\item[Version GFNI.] Elle utilise l'instruction \code{vgf2p8affineqb} et lit sur toute la largeur dans une marge de sécurité (\code{MAYO_MVEC_SLACK}) ; elle est hors du cadre de ce mémoire.
+\item[Version GFNI.] Elle utilise l'instruction \code{vgf2p8affineqb} et lit sur toute la largeur dans une marge de sécurité (\code{MAYO_MVEC_SLACK}) ; elle est hors du cadre de notre travail.
 \end{description}
 
 
 \subsection{Fuites par canaux auxiliaires et temps constant}
 Les attaques par mesure du temps~\cite{kocher} et par le cache~\cite{bernstein} exigent que les adresses mémoire et les branches du programme ne dépendent pas de données secrètes. Dans les noyaux, les tables de multiplication calculées à partir du vinaigre ne sont que des données de \vpshufb{} : elles ne servent ni d'adresses ni de conditions. A2 doit garder cette propriété ; la section~\ref{sec:surete} dit où en est la preuve.
+
+\paragraph{Lien avec notre étude.} les implémentations existantes montrent où se situe le recouvrement et ce qui a déjà été étudié.
 
 \section{Évaluation et positionnement}
 Le tableau~\ref{tab:etat} sépare ce qui était connu, ce qui est venu après l'article, et ce qu'A2 fait de différent. Il se fonde sur les sources consultées : le paragraphe 5.1 de l'article (lu en entier), les parties AVX2 du code, et tout l'historique du fichier \code{shuffle_arithmetic.h} dans le dépôt officiel (versions \code{3c9be9e}, \code{d81b689}, \code{11ff0f0}, \code{4b7cd94}, \code{fef05b5} et la dernière version de \code{main}, \code{74de637}).
@@ -165,5 +484,24 @@ Non revendiqué & Recouvrement, séparation impair/pair, remise en ordre tardive
 \end{tabularx}
 \end{table}
 
+\paragraph{Ce qui manque dans l'existant.} À partir des sources consultées, on peut résumer les limites ainsi :
+\begin{itemize}[itemsep=1pt]
+\item \textbf{Des calculs en double.} Quand $m$ n'est pas un multiple de 64, le recouvrement refait une partie du travail (37,5\,\% des éléments pour MAYO-1, 26\,\% pour MAYO-5).
+\item \textbf{Une lecture en trop.} Pour MAYO-5, le dernier chargement du noyau officiel lit un octet après l'entrée de $\mathbf{P}_1$ (deux pour MAYO-3).
+\item \textbf{Une limite inconnue.} Nous n'avons pas trouvé, dans les sources consultées, de calcul du nombre minimal de \vpshufb{} avec des tables de 16 octets.
+\item \textbf{Un effet sur la signature complète non étudié.} Un gain sur un noyau seul ne se retrouve pas forcément sur toute la signature, et nous n'avons pas trouvé d'étude de cet écart.
+\end{itemize}
+
+\paragraph{Ce que nous proposons, et pourquoi.} A2 traite la fin du vecteur avec un seul registre de 128 bits. Nous l'avons retenue pour trois raisons : (i) elle s'attaque exactement au calcul en double ; (ii) sa variante SAFE ne lit rien en dehors de l'entrée ; (iii) son gain en nombre d'instructions peut être démontré par un comptage, puis testé par des mesures. Ses limites, et ce qu'elle ne traite pas, sont discutées aux chapitres~\ref{ch:methodo} et~\ref{ch:resultats}.
+
 Nous n'avons trouvé aucun \code{vpshufb} xmm sur une fin de vecteur, ni dans le code publié avec l'article, ni dans l'historique officiel jusqu'à la dernière version de \code{main}. Les \code{__m128i} qui apparaissent à partir de \code{fef05b5} (lignes 548--606) servent à autre chose : transposer des $m$-vecteurs par décalage de bits, et charger une table de 16 octets répétée sur 256 bits. \textbf{Limite :} nous n'avons lu l'article en entier que pour sa section 5.1 et ses parties AVX2 utiles. Ne pas avoir trouvé la technique dans ces sources ne prouve pas qu'elle n'existe pas ailleurs.
 
+\section*{Ce qu'il faut retenir de ce chapitre}
+\begin{enumerate}[itemsep=2pt]
+\item MAYO signe en tirant des « vinaigres » au hasard, puis en résolvant un système linéaire ; le « fouettage » ($k$ copies) permet une clé petite.
+\item Le coût d'une signature est surtout celui de \textbf{produits de matrices} sur $\mathbb{F}_{16}$, refaits à chaque tentative de signature.
+\item Dans le code AVX2, on calcule avec \vpshufb{} : des tables de 16 entrées, deux produits par recherche, 64 multiplications par instruction.
+\item Quand $m$ n'est pas un multiple de 64, la fin du vecteur est traitée par un \textbf{recouvrement} : des éléments sont calculés deux fois. A2 cherche à l'éviter (chapitre~\ref{ch:methodo}).
+\item Pour juger d'un gain, on dispose de deux familles d'outils qui ne disent pas la même chose : des \textbf{mesures de temps} (mesure par paires, unité statistique = processus) et la \textbf{lecture du code produit} (qui ne donne pas la vitesse).
+\end{enumerate}
+\emph{Suite :} le chapitre~\ref{ch:methodo} formalise le comptage, décrit A2 et le protocole d'expérience ; le chapitre~\ref{ch:resultats} donne les résultats.

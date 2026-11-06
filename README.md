@@ -46,9 +46,20 @@ Les patchs modifient `PQCMayo/MAYO-C` (Apache-2.0) ; ils sont publiés sous la m
 
 ## Mémoire
 
-**Lire le mémoire (PDF, 48 pages, format ENSPY) : [`memoire/memoire_v2.pdf`](https://github.com/LECAUCHY12/mayo-a2-thesis/blob/main/memoire/memoire_v2.pdf)**
+**Lire le mémoire (PDF révisé, format ENSPY) : [`memoire/memoire_ENSP_v11.pdf`](https://github.com/LECAUCHY12/mayo-a2-thesis/blob/main/memoire/memoire_ENSP_v11.pdf)**
 
-Sources LaTeX dans `memoire/` (compiler `main.tex` avec xelatex, ou pdflatex sur Overleaf). Les logos sont dans `memoire/logos/`.
+Sources LaTeX : `memoire/sources_ENSP_v11/` (compiler `memoire.tex` avec pdflatex, trois fois) ; version xelatex du même texte dans `memoire/` (`main.tex`). Les logos sont dans `memoire/logos/`.
+
+## Comparaison ciblée (GCC 16.2.0, 6 nov. 2026)
+Demandée par l'encadrant : MAYO-C officiel et A2 SAFE compilés séparément, sans sondes ni `MAYO_TAIL_AB`, signature complète, MAYO-1 et MAYO-5, mêmes entrées, ordre alterné, le processus comme unité statistique.
+- `patches/0005-Comparaison-ciblee-…patch` (à appliquer après 0001–0004) ; lancer `sh test/run_comparaison_isolee.sh 1 401 200`.
+- `data/comparaison_isolee_gcc16/` : `iso.csv`, `resultats_iso.txt`, `machine.txt`, `commandes_compilation.txt`. Résultat : MAYO-1 0,8988 (gain 10,1 %), MAYO-5 0,9854 (gain 1,5 %), 0 signature différente, 0 vérification échouée. Une session, une machine.
+
+## Fichiers d'analyse lim2 et pre (MAYO-5, compilation seule, GCC 16.2.0)
+- `scripts/e1b_lim2_pre.py` ; sorties dans `data/lim2_pre_gcc16/`. La cause de la différence entre `P_none` et `P_all` reste ouverte.
+
+## Exemple jouet
+- `scripts/exemple_jouet_mayo_tour3.py` : recalcule l'exemple du texte (spécification du troisième tour, terme linéaire dérivé de Λ).
 
 ## Analyse statique E1b (GCC 16.2.0, exécutée le 25 oct. 2026)
 - `scripts/e1b.py` : compilation seule, aucune mesure de temps.

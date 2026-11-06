@@ -64,7 +64,7 @@ MAYO-5 & 142 & 2 & 14 & 6 & 5 & 1 & implémentée (A2), fin de 7 octets + 1 de b
 
 \subsection{Conception d'A2}
 \subsubsection{Structure du noyau}
-Pour une entrée de $P_1$ et une ligne d'accumulateurs de $K$ vecteurs, A2 garde tels quels les $q=\lfloor m/64\rfloor$ registres ymm complets sur les $32q$ premiers octets. Il traite ensuite la fin du vecteur ainsi :
+Pour une entrée de $\mathbf{P}_1$ et une ligne d'accumulateurs de $K$ vecteurs, A2 garde tels quels les $q=\lfloor m/64\rfloor$ registres ymm complets sur les $32q$ premiers octets. Il traite ensuite la fin du vecteur ainsi :
 \begin{enumerate}[nosep]
 \item \textbf{Préparation (une fois par entrée)} : chargement de 8 octets (\code{_mm_loadl_epi64}), décalage de 4 bits (\code{vpsrlw}), entrelacement \code{vpunpcklqdq} (quartets bas dans les octets 0 à 7, quartets hauts dans les octets 8 à 15), ET avec \code{0x0f}. Cela fait quatre instructions (cinq dans la variante SAFE, qui ajoute un décalage d'octets).
 \item \textbf{Produits} : un \code{vpshufb} xmm avec la \emph{moitié basse} de la table de multiplication déjà chargée, et un \code{vpxor} xmm dans un accumulateur xmm.
@@ -81,7 +81,7 @@ Pour MAYO-1, $b=40=32+8$ : la fin du vecteur est exactement la fin de l'entrée,
 Si l'on intègre un jour A2, on ne retiendrait que la variante SAFE. Les quartets de bourrage (positions 142 et 143 de MAYO-5, car $16L=144$) n'ont pas d'effet sur les positions utiles (section~\ref{sec:bourrage}).
 
 \subsubsection{Préconditions}
-(P1) $P_1$ est rangé à plat, sans bourrage entre les entrées, à l'adresse $P_1+e\cdot b$ ; (P2) les accumulateurs ont $L$ limbes, avec du bourrage de quartets seulement à la fin du dernier limbe ; (P3) les tables de multiplication sont construites par la routine officielle (voies égales, lemme~\ref{lem:voies}) ; (P4) $m\in\{80,142\}$ : les noyaux A2 ne sont pas actifs pour les autres paramètres (condition de compilation \code{MAYO_TAIL_XMM_ACTIVE}) ; (P5) compilation sans \code{ENABLE_PARAMS_DYNAMIC}.
+(P1) $\mathbf{P}_1$ est rangé à plat, sans bourrage entre les entrées, à l'adresse $P_1+e\cdot b$ ; (P2) les accumulateurs ont $L$ limbes, avec du bourrage de quartets seulement à la fin du dernier limbe ; (P3) les tables de multiplication sont construites par la routine officielle (voies égales, lemme~\ref{lem:voies}) ; (P4) $m\in\{80,142\}$ : les noyaux A2 ne sont pas actifs pour les autres paramètres (condition de compilation \code{MAYO_TAIL_XMM_ACTIVE}) ; (P5) compilation sans \code{ENABLE_PARAMS_DYNAMIC}.
 
 \subsection{La limite n'implique pas l'accélération}\label{sec:perfborne}
 Faire moins de \vpshufb{} ne garantit pas d'aller plus vite : il faut ajouter le coût de préparation de la fin du vecteur, les dépendances entre instructions, les rechargements depuis la pile, les chargements non alignés et le débit des unités de calcul. Si seul le débit du \vpshufb{} (un par cycle sur Skylake~\cite{nibbling}) limitait la boucle, le rapport de temps attendu serait $N_{A2}/N_{\mathrm{off}}$ : $15/20=0{,}750$ (MAYO-1) et $30/36=0{,}833$ (MAYO-5).
@@ -101,14 +101,16 @@ Deux cas sur quatre sont plus rapides que ce que permettrait le seul comptage de
 \section{Propriétés de correction et de sûreté}\label{sec:surete}
 Cette section répond à la partie « sûreté » de QR2. Chaque propriété porte une étiquette : \Pc{} (déduite du code et de ses invariants, par relecture et par des assertions à la compilation), \Pe{} (vérifiée par des tests) ou \Hy{} (hypothèse sur la machine ou le compilateur). Une propriété \Pe{} seule n'est pas une démonstration. Notation : $n_y=\lfloor m/64\rfloor$ (1 pour MAYO-1, 2 pour MAYO-5), $T_{\mathrm{OFF}}=32n_y$ (32 ; 64), $T_{\mathrm{LIMB}}=4n_y$ (4 ; 8).
 
-\subsection{Limites de lecture de $P_1$}
+Cette section distingue deux sortes d'énoncés. La \emph{correction fonctionnelle} (bornes de lecture et d'écriture, invariant des tables, bourrage) est justifiée par le code et vérifiée par les KAT et des tests. L'\emph{analyse des branchements et des adresses qui pourraient dépendre d'un secret} est un autre sujet : les KAT n'en disent rien, et elle est traitée à part (section~\ref{sec:tempsconst}).
+
+\subsection{Limites de lecture de $\mathbf{P}_1$}
 L'entrée $e$ occupe les octets $[eb,(e+1)b)$.
 \begin{itemize}
 \item \Pc{} Les $n_y$ chargements ymm lisent $[eb+32g,eb+32g+32)$ pour $g<n_y$ ; comme $32n_y\le b$ ($32\le40$ ; $64\le71$), ils restent dans l'entrée.
 \item \Pc{} MAYO-1 : la fin du vecteur lit $[eb+32,eb+40)$, exactement la fin de l'entrée.
 \item \Pc{} MAYO-5, SAFE : la fin du vecteur lit $[eb+63,eb+71)$ puis décale de 8 bits ; toutes les lectures restent dans l'entrée.
 \item \Pc{} (variante par défaut, non retenue) MAYO-5 lit $[eb+64,eb+72)$ : un octet après l'entrée. Pour $e<N_{\mathrm{ent}}-1$, c'est le premier octet de l'entrée suivante. Pour la dernière entrée, c'est l'octet 720\,863 du tampon, qui est alloué (zone de $8\cdot$\code{P1_LIMBS_MAX}$=731\,016$ octets). Des \code{_Static_assert} imposent $N_{\mathrm{ent}}b+\text{OVERREAD}\le8\cdot$\code{P1_LIMBS_MAX} et OVERREAD$\le1$.
-\item \Pe{} Test « garde-page » (la fin de $P_1$ est collée à une page interdite, sans marge) : le code officiel et A2 par défaut provoquent une erreur SIGSEGV pour MAYO-5, A2 SAFE non ; pour MAYO-1, aucun des trois. Ce test contrôle la propriété ci-dessus sans la démontrer.
+\item \Pe{} Test « garde-page » (la fin de $\mathbf{P}_1$ est collée à une page interdite, sans marge) : le code officiel et A2 par défaut provoquent une erreur SIGSEGV pour MAYO-5, A2 SAFE non ; pour MAYO-1, aucun des trois. Ce test contrôle la propriété ci-dessus sans la démontrer.
 \end{itemize}
 Le noyau officiel de MAYO-5 lit lui aussi 1 octet de trop (son dernier ymm couvre les octets 40 à 71), et celui de MAYO-3 en lit 2 (son second ymm couvre $[24,56)$ pour $b=54$). A2 SAFE n'a besoin d'aucune marge.
 
@@ -117,7 +119,7 @@ Pour la ligne $r$, l'accumulateur est à $\mathrm{acc}+rKL$ (en limbes) ; le vec
 \begin{itemize}
 \item \Pc{} Les écritures ymm touchent les limbes $[kL+4g,kL+4g+4)$ pour $g<n_y$, et jamais au-delà du limbe $4n_y-1\le L-1$.
 \item \Pc{} La fin du vecteur est traitée par lecture, modification puis écriture d'un seul limbe de 64 bits, d'indice $T_{\mathrm{LIMB}}=L-1$, pour $k<K$ (et $k+1<K$ pour le second, avec une garde explicite). Toutes les écritures sont donc dans les $VKL$ limbes de \code{acc}. Le noyau officiel écrit un ymm à $L-4$ : même étendue.
-\item \Pe{} Un « canari » placé après \code{acc} n'est pas modifié ; $P_1$, passé en \code{const}, n'est pas modifié non plus (la copie de l'entrée est inchangée).
+\item \Pe{} Un « canari » placé après \code{acc} n'est pas modifié ; $\mathbf{P}_1$, passé en \code{const}, n'est pas modifié non plus (la copie de l'entrée est inchangée).
 \end{itemize}
 
 \subsection{Invariant des deux voies des tables}
@@ -138,7 +140,7 @@ Seul MAYO-5 a des quartets de bourrage (positions 142 et 143 ; pour MAYO-1, $80=
 \end{itemize}
 \textbf{Limite.} Cette propriété suppose que \code{Pv} n'est utilisé que par les chemins listés, ce que nous avons établi en cherchant dans le code source de la version AVX2. Si une modification future lisait le bourrage de \code{Pv}, il faudrait réexaminer la question.
 
-\subsection{Temps constant : ce qui est établi et ce qui ne l'est pas}
+\subsection{Temps constant : ce qui est établi et ce qui ne l'est pas}\label{sec:tempsconst}
 \begin{itemize}
 \item \Pc{} Les bornes des boucles ($V$, $K$) et les adresses de chargement ($eb$) ne dépendent que de paramètres publics. Les tables calculées à partir du vinaigre ne sont que des données pour \vpshufb{} : ce ne sont jamais des adresses ni des conditions. Le code officiel a la même structure.
 \item \Pc{}$\to$à vérifier sur le programme compilé : à la remise en ordre de la fin du vecteur, A2 ajoute deux \code{vmovq} d'un registre vectoriel vers un registre général (\code{ar[...] ^= (uint64_t)_mm_cvtsi128_si64(...)}). Des données liées au secret passent donc par un registre général, mais seulement comme donnée d'un XOR vers la mémoire. Nous avons inspecté l'assembleur (script \code{inspect_asm.py}) et n'avons trouvé aucun usage non conforme (adresse, branche, drapeau). Ce résultat vaut pour \emph{une} version de GCC, pas en général.
@@ -147,7 +149,7 @@ Seul MAYO-5 a des quartets de bourrage (positions 142 et 143 ; pour MAYO-1, $80=
 \end{itemize}
 \textbf{Nous ne fournissons aucune preuve formelle de temps constant.} Que les KAT réussissent et qu'il n'y ait pas de différence de résultat ne démontre pas le temps constant.
 
-\subsection{Correction fonctionnelle}
+\subsection{Correction fonctionnelle (vérifiée par les KAT)}
 Les KAT officiels réussissent pour MAYO-1, 2, 3 et 5 (toutes les sessions), ainsi que les tests du schéma et les tests unitaires précédents. Il y a zéro signature différente dans toutes les paires A/B, et le nombre de tentatives de signature est le même. La correction est donc établie \emph{sur les entrées testées} ; l'argument général repose sur les propriétés \Pc{} ci-dessus.
 
 \section{Protocole expérimental}\label{sec:protocole}
@@ -188,7 +190,7 @@ Les scripts de lancement refusent d'écraser un dossier ou une archive existants
 Des sondes (\code{rdtscp} précédé d'un \code{lfence}) mesurent, pour chaque signature et chaque version, le temps total, le nombre de tentatives et, pour chaque phase, le temps et le nombre d'appels. Elles sont inactives par défaut : sans la macro correspondante, le code objet de \code{mayo.c} et de \code{arithmetic.c} est identique à l'original (vérifié par \code{cmp} et \code{objdump}). Le patch \code{0003} ajoute un masque pour activer chaque sonde séparément. Les cinq configurations de CT1 sont : \code{plain} (bibliothèque d'origine, aucune sonde), \code{none} (sondes compilées mais toutes désactivées), \code{esk} (sonde sur \code{expand_sk_internal} seule), \code{mcalc} (sonde sur \code{m_calculate_M_and_VPV} seule) et \code{all} (toutes les sondes).
 
 \subsection{Analyse statique du code généré (E1)}
-Pour chaque construction, nous recompilons l'objet avec la commande enregistrée, nous le désassemblons (\code{objdump -d -M intel}) et nous repérons les boucles de travail par leur nombre de \code{vpshufb} (36 ymm pour l'officiel de MAYO-5 ; 24 ymm + 6 xmm pour A2). Les comptes sont ramenés au facteur de déroulage de boucle (ici $u=1$). Nous identifions le noyau par le \emph{pas d'adresse sur $P_1$} : \code{add reg,0x47} (entrées de 71 octets, le pas d'une entrée) pour \code{P1_times_Vt} et \code{imul ...,0x47} pour \code{P1t_times_Vt}. Les repères de débogage de GCC ne sont pas fiables (les corps identiques sont fusionnés et étiquetés \code{P1_times_O}). Pour attribuer une différence de code à une cause, il faut d'abord avoir écarté les autres modifications du code (section~\ref{sec:e1b}).
+Pour chaque construction, nous recompilons l'objet avec la commande enregistrée, nous le désassemblons (\code{objdump -d -M intel}) et nous repérons les boucles de travail par leur nombre de \code{vpshufb} (36 ymm pour l'officiel de MAYO-5 ; 24 ymm + 6 xmm pour A2). Les comptes sont ramenés au facteur de déroulage de boucle (ici $u=1$). Nous identifions le noyau par le \emph{pas d'adresse sur $\mathbf{P}_1$} : \code{add reg,0x47} (entrées de 71 octets, le pas d'une entrée) pour \code{P1_times_Vt} et \code{imul ...,0x47} pour \code{P1t_times_Vt}. Les repères de débogage de GCC ne sont pas fiables (les corps identiques sont fusionnés et étiquetés \code{P1_times_O}). Pour attribuer une différence de code à une cause, il faut d'abord avoir écarté les autres modifications du code (section~\ref{sec:e1b}).
 
 \subsection{Protocole E1b (analyse statique de l'origine des écritures)}\label{sec:e1b}
 E1b recompile \code{src/mayo.c} avec \emph{la commande exacte} de E1 plus une seule option en plus, sans aucune mesure de temps. Constructions : \code{P_none} (sans sondes), \code{P_all} (toutes les sondes), \code{TAB} (construction des mesures S1/S2). Variantes : \code{base} (contrôle : doit redonner exactement le code de E1) ; \code{dump} (fichiers de sortie \code{-fdump-tree-optimized}, \code{-fdump-tree-sra-details}, \code{-fdump-tree-esra-details}, \code{-fdump-rtl-expand}, \code{-fdump-rtl-ira}, \code{-fopt-info-inline-optimized} ; contrôle : le code doit être identique) ; \code{nosra} (\code{-fno-tree-sra}) ; \code{noipasra} (\code{-fno-ipa-sra}) ; \code{nodse} ; \code{nopre} ; \code{nofre}.

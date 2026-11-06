@@ -50,10 +50,10 @@ E1b & \code{python3 -I e1b.py <dossier_E1> <dossier_neuf>}\\\bottomrule
 Chaque \code{machine.txt} enregistre date UTC, noyau, compilateur, microcode, gouverneur, \code{boot_id} et alimentation. La reproduction des \emph{mesures} donnera des valeurs voisines et non identiques.
 
 \chapter{Identification des noyaux dans le code généré (GCC~16.2.0, MAYO-5)}\label{app:ident}
-Identification par le pas d'adresse sur $P_1$ (section~\ref{sec:protocole}). « Écritures » : écritures de 32 octets dans le corps de boucle.
+Identification par le pas d'adresse sur $P_1$ (section~\ref{sec:protocole}). « Écritures » : écritures dans le corps de boucle, de 32 octets (ymm) ou de 16 octets (xmm).
 
 \begin{table}[ht]\centering\small
-\caption{Instructions / écritures de 32 octets des boucles de travail selon la construction.}
+\caption{Instructions / écritures (32 ou 16 octets) des boucles de travail selon la construction.}
 \begin{tabular}{@{}lcccc@{}}\toprule
 Construction & \code{P1} off. & \code{P1} A2 & \code{P1t} off. & \code{P1t} A2\\\midrule
 \code{ctx_official} & 123 / 29 & -- & 162 / 65 & --\\
@@ -61,28 +61,39 @@ Construction & \code{P1} off. & \code{P1} A2 & \code{P1t} off. & \code{P1t} A2\\
 \code{ctx_phases} (toutes sondes) & 123 / 29 & 105 / 22 & 126 / 29 & 109 / 22\\\bottomrule
 \end{tabular}
 \end{table}
-Les différences « sans toutes les sondes » moins « toutes sondes » sont : A2 \code{P1} $+30$ (52$-$22), A2 \code{P1t} $+30$, officiel \code{P1t} $+36$ (65$-$29), officiel \code{P1} $0$.
+Les différences « sans toutes les sondes » moins « toutes sondes » sont : A2 \code{P1} $+30$ (52$-$22), A2 \code{P1t} $+30$, officiel \code{P1t} $+36$ (65$-$29), officiel \code{P1} $0$. Pour la boucle \code{P1_times_Vt} d'A2, les 52 écritures de \code{P_none} sont 42 de 32 octets et 10 de 16 octets, et les 22 de \code{P_all} sont 18 et 4 : les 30 écritures supplémentaires comprennent donc 24 écritures de 32 octets et 6 de 16 octets (comme au chapitre~\ref{ch:resultats}). Pour \code{P1t_times_Vt} officiel, les +36 sont des écritures de 32 octets (36 accumulateurs ymm).
 
+\chapter{Exemple jouet de MAYO : illustration simplifiée et contrôle}\label{app:jouet}
+L'exemple complet est donné à la section~\ref{sec:jouet}. Cette annexe le résume et explique comment il a été contrôlé. C'est une \emph{illustration simplifiée} : les paramètres sont minuscules ($v=2$, $o=1$, $m=2$, $k=2$) et la matrice $Z=\begin{pmatrix}1&z\\z&z^2\end{pmatrix}$, avec $z^2=z+8$, est plus simple que celles de la spécification du troisième tour~\cite{mayospec}.
 
-\chapter{Exemple jouet complet de MAYO sur $\mathbb{F}_{16}$}\label{app:jouet}
-Cet exemple, calculé à la main et vérifié par un programme, illustre la section~\ref{sec:schema}. Les éléments de $\mathbb{F}_{16}=\mathbb{F}_2[x]/(x^4+x+1)$ sont écrits en hexadécimal (A $=10$, B $=11$, \dots, F $=15$) ; l'addition est le OU exclusif.
+\begin{table}[ht]\centering\small
+\caption{Valeurs de l'exemple (hexadécimal, $\mathbb{F}_{16}$).}
+\begin{tabular}{@{}ll@{}}\toprule
+Donnée & Valeur\\\midrule
+secret $\mathbf{O}$ & $(\mathrm{b},8)^{\top}$\\
+$\mathbf{P}^{(3)}_1,\ \mathbf{P}^{(3)}_2$ & $(6),\ (\mathrm{e})$\\
+$\boldsymbol{\Lambda}$ & $\begin{pmatrix}3&1&2\\5&7&1\end{pmatrix}$\\
+$\mathbf{t}$ & $(\mathrm{f},9)$\\
+vinaigres $\mathbf{v}_0,\ \mathbf{v}_1$ & $(2,3),\ (3,\mathrm{a})$\\
+$\mathbf{M}_0$ (avec $\boldsymbol{\Lambda}$), $\mathbf{M}_1$ & $(9,4)^{\top},\ (\mathrm{c},\mathrm{a})^{\top}$\\
+$\mathbf{y}$, $\mathbf{A}$ & $(7,7)$, $\begin{pmatrix}6&3\\2&4\end{pmatrix}$ (déterminant $\mathrm{d}$)\\
+$\mathbf{x}$ & $(\mathrm{b},9)$\\
+$\mathbf{s}_0,\ \mathbf{s}_1$ & $(\mathrm{b},4,\mathrm{b}),\ (\mathrm{f},\mathrm{e},9)$\\
+$\mathcal{P}^\star(\mathbf{S})$, $L(\boldsymbol{\Lambda},\mathbf{S})$ & $(\mathrm{b},2)$, $(4,\mathrm{b})$\\
+$\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})$ & $(\mathrm{f},9)=\mathbf{t}$\\\bottomrule
+\end{tabular}
+\end{table}
 
-\section*{Paramètres}
-$n=3$, $v=2$, $o=1$, $m=2$, $k=2$ : on a bien $o<m$ et $k\,o=m$. Le secret est $O=(\mathrm{B},8)^{\mathsf T}$.
+\paragraph{Contrôle.} Le programme \code{exemple_jouet_mayo_tour3.py} (dépôt de scripts) suit les étapes de l'algorithme~7 pour construire $\mathbf{A}$ et $\mathbf{y}$, résout le système, puis vérifie la signature de façon indépendante : il évalue directement la clé publique (matrices $\mathbf{P}_\ell$ complètes) et calcule $\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})$. Il contrôle aussi que les polynômes s'annulent sur l'espace d'huile, et qu'un changement d'un seul élément de la signature donne un résultat différent de $\mathbf{t}$ (ici $(\mathrm{c},\mathrm{f})$).
 
-\section*{Clé publique (blocs de chaque équation $\ell=1,2$)}
-\[P^{(1)}_1=\begin{pmatrix}8&9\\0&6\end{pmatrix},\ P^{(1)}_2=\begin{pmatrix}2\\2\end{pmatrix},\ P^{(1)}_3=(6);\qquad
-P^{(2)}_1=\begin{pmatrix}8&\mathrm{A}\\0&8\end{pmatrix},\ P^{(2)}_2=\begin{pmatrix}\mathrm{B}\\\mathrm{C}\end{pmatrix},\ P^{(2)}_3=(\mathrm{E}).\]
-Le bloc $P^{(\ell)}_3=\mathrm{Upper}\bigl(-O^{\mathsf T}(P^{(\ell)}_1O-P^{(\ell)}_2)\bigr)$ est calculé avec le secret.
+\paragraph{Correction d'une erreur de l'ancienne version.} Dans une version précédente, l'exemple annonçait la réduction modulo $z^2+z+1$ alors que les calculs utilisaient $z^2=z+8$. Avec le polynôme écrit, on retrouvait $\mathcal{P}^\star(\mathbf{S})=(\mathrm{c},5)$ au lieu de $(\mathrm{f},9)$. Le polynôme est maintenant $z^2+z+8$ partout, et l'exemple a été refait de bout en bout, avec en plus le terme linéaire dérivé de $\boldsymbol{\Lambda}$.
 
-\section*{Signature}
-Le haché salé est supposé égal à $t=(\mathrm{F},9)$. Vinaigres tirés : $V=\begin{pmatrix}2&3\\3&\mathrm{A}\end{pmatrix}$ (lignes $v_1,v_2$). On calcule
-\[Y^{(1)}=VP^{(1)}_1V^{\mathsf T}=\begin{pmatrix}8&7\\6&4\end{pmatrix},\qquad Y^{(2)}=VP^{(2)}_1V^{\mathsf T}=\begin{pmatrix}1&4\\3&9\end{pmatrix}.\]
-Le second membre est $y=t+\bigl(u_{11}+z\,u_{12}+z^2u_{22}\bigr)=(8,7)$, où $z$ est la classe de $x$ modulo $z^2+z+1$ et $u_{ij}$ le $m$-vecteur des coefficients de $Y^{(\cdot)}$. La matrice du système est $A=\begin{pmatrix}2&1\\\mathrm{F}&\mathrm{D}\end{pmatrix}$ ; son déterminant vaut $6\neq0$, donc il y a une solution unique $x=(x_1,x_2)=(8,\mathrm{B})$. La signature est $S=(s_1,s_2)$ avec $s_i=(v_i+Ox_i\,\|\,x_i)$ :
-\[s_1=(5,\mathrm{F},8),\qquad s_2=(\mathrm{A},\mathrm{D},\mathrm{B}).\]
-
-\section*{Vérification}
-On évalue $P^{(\ell)}(s_1)$, $P^{(\ell)}(s_2)$ et $P'^{(\ell)}(s_1,s_2)$ :
-$P(s_1)=(\mathrm{A},5)$, $P(s_2)=(9,\mathrm{B})$, $P'(s_1,s_2)=(\mathrm{D},4)$. Alors
-\[P^\star(S)=P(s_1)+z\,P'(s_1,s_2)+z^2P(s_2)=(\mathrm{A},5)+(6,9)+(3,5)=(\mathrm{F},9)=t.\]
-La signature est acceptée. Si l'on modifie un seul élément de $s_1$, l'égalité est perdue et la signature est refusée.
+\chapter{Comparaison ciblée : machine et commandes de compilation}\label{app:iso}
+\paragraph{Machine.} Intel Core i9-9880H (16 processeurs logiques, 8 c\oe urs, 2 fils par c\oe ur), Kali Linux, noyau 7.1.5, GCC~16.2.0 (Debian 16.2.0-3), CMake 4.3.4, gouverneur \code{powersave}, \code{no_turbo = 0}, processus fixé sur le c\oe ur~1 (\code{taskset}), 401 paires, 200 signatures par processus. Arbre git du code mesuré : \code{4b2849969e8d3392150cdf6ce4e69b5bf59e75b0} (les quatre patchs de l'étude plus le banc de comparaison).
+\paragraph{Commandes de compilation de \code{src/mayo.c}.} Les quatre commandes ont la même forme : \code{/usr/bin/cc} avec \code{-O3 -funroll-loops -march=haswell -maes -fno-strict-aliasing -std=gnu99 -fvisibility=hidden -Wall -Wextra -Werror} (et les avertissements désactivés listés dans le fichier), \code{-DENABLE_AESNI -DMAYO_AVX -DMAYO_BUILD_TYPE_AVX2 -DTARGET_AMD64 -DTARGET_OS_UNIX}. Elles ne diffèrent que par :
+\begin{itemize}
+\item \code{-DMAYO_VARIANT=MAYO_1} ou \code{MAYO_5} ;
+\item pour A2 SAFE seulement : \code{-DMAYO_TAIL_XMM -DMAYO_TAIL_XMM_SAFE}.
+\end{itemize}
+Le fichier complet \code{commandes_compilation.txt}, le fichier \code{iso.csv} (1\,604 lignes de mesures), \code{machine.txt} et \code{resultats_iso.txt} sont dans le dépôt de scripts et de résultats.
+\paragraph{Reproduire.} \code{sh test/run_comparaison_isolee.sh 1 401 200}.

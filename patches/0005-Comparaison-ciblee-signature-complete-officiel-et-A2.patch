@@ -1,0 +1,186 @@
+From adc057e498d3ba7ded33e1fb84e619e5afac22bd Mon Sep 17 00:00:00 2001
+From: Marcel Eric Angoah <marcelericangoah@gmail.com>
+Date: Fri, 6 Nov 2026 20:40:23 +0100
+Subject: [PATCH] Comparaison ciblee : signature complete, officiel et A2 SAFE
+ compiles separement, sans sondes
+
+---
+ test/CMakeLists.txt              |  7 ++++
+ test/run_comparaison_isolee.sh   | 56 ++++++++++++++++++++++++++++++++
+ test/sign_isolated.c             | 48 +++++++++++++++++++++++++++
+ test/tail_study/aggregate_iso.py | 27 +++++++++++++++
+ 4 files changed, 138 insertions(+)
+ create mode 100755 test/run_comparaison_isolee.sh
+ create mode 100644 test/sign_isolated.c
+ create mode 100644 test/tail_study/aggregate_iso.py
+
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index eeb038a..a8a464c 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -55,6 +55,13 @@ else()
+         add_executable(mayo_test_various_tailxmm_${MVARIANT} test_various.c)
+         target_link_libraries(mayo_test_various_tailxmm_${MVARIANT} ${MVARIANT_LOWER}_tailxmm)
+         target_include_directories(mayo_test_various_tailxmm_${MVARIANT} PUBLIC ../src/common ../src/generic ${INC_PLATFORM})
++        # Comparaison ciblee : signature complete, un executable par construction (officiel / A2 SAFE), sans sondes
++        add_executable(mayo_sign_iso_official_${MVARIANT} sign_isolated.c)
++        target_link_libraries(mayo_sign_iso_official_${MVARIANT} ${MVARIANT_LOWER}_test)
++        target_include_directories(mayo_sign_iso_official_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
++        add_executable(mayo_sign_iso_a2_${MVARIANT} sign_isolated.c)
++        target_link_libraries(mayo_sign_iso_a2_${MVARIANT} ${MVARIANT_LOWER}_tailxmm)
++        target_include_directories(mayo_sign_iso_a2_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
+         add_executable(mayo_tail_ab_${MVARIANT} tail_ab.c)
+         target_link_libraries(mayo_tail_ab_${MVARIANT} ${MVARIANT_LOWER}_tailab)
+         target_link_libraries(mayo_tail_ab_${MVARIANT} m)
+diff --git a/test/run_comparaison_isolee.sh b/test/run_comparaison_isolee.sh
+new file mode 100755
+index 0000000..418e38c
+--- /dev/null
++++ b/test/run_comparaison_isolee.sh
+@@ -0,0 +1,56 @@
++#!/bin/sh
++# Comparaison ciblee demandee par l'encadrant : MAYO-C officiel et A2 SAFE compiles SEPAREMENT (deux executables),
++# sans sondes de mesure et sans MAYO_TAIL_AB, signature complete pour MAYO-1 et MAYO-5, memes entrees dans les deux.
++# Un processus = une paire de cles + NSIGN signatures ; unite statistique = le processus ; ordre alterne a chaque paire.
++# Verifie : KAT des deux constructions ; signatures identiques (empreinte) et toutes verifiees.
++# Usage : sh test/run_comparaison_isolee.sh [coeur=1] [paires=401] [nsign=200]
++# Variables : OUT=<repertoire de sortie, doit ne pas exister> ; MESURE=0 pour ne faire que compilation + KAT + test d'empreinte.
++# Prerequis : gcc (noter la version : 16.2.0 attendue), cmake, make, taskset, python3 + numpy.
++set -e
++ROOT=$(cd "$(dirname "$0")/.." && pwd)
++CORE=${1:-1}; PAIRS=${2:-401}; NSIGN=${3:-200}
++OUT=${OUT:-$ROOT/comparaison_isolee_$(hostname)_$(date +%Y%m%d_%H%M%S)}
++[ ! -e "$OUT" ] || { echo "REFUS : $OUT existe deja"; exit 1; }
++mkdir -p "$OUT"; ln -sfn "$ROOT/KAT" "$OUT/KAT"
++{ date -u; uname -a; gcc --version | head -1; cmake --version | head -1; lscpu | head -20;
++  echo "governor: $(cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_governor 2>/dev/null || echo n/a)";
++  echo "no_turbo: $(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo n/a)";
++  echo "commit: $(cd "$ROOT" && git rev-parse HEAD 2>/dev/null || echo n/a)  arbre: $(cd "$ROOT" && git rev-parse 'HEAD^{tree}' 2>/dev/null || echo n/a)";
++  echo "arguments: coeur=$CORE paires=$PAIRS nsign=$NSIGN"; } > "$OUT/machine.txt" 2>&1
++mkdir -p "$OUT/build" && cd "$OUT/build"
++cmake "$ROOT" -DMAYO_BUILD_TYPE=avx2 "-DMAYO_MARCH=-march=haswell -maes" -DMAYO_TAIL_SAFE=ON -DMAYO_TAIL_CHECK=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON > cmake.log 2>&1
++T=""; for v in 1 5; do T="$T mayo_sign_iso_official_MAYO_$v mayo_sign_iso_a2_MAYO_$v mayo_test_kat_MAYO_$v mayo_test_kat_tailxmm_MAYO_$v"; done
++make -j"$(nproc)" VERBOSE=1 $T > make.log 2>&1
++# commandes de compilation (a joindre au PDF) : src/mayo.c pour chaque construction
++python3 -I - "$OUT" <<'PY'
++import json, sys, os
++out = sys.argv[1]
++ccj = json.load(open(os.path.join(out, "build", "compile_commands.json")))
++with open(os.path.join(out, "commandes_compilation.txt"), "w") as f:
++    for e in ccj:
++        if e["file"].endswith("src/mayo.c") and any(("mayo_%s%s" % (v, s)) in e.get("output", "") for v in ("1", "5") for s in ("_test.dir/", "_tailxmm.dir/")):
++            f.write("# %s\n%s\n\n" % (e["output"], e["command"]))
++PY
++grep -c "src/mayo.c" "$OUT/commandes_compilation.txt" > /dev/null
++cd "$OUT/build/test"
++for v in 1 5; do
++  ./mayo_test_kat_MAYO_$v        > "$OUT/kat_officiel_$v.txt" 2>&1 && echo "KAT MAYO-$v officiel : PASSED" || { echo "KAT MAYO-$v officiel : ECHEC"; exit 1; }
++  ./mayo_test_kat_tailxmm_MAYO_$v > "$OUT/kat_a2safe_$v.txt"  2>&1 && echo "KAT MAYO-$v A2 SAFE : PASSED" || { echo "KAT MAYO-$v A2 SAFE : ECHEC"; exit 1; }
++done
++[ "${MESURE:-1}" = "1" ] || { echo "MESURE=0 : arret apres compilation et KAT"; exit 0; }
++CSV="$OUT/iso.csv"; echo "variante,paire,ordre,graine,construction,mediane,moyenne,empreinte,verifications" > "$CSV"
++one() { # $1=v $2=paire $3=construction(official|a2) $4=ordre
++  l=$(taskset -c "$CORE" "./mayo_sign_iso_$3_MAYO_$1" "$NSIGN" "$2")
++  med=$(echo "$l" | sed 's/.*median=\([0-9]*\).*/\1/'); moy=$(echo "$l" | sed 's/.*mean=\([0-9.]*\).*/\1/')
++  eh=$(echo "$l" | sed 's/.*sighash=\([0-9a-f]*\).*/\1/'); vf=$(echo "$l" | sed 's/.*verifies=\([0-9/]*\).*/\1/')
++  echo "$1,$2,$4,$2,$3,$med,$moy,$eh,$vf" >> "$CSV"
++}
++for v in 1 5; do
++  p=1
++  while [ $p -le "$PAIRS" ]; do
++    if [ $((p % 2)) -eq 1 ]; then one $v $p official off_puis_a2; one $v $p a2 off_puis_a2
++    else one $v $p a2 a2_puis_off; one $v $p official a2_puis_off; fi
++    p=$((p + 1))
++  done
++done
++python3 -I "$ROOT/test/tail_study/aggregate_iso.py" "$CSV" | tee "$OUT/resultats_iso.txt"
+diff --git a/test/sign_isolated.c b/test/sign_isolated.c
+new file mode 100644
+index 0000000..986fab2
+--- /dev/null
++++ b/test/sign_isolated.c
+@@ -0,0 +1,48 @@
++// SPDX-License-Identifier: Apache-2.0
++// Comparaison ciblee (demandee par l'encadrant) : signature complete, un executable par construction.
++// Ce meme fichier est compile deux fois, une fois contre la bibliotheque officielle (mayo_N_test),
++// une fois contre A2 SAFE (mayo_N_tailxmm), SANS sondes de mesure et SANS MAYO_TAIL_AB.
++// Un processus = une paire de cles (graine) + NSIGN signatures de messages derives de la graine.
++// Sortie (une ligne) : mediane et moyenne des ticks TSC par signature, empreinte FNV-1a de toutes les
++// signatures (doit etre IDENTIQUE entre les deux constructions), nombre de verifications reussies.
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdint.h>
++#include <randombytes.h>
++#include <mayo.h>
++#include <x86intrin.h>
++
++static inline uint64_t tick(void) { unsigned a; _mm_lfence(); uint64_t t = __rdtscp(&a); _mm_lfence(); return t; }
++static int cmpu(const void *a, const void *b) { uint64_t x = *(const uint64_t *)a, y = *(const uint64_t *)b; return (x > y) - (x < y); }
++
++int main(int argc, char **argv) {
++    if (argc < 3) { fprintf(stderr, "usage : %s <nsign> <graine>\n", argv[0]); return 2; }
++    int nsign = atoi(argv[1]); unsigned seedv = (unsigned)atoi(argv[2]);
++    const mayo_params_t *p = 0;
++    unsigned char seed[48];
++    for (int i = 0; i < 48; i++) seed[i] = (unsigned char)(seedv * 131u + i * 7u + 1u);
++    randombytes_init(seed, NULL, 256);
++    unsigned char pk[PARAM_cpk_bytes(p)], sk[PARAM_csk_bytes(p)];
++    if (mayo_keypair(p, pk, sk) != 0) { fprintf(stderr, "keypair echec\n"); return 1; }
++    enum { MLEN = 32, WARM = 20 };
++    unsigned char m[MLEN], m1[MLEN + PARAM_sig_bytes(p)], sm[MLEN + PARAM_sig_bytes(p)];
++    uint64_t *tk = malloc(sizeof(uint64_t) * (size_t)nsign);
++    uint64_t h = 1469598103934665603ULL; int ok = 0; uint64_t sum = 0; uint32_t x = seedv * 2654435761u + 1u;
++    for (int i = 0; i < nsign + WARM; i++) {
++        for (int j = 0; j < MLEN; j++) { x = x * 1664525u + 1013904223u; m[j] = (unsigned char)(x >> 24); }
++        size_t smlen = 0, mlen1 = 0;
++        uint64_t t0 = tick();
++        int rc = mayo_sign(p, sm, &smlen, m, MLEN, sk);
++        uint64_t t1 = tick();
++        if (rc != 0) { fprintf(stderr, "sign echec\n"); return 1; }
++        if (mayo_open(p, m1, &mlen1, sm, smlen, pk) == 0 && mlen1 == MLEN && memcmp(m1, m, MLEN) == 0) ok++;
++        for (size_t k = 0; k < smlen; k++) { h ^= sm[k]; h *= 1099511628211ULL; }
++        if (i >= WARM) { tk[i - WARM] = t1 - t0; sum += t1 - t0; }
++    }
++    qsort(tk, (size_t)nsign, sizeof(uint64_t), cmpu);
++    printf("median=%llu mean=%.1f sighash=%016llx verifies=%d/%d\n", (unsigned long long)tk[nsign / 2],
++           (double)sum / nsign, (unsigned long long)h, ok, nsign + WARM);
++    free(tk);
++    return 0;
++}
+diff --git a/test/tail_study/aggregate_iso.py b/test/tail_study/aggregate_iso.py
+new file mode 100644
+index 0000000..09b47b9
+--- /dev/null
++++ b/test/tail_study/aggregate_iso.py
+@@ -0,0 +1,27 @@
++"""Agrege iso.csv : par paire de processus, rapport A2 SAFE / officiel de la mediane des ticks par signature.
++Unite statistique = le processus (une paire = deux processus voisins, meme graine, ordre alterne).
++Sort : mediane des rapports, gain = 1 - rapport, IC95 bootstrap entre paires, effet d'ordre, controle des empreintes."""
++import sys, csv, collections
++import numpy as np
++rows = list(csv.DictReader(open(sys.argv[1])))
++by = collections.defaultdict(dict)
++for r in rows:
++    by[(r["variante"], int(r["paire"]))][r["construction"]] = r
++rng = np.random.default_rng(12345)
++for v in sorted({k[0] for k in by}):
++    rat, ordre, bad_hash, bad_ver = [], [], 0, 0
++    for (vv, p), d in sorted(by.items()):
++        if vv != v or "official" not in d or "a2" not in d: continue
++        a, o = d["a2"], d["official"]
++        rat.append(float(a["mediane"]) / float(o["mediane"])); ordre.append(a["ordre"])
++        if a["empreinte"] != o["empreinte"]: bad_hash += 1
++        for x in (a, o):
++            n, t = x["verifications"].split("/")
++            if n != t: bad_ver += 1
++    rat = np.array(rat); ordre = np.array(ordre)
++    bs = np.array([np.median(rng.choice(rat, len(rat))) for _ in range(5000)])
++    print("MAYO-%s : %d paires de processus ; rapport A2 SAFE / officiel (mediane) = %.4f [%.4f ; %.4f] ; gain = %.1f %%"
++          % (v, len(rat), np.median(rat), np.percentile(bs, 2.5), np.percentile(bs, 97.5), 100 * (1 - np.median(rat))))
++    for o in sorted(set(ordre)):
++        print("   ordre %-12s : mediane des rapports = %.4f (%d paires)" % (o, np.median(rat[ordre == o]), (ordre == o).sum()))
++    print("   empreintes de signatures differentes entre les deux constructions : %d ; verifications non reussies : %d" % (bad_hash, bad_ver))
+-- 
+2.43.0
+
