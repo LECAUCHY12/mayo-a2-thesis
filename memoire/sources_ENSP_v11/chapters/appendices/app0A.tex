@@ -1,0 +1,99 @@
+\chapter{Inventaire des archives et reproduction}\label{app:inventaire}
+État au 22 octobre 2026 (dernier inventaire vérifié) ; les ajouts postérieurs (E1b, identification des noyaux) sont dans le dépôt \code{mayo-a2-thesis}. Toutes les empreintes sont des SHA-256.
+
+\section{Versions définitives à citer}
+\begingroup\small\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}p{0.30\linewidth}p{0.42\linewidth}p{0.22\linewidth}@{}}
+\toprule Fichier & SHA-256 & Contenu\\\midrule\endhead
+\code{A2_partie1.tar.gz} & \sha{cbc0cc297ee0a0790b3cb7513d0384c6c323cfe26b6180b93fc7bd1b115477a6} & notes, code, scripts, analyses, brut S2\\
+\code{A2_partie2.tar.gz} & \sha{d8dbf1b169f249c720a6e74eb0b9c6e6c9fe44eae6087ef6fe188aa21ab0fcab} & brut PH1 et CT1\\
+\code{A2_partie3.tar.gz} & \sha{00d12e885de273e7851b270f8b53b780eb52fd5bbbe969b1dfe73402b687ac33} & brut S1\\
+patch \code{0001} & \sha{e6c03362cbf974cf750f340453de874d667b5670a7e60eddafa54b35e29e0cea} & prototype A2\\
+patch \code{0002} & \sha{751ec21fbd059e51a4b54f193f3e346a889d4b361cfdf78a3ab77c3e891b6280} & sondes\\
+patch \code{0003} & \sha{b590a81d479fd4a32883a60efe4bb5525fb9f45bf92a1acd70f60b265596112d} & contrôle des sondes\\
+patch \code{0004} & \sha{9c460d0de2193805f3b0c1716f62bf1390ca543778ccfb0022d995ef254a10c6} & analyse statique E1\\
+{\ttfamily\scriptsize MAYO-C-A2\_source\_ e72d407.tar.gz} & \sha{e2252a0b51ab827bd097e5a0df73dcbb7ca13539af82b1e728737c58800f6833} & arbre S1/S2\\
+{\ttfamily\scriptsize MAYO-C-A2-phases-v2\_ source.tar.gz} & \sha{ecb0941b086affb7189151af4b58355acb39edd4de8d7089b34ac7328cf19ef3} & arbre PH1/CT1\\
+\code{E1_kit.tar.gz} & \sha{efe0b71ca5dc1553b0c0a841dc59096216a214080d988ba32731cbe2fcde18f3} & \code{run_E1.sh}, \code{e1_analyze.py}\\
+\bottomrule
+\end{longtable}
+\endgroup
+Archive E1b (sorties de compilation, dumps GCC, désassemblages) : \code{e1b_gcc16.tar.gz}, SHA-256 \sha{49452120b1b787ad2aed0f30cbcece4f7584a6063768757d92214e264dcd3faa}.\par
+Archives brutes internes : S1 \code{ebc01dfe}\dots, S2 \code{b1a69769}\dots c723, PH1 \code{e1a88aec}\dots 98cc, CT1 \code{0506c2b5}\dots 92de. Les archives de la phase VM (\code{A2_donnees_et_journaux}, \code{tail_aware_etude}, \code{archive_piste_batch_EF}, etc.) sont de l'\emph{historique} et ne doivent jamais être présentées comme performances matérielles.
+
+\section{Identification exacte du code}
+Le code est déterminé par l'arbre git (indépendant de l'horodatage des commits). Base : \code{PQCMayo/MAYO-C} commit \code{74de637a7c4a7f9fafa888183bc05f5cf920cd2d}, puis \code{git am} des patchs dans l'ordre. Arbres attendus : après \code{0001} \code{87d1729c}\dots (S1, S2) ; après \code{0002} \code{c8c37c97}\dots ; après \code{0003} \code{92bcede1}\dots (PH1, CT1) ; après \code{0004} \code{bf6955da}\dots.
+\begin{verbatim}
+git clone https://github.com/PQCMayo/MAYO-C && cd MAYO-C
+git checkout 74de637a7c4a7f9fafa888183bc05f5cf920cd2d
+git am 0001-*.patch 0002-*.patch 0003-*.patch 0004-*.patch
+git rev-parse HEAD^{tree}   # attendu : bf6955dae657abb087b58e13e314b946e0d283fe
+\end{verbatim}
+
+\section{Reproduire les analyses}
+Prérequis : Linux, \code{python3} avec \code{numpy}, \code{tar}, \code{sha256sum}. Les trois archives dans un dossier $D$ :
+\begin{verbatim}
+sh reproduire_analyses.sh D travail_neuf
+\end{verbatim}
+Le script vérifie les empreintes, relance les neuf analyses et affiche \code{OK} si la sortie est identique (résultat obtenu : 9 sur 9). Les sorties couvrent la synthèse S1/S2 (\code{synthese_sessions.py}), la comparaison (\code{compare_sessions.py}), la décomposition (\code{phases_analyze.py}), le contraste avec/sans sondes (\code{phases_vs_ref.py}) et le contrôle CT1 (\code{controle_analyze.py}).
+
+\section{Refaire les mesures}
+Conditions : Linux, AVX2, GCC $\ge13$ (mesures : 16.2.0), cmake, \code{python3}+\code{numpy}, gouverneur \code{performance} (\code{sudo cpupower frequency-set -g performance}), cœur 1 dédié, aucun autre travail pendant l'exécution.
+\begin{center}\small\begin{tabular}{@{}ll@{}}\toprule
+Étape & Commande (racine de l'arbre correspondant)\\\midrule
+S1, S2 & \code{SESSION=<étiquette> sh run_session_independante.sh}\\
+PH1 & \code{SESSION=<étiquette> sh test/run_phases.sh}\\
+CT1 & \code{SESSION=<étiquette> sh test/run_controle.sh}\\
+E1 & \code{SESSION=<étiquette> sh test/run_E1.sh}\\
+E1b & \code{python3 -I e1b.py <dossier_E1> <dossier_neuf>}\\\bottomrule
+\end{tabular}\end{center}
+Chaque \code{machine.txt} enregistre date UTC, noyau, compilateur, microcode, gouverneur, \code{boot_id} et alimentation. La reproduction des \emph{mesures} donnera des valeurs voisines et non identiques.
+
+\chapter{Identification des noyaux dans le code généré (GCC~16.2.0, MAYO-5)}\label{app:ident}
+Identification par le pas d'adresse sur $P_1$ (section~\ref{sec:protocole}). « Écritures » : écritures dans le corps de boucle, de 32 octets (ymm) ou de 16 octets (xmm).
+
+\begin{table}[ht]\centering\small
+\caption{Instructions / écritures (32 ou 16 octets) des boucles de travail selon la construction.}
+\begin{tabular}{@{}lcccc@{}}\toprule
+Construction & \code{P1} off. & \code{P1} A2 & \code{P1t} off. & \code{P1t} A2\\\midrule
+\code{ctx_official} & 123 / 29 & -- & 162 / 65 & --\\
+\code{ctx_ab}, \code{none}, \code{esk}, \code{mcalc} & 123 / 29 & 135 / 52 & 162 / 65 & 139 / 52\\
+\code{ctx_phases} (toutes sondes) & 123 / 29 & 105 / 22 & 126 / 29 & 109 / 22\\\bottomrule
+\end{tabular}
+\end{table}
+Les différences « sans toutes les sondes » moins « toutes sondes » sont : A2 \code{P1} $+30$ (52$-$22), A2 \code{P1t} $+30$, officiel \code{P1t} $+36$ (65$-$29), officiel \code{P1} $0$. Pour la boucle \code{P1_times_Vt} d'A2, les 52 écritures de \code{P_none} sont 42 de 32 octets et 10 de 16 octets, et les 22 de \code{P_all} sont 18 et 4 : les 30 écritures supplémentaires comprennent donc 24 écritures de 32 octets et 6 de 16 octets (comme au chapitre~\ref{ch:resultats}). Pour \code{P1t_times_Vt} officiel, les +36 sont des écritures de 32 octets (36 accumulateurs ymm).
+
+\chapter{Exemple jouet de MAYO : illustration simplifiée et contrôle}\label{app:jouet}
+L'exemple complet est donné à la section~\ref{sec:jouet}. Cette annexe le résume et explique comment il a été contrôlé. C'est une \emph{illustration simplifiée} : les paramètres sont minuscules ($v=2$, $o=1$, $m=2$, $k=2$) et la matrice $Z=\begin{pmatrix}1&z\\z&z^2\end{pmatrix}$, avec $z^2=z+8$, est plus simple que celles de la spécification du troisième tour~\cite{mayospec}.
+
+\begin{table}[ht]\centering\small
+\caption{Valeurs de l'exemple (hexadécimal, $\mathbb{F}_{16}$).}
+\begin{tabular}{@{}ll@{}}\toprule
+Donnée & Valeur\\\midrule
+secret $\mathbf{O}$ & $(\mathrm{b},8)^{\top}$\\
+$\mathbf{P}^{(3)}_1,\ \mathbf{P}^{(3)}_2$ & $(6),\ (\mathrm{e})$\\
+$\boldsymbol{\Lambda}$ & $\begin{pmatrix}3&1&2\\5&7&1\end{pmatrix}$\\
+$\mathbf{t}$ & $(\mathrm{f},9)$\\
+vinaigres $\mathbf{v}_0,\ \mathbf{v}_1$ & $(2,3),\ (3,\mathrm{a})$\\
+$\mathbf{M}_0$ (avec $\boldsymbol{\Lambda}$), $\mathbf{M}_1$ & $(9,4)^{\top},\ (\mathrm{c},\mathrm{a})^{\top}$\\
+$\mathbf{y}$, $\mathbf{A}$ & $(7,7)$, $\begin{pmatrix}6&3\\2&4\end{pmatrix}$ (déterminant $\mathrm{d}$)\\
+$\mathbf{x}$ & $(\mathrm{b},9)$\\
+$\mathbf{s}_0,\ \mathbf{s}_1$ & $(\mathrm{b},4,\mathrm{b}),\ (\mathrm{f},\mathrm{e},9)$\\
+$\mathcal{P}^\star(\mathbf{S})$, $L(\boldsymbol{\Lambda},\mathbf{S})$ & $(\mathrm{b},2)$, $(4,\mathrm{b})$\\
+$\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})$ & $(\mathrm{f},9)=\mathbf{t}$\\\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Contrôle.} Le programme \code{exemple_jouet_mayo_tour3.py} (dépôt de scripts) suit les étapes de l'algorithme~7 pour construire $\mathbf{A}$ et $\mathbf{y}$, résout le système, puis vérifie la signature de façon indépendante : il évalue directement la clé publique (matrices $\mathbf{P}_\ell$ complètes) et calcule $\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})$. Il contrôle aussi que les polynômes s'annulent sur l'espace d'huile, et qu'un changement d'un seul élément de la signature donne un résultat différent de $\mathbf{t}$ (ici $(\mathrm{c},\mathrm{f})$).
+
+\paragraph{Correction d'une erreur de l'ancienne version.} Dans une version précédente, l'exemple annonçait la réduction modulo $z^2+z+1$ alors que les calculs utilisaient $z^2=z+8$. Avec le polynôme écrit, on retrouvait $\mathcal{P}^\star(\mathbf{S})=(\mathrm{c},5)$ au lieu de $(\mathrm{f},9)$. Le polynôme est maintenant $z^2+z+8$ partout, et l'exemple a été refait de bout en bout, avec en plus le terme linéaire dérivé de $\boldsymbol{\Lambda}$.
+
+\chapter{Comparaison ciblée : machine et commandes de compilation}\label{app:iso}
+\paragraph{Machine.} Intel Core i9-9880H (16 processeurs logiques, 8 c\oe urs, 2 fils par c\oe ur), Kali Linux, noyau 7.1.5, GCC~16.2.0 (Debian 16.2.0-3), CMake 4.3.4, gouverneur \code{powersave}, \code{no_turbo = 0}, processus fixé sur le c\oe ur~1 (\code{taskset}), 401 paires, 200 signatures par processus. Arbre git du code mesuré : \code{4b2849969e8d3392150cdf6ce4e69b5bf59e75b0} (les quatre patchs de l'étude plus le banc de comparaison).
+\paragraph{Commandes de compilation de \code{src/mayo.c}.} Les quatre commandes ont la même forme : \code{/usr/bin/cc} avec \code{-O3 -funroll-loops -march=haswell -maes -fno-strict-aliasing -std=gnu99 -fvisibility=hidden -Wall -Wextra -Werror} (et les avertissements désactivés listés dans le fichier), \code{-DENABLE_AESNI -DMAYO_AVX -DMAYO_BUILD_TYPE_AVX2 -DTARGET_AMD64 -DTARGET_OS_UNIX}. Elles ne diffèrent que par :
+\begin{itemize}
+\item \code{-DMAYO_VARIANT=MAYO_1} ou \code{MAYO_5} ;
+\item pour A2 SAFE seulement : \code{-DMAYO_TAIL_XMM -DMAYO_TAIL_XMM_SAFE}.
+\end{itemize}
+Le fichier complet \code{commandes_compilation.txt}, le fichier \code{iso.csv} (1\,604 lignes de mesures), \code{machine.txt} et \code{resultats_iso.txt} sont dans le dépôt de scripts et de résultats.
+\paragraph{Reproduire.} \code{sh test/run_comparaison_isolee.sh 1 401 200}.

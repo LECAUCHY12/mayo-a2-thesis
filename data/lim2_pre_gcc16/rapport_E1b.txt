@@ -1,0 +1,99 @@
+# CONTROLE P_none : code de sign_signature_internal identique a celui de E1 (ctx_phases_none_M5) : OUI
+P_none  base      instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+          lim2 (P_none, lim2) : fonction trouvee=oui ; 'Moving statement' visant temp[]/tt[] = 144 ; lignes mentionnant temp ou tt = 2519
+P_none  lim2      instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+          pre (P_none, pre) : fonction trouvee=oui ; 'Moving statement' visant temp[]/tt[] = 0 ; lignes mentionnant temp ou tt = 9414
+P_none  pre       instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+# CONTROLE P_all : code de sign_signature_internal identique a celui de E1 (ctx_phases_M5) : OUI
+P_all   base      instr(sign_signature_internal)=4887  hors boucles de travail=3809  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x7688 : 105 instr,  22 ecritures de 32 octets
+          boucle P1       officiel adresse 0x7d40 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x86d0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8eb0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x9759 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xade2 : 109 instr,  22 ecritures de 32 octets
+          boucle autre    officiel adresse 0xb638 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xc4e0 : 126 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0xce50 : 123 instr,  29 ecritures de 32 octets
+          lim2 (P_all, lim2) : fonction trouvee=oui ; 'Moving statement' visant temp[]/tt[] = 312 ; lignes mentionnant temp ou tt = 3020
+P_all   lim2      instr(sign_signature_internal)=4887  hors boucles de travail=3809  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x7688 : 105 instr,  22 ecritures de 32 octets
+          boucle P1       officiel adresse 0x7d40 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x86d0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8eb0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x9759 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xade2 : 109 instr,  22 ecritures de 32 octets
+          boucle autre    officiel adresse 0xb638 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xc4e0 : 126 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0xce50 : 123 instr,  29 ecritures de 32 octets
+          pre (P_all, pre) : fonction trouvee=oui ; 'Moving statement' visant temp[]/tt[] = 0 ; lignes mentionnant temp ou tt = 8678
+P_all   pre       instr(sign_signature_internal)=4887  hors boucles de travail=3809  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x7688 : 105 instr,  22 ecritures de 32 octets
+          boucle P1       officiel adresse 0x7d40 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x86d0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x8eb0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x9759 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0xade2 : 109 instr,  22 ecritures de 32 octets
+          boucle autre    officiel adresse 0xb638 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      officiel adresse 0xc4e0 : 126 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0xce50 : 123 instr,  29 ecritures de 32 octets
+# CONTROLE TAB : code de sign_signature_internal identique a celui de E1 (ctx_ab_M5) : OUI
+TAB     base      instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+          lim2 (TAB, lim2) : fonction trouvee=oui ; 'Moving statement' visant temp[]/tt[] = 144 ; lignes mentionnant temp ou tt = 2519
+TAB     lim2      instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets
+          pre (TAB, pre) : fonction trouvee=oui ; 'Moving statement' visant temp[]/tt[] = 0 ; lignes mentionnant temp ou tt = 9414
+TAB     pre       instr(sign_signature_internal)=6242  hors boucles de travail=4994  distance mnemoniques hors boucles vs base=0
+          boucle P1       A2       adresse 0x4fa0 : 135 instr,  52 ecritures de 32 octets
+          boucle P1       officiel adresse 0x55b0 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x5e98 : 123 instr,  29 ecritures de 32 octets
+          boucle P1t      A2       adresse 0x6ab5 : 139 instr,  52 ecritures de 32 octets
+          boucle autre    officiel adresse 0x73a0 : 160 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0x7a48 : 123 instr,  29 ecritures de 32 octets
+          boucle autre    officiel adresse 0x82f6 : 160 instr,  65 ecritures de 32 octets
+          boucle P1t      officiel adresse 0x9a54 : 162 instr,  65 ecritures de 32 octets
+          boucle autre    officiel adresse 0xa478 : 123 instr,  29 ecritures de 32 octets

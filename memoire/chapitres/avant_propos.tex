@@ -13,7 +13,7 @@
 \upshape\small --- Adage africain
 \end{flushright}
 \vspace{0.5em}
-Fort de cet adage, je prends la plume pour remercier celles et ceux dont le soutien m'a permis de mener à terme la rédaction de ce mémoire. Ce travail n'aurait pas été possible sans l'accompagnement de plusieurs personnes, à qui j'exprime ma sincère gratitude :
+Fort de cet adage, je prends la plume pour remercier celles et ceux dont le soutien m'a permis de mener à terme la rédaction de ce travail. Ce travail n'aurait pas été possible sans l'accompagnement de plusieurs personnes, à qui j'exprime ma sincère gratitude :
 \begin{itemize}
 \item \textbf{Dr Hervé Talé Kalachi}, mon encadrant, pour ses relectures exigeantes et les consignes méthodologiques qui ont structuré ce travail ;
 \item \emph{(à compléter : membres du jury, enseignants du Département de Génie Informatique, collègues, famille, amis.)}
@@ -25,22 +25,24 @@ Fort de cet adage, je prends la plume pour remercier celles et ceux dont le sout
 \addcontentsline{toc}{chapter}{Liste des abréviations}
 \markboth{Liste des abréviations}{Liste des abréviations}
 \begin{itemize}[leftmargin=1.2cm,itemsep=2pt]
-\item[\textbf{AVX2 :}] \emph{Advanced Vector Extensions 2} (instructions SIMD 256 bits)
+\item[\textbf{AVX2 :}] \emph{Advanced Vector Extensions 2} : instructions des processeurs qui traitent 256 bits (32 octets) à la fois
 \item[\textbf{CT :}] \emph{Constant Time} (temps constant)
 \item[\textbf{DSE :}] \emph{Dead Store Elimination} (passe de GCC)
 \item[\textbf{FRE :}] \emph{Full Redundancy Elimination} (passe de GCC)
 \item[\textbf{GCC :}] \emph{GNU Compiler Collection}
 \item[\textbf{GFNI :}] \emph{Galois Field New Instructions}
 \item[\textbf{IC95 :}] intervalle de confiance à 95\,\%
-\item[\textbf{KAT :}] \emph{Known-Answer Test}
+\item[\textbf{KAT :}] \emph{Known-Answer Test} : test de « réponses connues » (on compare à des valeurs officielles)
 \item[\textbf{LIM :}] \emph{Loop Invariant Motion} (passe de GCC)
 \item[\textbf{MAYO :}] schéma de signature multivariée de type Oil-and-Vinegar
-\item[\textbf{NIST :}] \emph{National Institute of Standards and Technology}
+\item[\textbf{FIPS :}] \emph{Federal Information Processing Standards} : normes fédérales américaines de traitement de l'information
+\item[\textbf{MQ :}] \emph{Multivariate Quadratic} : équations de degré 2 à plusieurs variables
+\item[\textbf{NIST :}] \emph{National Institute of Standards and Technology} : Institut national américain des normes et de la technologie
 \item[\textbf{OV, UOV :}] \emph{(Unbalanced) Oil and Vinegar}
 \item[\textbf{PRE :}] \emph{Partial Redundancy Elimination} (passe de GCC)
 \item[\textbf{SIMD :}] \emph{Single Instruction, Multiple Data}
 \item[\textbf{SRA :}] \emph{Scalar Replacement of Aggregates} (passe de GCC)
-\item[\textbf{TSC :}] \emph{Time Stamp Counter}
+\item[\textbf{TSC :}] \emph{Time Stamp Counter} : compteur de ticks du processeur
 \end{itemize}
 
 \chapter*{Glossaire}
@@ -50,8 +52,8 @@ Fort de cet adage, je prends la plume pour remercier celles et ceux dont le sout
 \item \textbf{$m$-vec :} vecteur de $m$ éléments de $\mathbb{F}_{16}$, empaqueté à deux éléments par octet.
 \item \textbf{Limbe :} mot de 64 bits d'un accumulateur.
 \item \textbf{Voie (\emph{lane}) :} moitié de 128 bits d'un registre ymm.
-\item \textbf{Table de multiplication (multab) :} table de 16 octets donnant, pour une paire de scalaires, les deux produits par un quartet.
-\item \textbf{Queue :} fin d'un $m$-vec qui ne remplit pas un registre complet de 32 octets.
+\item \textbf{Table de multiplication (multab) :} table de 16 octets donnant, pour une paire de nombres, les deux produits par un quartet.
+\item \textbf{Corps fini :} ensemble fini de nombres où l'on peut additionner, soustraire, multiplier et diviser (par exemple $\mathbb{F}_{16}$).\item \textbf{Forme quadratique :} expression de degré 2 en plusieurs variables, par exemple $x_1x_2+x_3^2$.\item \textbf{Empreinte (hachage) :} courte suite de nombres calculée à partir d'un message ; deux messages différents ont des empreintes différentes.\item \textbf{Sel :} valeur aléatoire ajoutée au message avant le calcul de l'empreinte.\item \textbf{Compilateur, assembleur :} le compilateur transforme le code C en assembleur, la suite d'instructions que le processeur exécute.\item \textbf{Passe (du compilateur) :} une étape d'optimisation du code (par exemple SRA, PRE, DSE).\item \textbf{Bootstrap :} méthode qui rejoue le calcul sur des tirages au hasard des mesures pour estimer son incertitude.\item \textbf{Fin de vecteur :} fin d'un $m$-vec qui ne remplit pas un registre complet de 32 octets.
 \item \textbf{Recouvrement :} chargement reculé du dernier registre, qui retraite des octets déjà traités.
 \item \textbf{SAFE :} variante d'A2 qui ne lit rien au-delà de l'entrée de $P_1$.
 \item \textbf{Tick TSC :} unité du compteur d'horodatage (\code{rdtscp}) ; ce n'est pas un cycle cœur.

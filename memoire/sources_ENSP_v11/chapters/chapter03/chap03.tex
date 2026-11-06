@@ -1,0 +1,272 @@
+\let\textcircled=\pgftextcircled
+\chapter[Résultats et discussion]{Résultats, interprétation et discussion}
+\label{ch:resultats}
+
+\mtcselectlanguage{english}
+\minitoc
+\bigskip
+
+\textit{\initial{C}e chapitre présente et interprète les résultats qui répondent à QR3 et à QR4 : d'abord la correction, puis les gains mesurés sur les noyaux et sur la signature complète, l'effet d'ordre, l'anomalie observée pour MAYO-5, et l'analyse du code produit (E1 et E1b). Il se termine par une discussion critique de ce qui est établi et de ce qui reste ouvert.}
+
+\newpage
+
+
+Sauf indication contraire, les valeurs sont des rapports A2 SAFE / officiel (médiane des processus), en ticks TSC, sur la machine physique décrite au chapitre~\ref{ch:methodo}. Les étiquettes \F{}, \I{}, \Hy{} sont celles de l'introduction générale : \F{} fait, \I{} déduction, \Hy{} hypothèse.
+
+\section{Correction}
+\F{} Les tests officiels (KAT) de MAYO-1, 2, 3 et 5 réussissent dans toutes les sessions. Il y a 0 signature différente sur les 30\,010 paires de MAYO-5 et sur les 15\,005 paires de MAYO-1 et de MAYO-2, et le nombre de tentatives est le même dans les deux versions. Les propriétés de sûreté sont dans la section~\ref{sec:surete}.
+
+\section{Gains sur les noyaux et sur la signature (S1, S2)}
+\paragraph{Deux résultats à ne pas confondre.} Le premier est une \emph{économie d'instructions} : dans notre modèle de comptage et dans l'assembleur, A2 réduit le nombre de \code{vpshufb} par entrée de $\mathbf{P}_1$ (20$\to$15 pour MAYO-1, 36$\to$30 pour MAYO-5). Le second est un \emph{gain mesuré} sur la signature complète, sur notre configuration : \textbf{10,3\,\% pour MAYO-1} (premier résultat à retenir) et \textbf{1,3\,\% pour MAYO-5} (résultat principal pour ce paramètre). Le 7,2\,\% de MAYO-5 avec le binaire instrumenté n'est pas un gain de signature à retenir : il sert à montrer pourquoi le protocole de mesure compte (section~\ref{sec:anomalie}).
+
+\begin{table}[ht]\centering\small
+\caption{Rapport A2/officiel, médiane des processus [IC95 bootstrap entre processus]. S1 : 20 processus ; S2 : 5 processus. Gain = 1 $-$ rapport.}\label{tab:gains}
+\begin{tabular}{@{}llccc@{}}\toprule
+Paramètre & Niveau & S1 & S2 & Gain S1 / S2\\\midrule
+MAYO-1 & \code{P1_times_Vt} & 0,7803 [0,7793 ; 0,7817] & 0,7814 [0,7794 ; 0,7832] & 22,0 / 21,9\,\%\\
+ & \code{P1t_times_Vt} & 0,7099 [0,7060 ; 0,7124] & 0,7080 [0,7024 ; 0,7126] & 29,0 / 29,2\,\%\\
+ & \code{m_calculate} & 0,8110 [0,8096 ; 0,8118] & 0,8102 [0,8080 ; 0,8123] & 18,9 / 19,0\,\%\\
+ & \textbf{\code{mayo_sign}} & \textbf{0,8975} [0,8970 ; 0,8979] & \textbf{0,8974} [0,8968 ; 0,8990] & \textbf{10,3 / 10,3\,\%}\\\midrule
+MAYO-5 & \code{P1_times_Vt} & 0,8067 [0,8060 ; 0,8071] & 0,8049 [0,8043 ; 0,8076] & 19,3 / 19,5\,\%\\
+ & \code{P1t_times_Vt} & 0,8798 [0,8783 ; 0,8818] & 0,8792 [0,8770 ; 0,8858] & 12,0 / 12,1\,\%\\
+ & \code{m_calculate} & 0,8851 [0,8845 ; 0,8863] & 0,8869 [0,8847 ; 0,8874] & 11,5 / 11,3\,\%\\
+ & \textbf{\code{mayo_sign}} & \textbf{0,9873} [0,9871 ; 0,9876] & \textbf{0,9871} [0,9863 ; 0,9876] & \textbf{1,3 / 1,3\,\%}\\\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]\centering
+\begin{tikzpicture}
+\begin{axis}[ybar,width=0.92\linewidth,height=6.2cm,bar width=9pt,ymin=0.65,ymax=1.08,
+ symbolic x coords={P1,P1t,mcalc,sign},xtick=data,xticklabels={\texttt{P1\_times\_Vt},\texttt{P1t\_times\_Vt},\texttt{m\_calculate},\texttt{mayo\_sign}},x tick label style={font=\scriptsize},
+ ylabel={rapport A2 / officiel},legend style={at={(0.5,1.14)},anchor=south,legend columns=2},
+ ymajorgrids,nodes near coords,nodes near coords style={font=\tiny,rotate=90,anchor=west},every node near coord/.append style={/pgf/number format/fixed,/pgf/number format/precision=3}]
+\addplot[fill=steel!70] coordinates {(P1,0.7803)(P1t,0.7099)(mcalc,0.8110)(sign,0.8975)};
+\addplot[fill=navy!70] coordinates {(P1,0.8067)(P1t,0.8798)(mcalc,0.8851)(sign,0.9873)};
+\legend{MAYO-1,MAYO-5}
+\end{axis}
+\end{tikzpicture}
+\caption{Rapports A2/officiel mesurés (S1). Le gain se dilue de la couche noyau à la signature complète, fortement pour MAYO-5.}\label{fig:gains}
+\end{figure}
+
+\F{} Pour les témoins (aucun noyau A2), le rapport vaut 1 : MAYO-2 \code{mayo_sign} 1,0000 / 1,0000 et \code{m_calculate} 1,0001 / 0,9996 ; MAYO-3 \code{mayo_sign} 1,0000 / 1,0001. Les écarts entre S2 et S1 sur les huit lignes de gains sont au plus de 0,0019 en valeur absolue, et l'intervalle à 95\,\% contient 0 (par exemple pour \code{mayo_sign} : $-0{,}0001$ [$-0{,}0009$ ; $+0{,}0016$] pour MAYO-1 et $-0{,}0003$ [$-0{,}0011$ ; $+0{,}0003$] pour MAYO-5).
+
+\paragraph{Variabilité à quatre niveaux.} Écart-type robuste entre les paires d'un même processus : 0,0015 (S1) et 0,0013 (S2) pour MAYO-1, 0,0114 et 0,0039 pour MAYO-5. Entre les processus d'une même session : 0,0009 (20 processus) et 0,0010 (5 processus) pour MAYO-1, 0,0008 et 0,0005 pour MAYO-5. Entre les campagnes de S1 : 0,0001 et 0,0002. C'est donc la dispersion entre processus, et non entre paires, qui fixe l'incertitude.
+
+\paragraph{Gain de MAYO-5 sur la signature.} \F{} Il est de 1,3\,\% dans S1, S2, PH1/CT1 et dans la mesure de référence, proche du critère d'environ 1\,\% fixé avant les mesures. C'est le seul chiffre de gain de signature de MAYO-5 à retenir (section~\ref{sec:anomalie}).
+
+\section[Comparaison ciblée]{Comparaison ciblée : compilations séparées, sans sondes}\label{sec:iso}
+Cette comparaison a été demandée par l'encadrant pour savoir si le gain se maintient quand chaque version est compilée seule.
+\paragraph{Protocole.} MAYO-C officiel et A2 SAFE sont compilés \emph{séparément} (deux exécutables, même fichier de test), sans sondes de mesure et sans \code{MAYO_TAIL_AB}. Une seule machine, GCC~16.2.0 (Debian 16.2.0-3) : portable Intel Core i9-9880H, installation directe de Kali (pas de machine virtuelle), noyau 7.1.5, gouverneur \code{powersave}, \code{no_turbo = 0}, processus fixé sur le cœur 1. Un processus = une paire de clés (graine) + 200 signatures complètes de messages de 32 octets, après 20 signatures d'échauffement ; il donne la médiane des ticks TSC par signature. L'unité statistique est le \emph{processus}. À chaque paire, les deux versions reçoivent la même graine et donc les mêmes entrées, et l'ordre d'exécution alterne d'une paire à l'autre : 401 paires, pour MAYO-1 et MAYO-5. Avant la mesure, les KAT des deux versions réussissent. Pendant la mesure, pour chaque paire, les empreintes de toutes les signatures sont identiques dans les deux versions, et chaque signature est vérifiée. Les commandes de compilation sont en annexe~\ref{app:iso}.
+\begin{table}[ht]\centering\small
+\caption{Comparaison ciblée : rapport A2 SAFE / officiel de la médiane des ticks par signature, médiane des 401 rapports par paire [IC95 bootstrap sur les paires].}\label{tab:iso}
+\begin{tabular}{@{}lrrcc@{}}\toprule
+Paramètre & Officiel & A2 SAFE & Rapport & Gain\\\midrule
+MAYO-1 & 291\,740 & 262\,176 & 0,8988 [0,8979 ; 0,8994] & 10,1\,\%\\
+MAYO-5 & 1\,471\,920 & 1\,450\,402 & 0,9854 [0,9851 ; 0,9858] & 1,5\,\%\\\bottomrule
+\end{tabular}
+\par\smallskip\footnotesize Les colonnes « Officiel » et « A2 SAFE » donnent la médiane, sur les 401 processus, des médianes de ticks.
+\end{table}
+\F{} Le rapport est inférieur à 1 pour les 401 paires de MAYO-1 et pour 398 des 401 paires de MAYO-5. L'ordre d'exécution ne change presque rien : pour MAYO-1, 0,8990 (A2 d'abord) et 0,8988 (officiel d'abord) ; pour MAYO-5, 0,9855 et 0,9852. Aucune signature ne diffère entre les deux versions et aucune vérification n'échoue.
+\paragraph{Lecture.} \I{} Ces valeurs (10,1\,\% et 1,5\,\%) sont proches de celles de S1 (10,3\,\% et 1,3\,\%). Elles vont dans le même sens, avec les compilations séparées et sans sondes. L'intervalle est étroit parce qu'il ne tient compte que de la variation entre paires de processus dans \emph{une} session, sur \emph{une} machine : il ne couvre pas la variation entre sessions, entre machines ou entre versions du compilateur. Nous ne généralisons pas au-delà de cette configuration. Les autres tailles de fin de vecteur et les campagnes E2 à E5 sont réservées aux perspectives.
+
+\section{Effet d'ordre}\label{sec:ordre}
+\F{} Les ordres sont équilibrés : A2 passe en premier dans 49,97\,\% des paires de \code{P1t_times_Vt} de MAYO-1 en S1 ($29\,993/60\,020$) et dans 50,5\,\% en S2 ; la probabilité que A2 passe en premier, sachant que A2 était le précédent, est de 0,5003.
+
+\begin{table}[ht]\centering\small
+\caption{Rapport A2/officiel selon l'ordre d'exécution, et écart par processus [IC95].}\label{tab:ordre}
+\begin{tabular}{@{}llcccc@{}}\toprule
+Niveau & Session & A2 en 1er & officiel en 1er & écart [IC95] & proc. $>0$\\\midrule
+MAYO-1 \code{P1t_times_Vt} & S1 & 0,7142 & 0,6985 & +0,0151 [+0,0101 ; +0,0206] & 20/20\\
+ & S2 & 0,7095 & 0,7009 & +0,0043 [$-$0,0070 ; +0,0161] & 4/5\\
+MAYO-1 \code{mayo_sign} & S1 & 0,8975 & 0,8975 & $-$0,0001 [$-$0,0002 ; 0,0000] & 8/20\\
+MAYO-5 \code{mayo_sign} & S1 & 0,9870 & 0,9876 & $-$0,0006 [$-$0,0008 ; $-$0,0005] & 0/20\\
+ & S2 & 0,9871 & 0,9871 & 0,0000 [$-$0,0002 ; 0,0000] & 2/5\\
+MAYO-5 \code{P1_times_Vt} & S1 / S2 & 0,8071 / 0,8053 & 0,8059 / 0,8043 & +0,0010 / +0,0010 & 20/20 ; 5/5\\
+MAYO-2 \code{m_calculate} (témoin) & S1 / S2 & 1,0005 / 1,0004 & 0,9997 / 0,9994 & +0,0010 / +0,0006 & 20/20 ; 4/5\\\bottomrule
+\end{tabular}
+\end{table}
+
+\F{} Le protocole produit lui-même un effet général d'environ 0,1\,\% (visible sur MAYO-2 \code{m_calculate}, où les deux versions sont le même code). L'effet de MAYO-1 \code{P1t_times_Vt} est environ quinze fois plus grand et propre à ce noyau. Il n'a pas d'effet sur \code{mayo_sign} de MAYO-1 ($\le0{,}0001$). Pour \code{mayo_sign} de MAYO-5, il vaut au plus $0{,}0006$, soit moins de 5\,\% du gain de $0{,}0127$. La version exécutée en second est plus rapide (MAYO-1 \code{P1t_times_Vt}, S1 : officiel $-0{,}9$\,\%, A2 $-1{,}6$\,\%), et l'effet est plus fort pour A2, d'où l'écart sur le rapport. \Hy{} La cause n'est pas démontrée et nous n'avons fait aucune expérience pour la chercher. Pour ce noyau, nous donnons aussi la moyenne des deux ordres (0,706) en plus de la médiane de l'ensemble (0,710).
+
+\section[Anomalie de MAYO-5]{L'anomalie de MAYO-5 : décomposition instrumentée et contrôle}\label{sec:anomalie}
+\subsection{Toutes sondes actives (PH1)}
+\F{} MAYO-5 : il y a une tentative de signature par signature dans les deux versions ; chaque phase est appelée une fois par signature, dont \code{P1_times_Vt} et \code{P1t_times_Vt} une fois par tentative. Le temps total est de 1\,374\,501 ticks (officiel) et 1\,274\,140 (A2) : rapport 0,9270 [0,9253 ; 0,9283], soit un gain de 7,3\,\%. La différence moyenne de $-100\,967$ ticks se répartit ainsi : $-100\,529$ pour \code{m_calculate} (99,6\,\%), dont $-54\,584$ pour \code{P1_times_Vt} et $-46\,166$ pour \code{P1t_times_Vt}. Les autres phases (dont \code{expand_sk_internal}, \code{sample_solution}, \code{compute_A}) sont identiques à $\pm0{,}1$\,\% près. MAYO-1 : rapport 0,8983 ; MAYO-2 (témoin) : 0,9999.
+
+\subsection{Le gain avec toutes les sondes n'est pas le gain sans sonde (CT1)}
+\begin{table}[ht]\centering\small
+\caption{Cinq configurations du même programme (10 processus chacune, graines 41--50, un démarrage). Ticks par signature.}\label{tab:ct1}
+\begin{tabular}{@{}lrrcc@{}}\toprule
+Configuration & Officiel & A2 & Rapport [min--max] & Gain\\\midrule
+\code{plain} (aucune sonde) & 1\,504\,741 & 1\,484\,504 & 0,9871 [0,9862--0,9879] & 1,29\,\%\\
+\code{none} (sondes compilées, désactivées) & 1\,504\,802 & 1\,484\,611 & 0,9868 [0,9860--0,9880] & 1,32\,\%\\
+\code{esk} (\code{expand_sk_internal}) & 1\,504\,167 & 1\,484\,146 & 0,9871 [0,9861--0,9879] & 1,29\,\%\\
+\code{mcalc} (\code{m_calculate_M_and_VPV}) & 1\,502\,948 & 1\,483\,529 & 0,9877 [0,9865--0,9885] & 1,23\,\%\\
+\code{all} (toutes les sondes) & 1\,372\,740 & 1\,273\,970 & 0,9276 [0,9261--0,9291] & 7,24\,\%\\\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[ht]\centering
+\begin{tikzpicture}
+\begin{axis}[ybar,width=0.85\linewidth,height=5.2cm,bar width=16pt,ymin=0.90,ymax=1.0,
+ symbolic x coords={plain,none,esk,mcalc,all},xtick=data,ylabel={rapport A2 / officiel},ymajorgrids,
+ nodes near coords,every node near coord/.append style={font=\scriptsize,/pgf/number format/fixed,/pgf/number format/precision=4}]
+\addplot[fill=steel!70] coordinates {(plain,0.9871)(none,0.9868)(esk,0.9871)(mcalc,0.9877)(all,0.9276)};
+\end{axis}
+\end{tikzpicture}
+\caption{MAYO-5, rapport \texttt{mayo\_sign} A2/officiel selon la configuration de sondes (CT1). Seule la configuration « toutes les sondes » change le résultat.}\label{fig:ct1}
+\end{figure}
+
+\subsection{Mesure directe, sans soustraction de médianes (config. \code{mcalc})}
+\begin{table}[ht]\centering\small
+\caption{Décomposition directe de la signature MAYO-5 (ticks par signature).}\label{tab:direct}
+\begin{tabular}{@{}lrrr@{}}\toprule
+ & Officiel & A2 & Différence\\\midrule
+\code{m_calculate} dans la signature & 931\,453 & 912\,476 & $-18\,406$ [$-19\,396$ ; $-17\,558$]\\
+hors \code{m_calculate} (total $-$ sonde) & 566\,917 & 567\,323 & $+406$ (0,07\,\%)\\
+\code{expand_sk_internal} (config. \code{esk}) & 322\,655 & 322\,661 & $+6$\\\midrule
+\code{m_calculate} isolé (banc, tampons réutilisés) & 801\,324 & 707\,314 & $\approx-94\,000$ (11,7\,\%)\\
+\code{m_calculate}, toutes sondes, dans la signature & 801\,073 & 699\,775 & $\approx-101\,000$\\\bottomrule
+\end{tabular}
+\end{table}
+
+\F{} Le reste de la signature est identique dans les deux versions. Toute la différence est dans \code{m_calculate} \emph{quand il est dans la signature et sans sonde interne} : il coûte 931\,000 ticks (officiel) et 912\,000 (A2), contre environ 801\,000 et 707\,000 quand il est isolé ou avec toutes les sondes. Le surcoût dû au contexte est d'environ 130\,000 ticks pour l'officiel et 205\,000 pour A2. La différence de 75\,000 ticks entre les deux versions absorbe donc l'essentiel du gain mesuré sur le noyau isolé. Ce surcoût disparaît avec toutes les sondes (donc avec des \code{lfence} entre les sous-étapes de \code{m_calculate}), mais pas avec une seule sonde autour de \code{m_calculate}.
+
+\paragraph{Correction d'une interprétation antérieure.} Nous avions d'abord lu : « le reste de la signature ralentit avec A2 ». C'était une erreur, venue d'une soustraction de médianes prises à des niveaux de mesure différents. Cette lecture est \emph{retirée}.
+
+\section[Analyse statique (E1)]{Analyse statique du code généré (E1, GCC~16.2.0)}
+\subsection{Comptage de base}
+\F{} Par entrée de $\mathbf{P}_1$, avec le déroulage de boucle ramené à 1, le code officiel a 20 \code{vpshufb} (MAYO-1) et 36 (MAYO-5), et A2 en a 15 (10 ymm + 5 xmm) et 30 (24 ymm + 6 xmm), comme le prévoit le modèle de la section~\ref{sec:a2}. Dans le banc de test, la boucle interne passe de 124 à 106 instructions pour MAYO-5 \code{P1_times_Vt} et de 126 à 110 pour \code{P1t_times_Vt} ; pour MAYO-1, de 68 à 51 et de 71 à 56. Les rechargements depuis la pile passent de 30 à 24 (MAYO-5 \code{P1_times_Vt}) et de 11 à 5 (MAYO-1). Cette réduction est une explication appuyée sur l'assembleur ; ce n'est pas une preuve que ces instructions expliquent à elles seules le gain.
+
+\subsection{Écritures supplémentaires en contexte de signature}
+\begin{table}[ht]\centering\small
+\caption{Instructions de la boucle interne par entrée de $\mathbf{P}_1$ (MAYO-5) selon la construction.}\label{tab:e1}
+\begin{tabular}{@{}lcccc@{}}\toprule
+Construction & \code{P1} off. & \code{P1} A2 & \code{P1t} off. & \code{P1t} A2\\\midrule
+banc isolé & 124 & 106 & 126 & 110\\
+contexte, toutes sondes & 123 & 105 & 126 & 109\\
+contexte, sans toutes les sondes (\code{ctx_ab}, \code{esk}, \code{mcalc}, \code{none}) & 123 & 135 & 162 & 139\\\bottomrule
+\end{tabular}
+\end{table}
+
+\F{} La différence entre « sans toutes les sondes » et « toutes les sondes » est \emph{exactement} une écriture de plus par accumulateur et par entrée, de la taille de l'accumulateur (\code{vmovdqa [rbp-...], ymm} pour 32 octets, version xmm pour 16 octets). Pour \code{P1t_times_Vt} officiel : +36 écritures de 32 octets (36 accumulateurs ymm). Pour la boucle \code{P1_times_Vt} d'A2 : +30 écritures, qui comprennent 24 écritures de 32 octets et 6 de 16 octets (section~\ref{sec:e1b-res}) ; le total est aussi de +30 pour \code{P1t_times_Vt} d'A2 (30 accumulateurs). Le reste de la boucle est identique, instruction pour instruction. La boucle officielle \code{P1_times_Vt} n'a pas d'écriture en double. Ces écritures vont vers une deuxième série d'emplacements consécutifs (pas de \code{0x20}), situés à \code{0xbfc0} octets de la première, dont l'adresse est prise ailleurs dans la fonction (\code{lea}). Deux boucles de 160 instructions (\code{Ut_times_O}, \code{m_lambda_times_O}) ont aussi une écriture en double (de 123 à 160) dans \emph{les deux} versions. Le cadre de pile dépasse 220 Ko : on ne peut donc pas distinguer, par le seul décalage, un débordement de registres d'un tableau local. Avec GCC~13.3 (dans la VM), aucune écriture en double n'apparaît. Pour MAYO-1 (GCC~16.2.0), elle ne touche que \code{P1t_times_Vt} (officiel de 71 à 91 ; A2 de 56 à 71).
+
+\F{} Nous repérons la boucle officielle \code{P1_times_Vt} dans le contexte par son pas d'adresse \code{add reg,0x47}, et nous avons contrôlé ce repérage dans six constructions. Elle compte 123 instructions et 29 écritures dans les contextes officiel, sans sondes et avec toutes les sondes (à des adresses distinctes), sans écriture en double. Le tableau~\ref{tab:e1} résume ces comptes.
+
+\section[Instructions et temps]{Lien quantitatif entre instructions et temps : modèle à un paramètre}\label{sec:lien-quant}
+\F{} Gain calculé sur le code (P1+P1t) : 13,6\,\% sur le banc, 14,1\,\% dans le contexte avec toutes les sondes, et \textbf{3,9\,\%} dans le contexte sans sondes (250 $\to$ 216 ; 249 $\to$ 214 ; 285 $\to$ 274 instructions). Gain mesuré de \code{m_calculate} : 11,5 à 11,7\,\% isolé, 12,4\,\% avec toutes les sondes, \textbf{2,1\,\%} sans sondes (936\,031 $\to$ 916\,206). Dans les trois cas, le gain calculé sur le code et le gain mesuré évoluent dans le même sens.
+
+\paragraph{Modèle.} On suppose que le temps d'une boucle est proportionnel à son nombre d'instructions par entrée, avec un même coefficient $c$ pour les deux versions ($N_{\mathrm{ent}}=10\,153$). Calé sur « toutes les sondes », on obtient $c=635\,681/(249\cdot10\,153)=0{,}251$ tick par instruction. \textbf{Prévision} sans sondes : un gain de $28\,082$ ticks pour P1+P1t ; \textbf{mesure} : $19\,825$. Le modèle \emph{exagère} donc le gain d'environ 40\,\%.
+
+\paragraph{Coût d'une écriture en plus.} À partir de la différence entre « sans sondes » et « toutes sondes », on trouve $130\,895/365\,508=0{,}358$ tick par écriture pour l'officiel et $210\,808/609\,180=0{,}346$ pour A2.
+
+\begin{encadre}
+\textbf{Portée de ce rapprochement.} Les valeurs 0,358 et 0,346 sont proches, mais c'est seulement un test de cohérence (un paramètre, deux observations) ; \emph{ce n'est pas une validation du modèle}. Le modèle exagère le gain : il n'explique donc pas l'écart de façon chiffrée. Le fait que les écritures en plus et la perte de gain évoluent ensemble ne prouve pas que l'un cause l'autre.
+\end{encadre}
+
+\section[Analyse statique E1b]{Analyse statique E1b : résultats (GCC~16.2.0)}\label{sec:e1b-res}
+Nous avons exécuté E1b sur la machine de mesure (GCC~16.2.0, binutils 2.47). L'archive des sorties (SHA-256 \sha{49452120b1b787ad2aed0f30cbcece4f7584a6063768757d92214e264dcd3faa}) est publiée avec le script \code{e1b_dumps_analyse.py}, qui produit les comptes cités ici. Aucune mesure de temps n'est faite.
+
+\subsection{Contrôles}
+\F{} Pour les trois constructions (\code{P_none}, \code{P_all}, \code{TAB}), le code de \code{sign_signature_internal} recompilé en variante \code{base} est identique à celui d'E1. La variante \code{dump} (qui ajoute seulement des fichiers de sortie) donne aussi un code identique (distance 0 en dehors des boucles). Les constructions \code{TAB} et \code{P_none} donnent les mêmes comptes dans toutes les variantes.
+
+\subsection{Désactivation de passes, une à la fois}
+\begin{table}[ht]\centering\small
+\caption{E1b : boucles de travail selon l'option ajoutée (instructions / écritures de 32 ou 16 octets). « Dist. » : distance entre histogrammes de mnémoniques en dehors des boucles de travail, par rapport à \code{base}.}\label{tab:e1b-var}
+\begin{tabular}{@{}llcccl@{}}\toprule
+Constr. & Variante & Dist. & \code{P1} A2 & \code{P1t} A2 & \code{P1t} officiel\\\midrule
+\code{P_none} & \code{base} & 0 & 135 / 52 & 139 / 52 & 162 / 65\\
+ & \code{nosra} & 1 & 135 / 52 & 139 / 52 & 162 / 65\\
+ & \code{noipasra} & 1 & 135 / 52 & 139 / 52 & 162 / 65\\
+ & \code{nodse} & 412 & 135 / 52 & 139 / 52 & 162 / 65\\
+ & \code{nopre} & 17 & 135 / 52 & 139 / 52 & 162 / 65\\
+ & \code{nofre} & 357 & 135 / 52 & 139 / 52 & 185 / 58 (autres boucles modifiées)\\\midrule
+\code{P_all} & \code{base} & 0 & 105 / 22 & 109 / 22 & 126 / 29\\
+ & \code{nosra} & 3 & 105 / 22 & 109 / 22 & 126 / 29\\
+ & \code{nodse} & 45 & 105 / 22 & 109 / 22 & 126 / 29\\
+ & \code{nopre} & 5 & 105 / 22 & 109 / 22 & 126 / 29\\
+ & \code{nofre} & 876 & \textbf{135 / 52} & \textbf{139 / 52} & 185 / 58\\
+ & \code{noipasra} & 1181 & \multicolumn{3}{l}{aucune boucle de travail reconnue (fonction de 2\,892 instr.)}\\\bottomrule
+\end{tabular}
+\end{table}
+
+\F{} Aucune des variantes \code{nosra}, \code{noipasra}, \code{nodse}, \code{nopre} (qui désactivent SRA, IPA-SRA, DSE et PRE) ne supprime l'écriture en double dans \code{P_none} ni dans \code{TAB} : les comptes des boucles ne changent pas (ligne~3 du tableau~\ref{tab:e1b-issues}). \F{} Avec la variante \code{nofre}, les boucles A2 gardent leur écriture en double, mais le code change beaucoup ailleurs (distance 357) et les boucles officielles prennent une autre forme. Dans \code{P_all}, la même option \emph{fait apparaître} l'écriture en double dans les boucles A2 (135/52, 139/52), avec une distance de 876. \I{} Ces deux dernières observations ne permettent \emph{aucune attribution} à la passe FRE, puisque d'autres parties du code changent en même temps. \F{} Avec la variante \code{noipasra} sur \code{P_all}, la structure de la fonction change tellement qu'aucune boucle de travail n'est reconnue : on ne peut rien lire.
+
+\subsection{Ce que montrent les sorties de GCC}
+\begin{description}[leftmargin=0.4cm]
+\item[SRA ne touche pas à \code{temp}, dans aucune des deux constructions.] \F{} Dans le fichier d'analyse \code{sra}, \code{temp} est écarté 12 fois dans chacune (8 fois pour « adresse prise hors d'un argument d'appel » et 4 fois pour « accès absents ou qui se recouvrent »). Le fichier \code{esra} n'en parle pas. SRA ne peut donc pas expliquer la différence entre \code{P_none} et \code{P_all}, ce qui correspond au tableau~\ref{tab:e1b-var}. L'hypothèse posée avant E1b (rôle de SRA) est \emph{écartée}.
+\item[Les tableaux sont présents dans les deux constructions.] \F{} Le code GIMPLE optimisé déclare les mêmes tableaux locaux dans les deux cas (7 \code{__m256i temp[36]}, 2 \code{__m256i temp[24]}, 2 \code{__m128i tt[6]}).
+\item[Ce qui diffère : les écritures dans la boucle.] \F{} Dans le GIMPLE optimisé, 8 blocs de travail contiennent des écritures \code{temp[i] = ...} (ou \code{tt[i] = ...}) \emph{dans le corps de la boucle} pour \code{P_none}, contre 3 pour \code{P_all}. Dans ces blocs, le nombre d'écritures par tour est égal au nombre d'accumulateurs (24 + 6 pour A2, 36 pour l'officiel). La boucle ne \emph{lit jamais} \code{temp[]}, et les accumulateurs passent d'un tour à l'autre par des variables PHI (\code{prephitmp_N}). Dans \code{P_all}, 9 blocs utilisent des variables \code{temp_I_lsm_N} sans écrire le tableau (144 variables \code{temp_I_lsm} sont déclarées dans \code{P_none}, 300 dans \code{P_all}).
+\item[Lien avec l'assembleur.] \F{} La boucle A2 de \code{P1_times_Vt} compte 52 écritures dans \code{P_none} (42 de 32 octets et 10 de 16 octets) et 22 dans \code{P_all} (18 et 4). Les 22 écritures de \code{P_all} visent exactement les mêmes emplacements de pile que 22 des 52 de \code{P_none}. Les 30 autres sont 24 écritures de 32 octets (pas de \code{0x20}) et 6 de 16 octets (pas de \code{0x10}), ce qui correspond à la forme de \code{temp[24]} et de \code{tt[6]}. \I{} Nous identifions ces 30 écritures en plus aux écritures de \code{temp[]}/\code{tt[]} du GIMPLE à partir de ce décompte et de la forme des tableaux, et non d'une correspondance entre noms de symboles.
+\end{description}
+
+\subsection{Interprétation autorisée}
+\I{} Dans la construction sans toutes les sondes, GCC remplace les lectures de \code{temp[]} dans la boucle par des valeurs qui passent d'un tour à l'autre dans des PHI, mais il \emph{ne retire pas les écritures de la boucle}. Le tableau, dont l'adresse est utilisée après la boucle, est donc mis à jour à chaque tour, en plus des emplacements où les accumulateurs débordent en mémoire. Dans la construction avec toutes les sondes, les accumulateurs sont traités comme des variables simples (suffixe \code{_lsm}) et le tableau n'est écrit qu'à la sortie de la boucle. \I{} Cela correspond à l'hypothèse de départ (\code{temp[]} gardé en mémoire en plus des variables), mais \emph{sans que SRA y soit pour quelque chose}.
+
+\F{} Le suffixe \code{_lsm} correspond au déplacement des écritures hors des boucles. Les fichiers d'analyse de la passe \code{lim2} (option \code{-fdump-tree-lim2-details}, produits avec GCC~16.2.0) le confirment : on y lit « Executing store motion of \code{temp[}$i$\code{]} from loop $n$ ».
+
+\subsection{Les fichiers d'analyse de lim2 et de pre}\label{sec:lim2pre}
+Ces fichiers ont été produits en compilation seule, pour MAYO-5, avec la commande de E1 plus une option de sortie. Ils ne changent pas le code : pour \code{P_none}, \code{P_all} et \code{TAB}, le nombre d'instructions de \code{sign_signature_internal} et la distance des mnémoniques sont identiques à la variante \code{base} (distance~0).
+\begin{description}[leftmargin=0.4cm]
+\item[Passe \code{pre}.] \F{} Aucun déplacement ne vise \code{temp[]} ou \code{tt[]} (0 dans les trois constructions).
+\item[Passe \code{lim2}, dans \code{sign_signature_internal}.] \F{} Dans \code{P_none}, la sortie des écritures a lieu pour 4 boucles, toutes de la forme \code{temp[0..35]} (celle du noyau officiel) ; aucune boucle de la forme A2 (\code{temp[0..23]} et \code{tt[0..5]}) n'est concernée. Dans \code{P_all}, elle a lieu pour 6 boucles de la forme \code{temp[0..35]} et pour 2 boucles de la forme A2, avec les 24 emplacements de \code{temp} et les 6 de \code{tt}, soit les 30 accumulateurs du noyau A2.
+\item[Lien avec l'assembleur.] \F{} Les boucles A2 ont 52 écritures de 32 octets dans \code{P_none} et 22 dans \code{P_all} ; la boucle officielle \code{P1t_times_Vt} en a 65 dans \code{P_none} et 29 dans \code{P_all}. Ces écarts vont dans le même sens que les boucles que \code{lim2} traite ou non.
+\end{description}
+\paragraph{Ce que dit lim2 sur le refus, pour \code{tt[0]}.} \F{} Dans \code{P_none}, pour la boucle 58, lim2 note : « SM WAR dependencies of ref 384 in loop 58: dependent » (ref 384 = \code{tt[0]}). Les références jugées « dependent » avec elle sont deux lectures \code{MEM[(const __m256i_u * \{ref-all\})]} faites par des pointeurs, \code{a0} et \code{v}. Dans \code{P_all}, pour la boucle 46, la même question donne « independent ». Dans \code{P_none}, 4 références passent par un pointeur nommé \code{a0} et 4 par \code{a1}; dans \code{P_all}, on n'en trouve aucune de ce type. Nous lisons ici la réponse de GCC, pas sa raison : nous n'avons pas établi pourquoi ces pointeurs ne peuvent pas être séparés de \code{tt} dans un cas et le peuvent dans l'autre.
+
+\paragraph{Ce qui reste non établi.} Nous ne savons pas \emph{pourquoi} \code{lim2} traite les boucles A2 dans \code{P_all} et pas dans \code{P_none}. Les sondes sont une différence possible, mais pas la seule : la structure du code change aussi (par exemple, \code{P_all} a des fonctions \code{compute_A} et \code{expand_P1_P2} séparées que \code{P_none} n'a pas, ce qui indique des choix d'inlining différents). Les fichiers montrent des dépendances différentes pour \code{tt[0]} dans les deux cas, mais nous n'en tirons pas de cause. La causalité reste donc \textbf{ouverte}, et le lien avec la perte de gain mesurée reste une corrélation.
+
+\section{Comparaison avec la VM}
+\F{} Dans la VM (Xeon virtualisé, GCC~13.3.0), le gain de \code{mayo_sign} pour MAYO-5 était de 7,1\,\%, proche des 7,3\,\% mesurés avec toutes les sondes sur la machine physique. \Hy{} L'écart avec les 1,3\,\% sans sonde mélange l'effet de la machine et celui du compilateur ; il n'est pas expliqué. Nous le mentionnons sans nous en servir.
+
+\section{Discussion critique}\label{sec:discussion}
+Cette section sépare ce qui est établi, ce qui est déduit et ce qui reste hypothèse, puis discute les limites et les pistes abandonnées.
+
+\subsection{Bilan : établi, déduit, supposé}
+\begin{table}[ht]\centering\small
+\caption{Ce qui est établi, déduit ou supposé.}\label{tab:bilan}
+\begin{tabularx}{\linewidth}{@{}lXl@{}}\toprule
+Statut & Énoncé & Appui\\\midrule
+\F{} & Nombre de \code{vpshufb} par entrée : 20$\to$15 (MAYO-1), 36$\to$30 (MAYO-5) & assembleur, preuve (prop.~\ref{prop:real})\\
+\F{} & Gains de noyaux 12--29\,\% ; \code{mayo_sign} 10,3\,\% (MAYO-1), 1,3\,\% (MAYO-5) sur cette machine et ce compilateur & S1, S2, PH1, CT1\\
+\F{} & Le reste de la signature est identique entre bras ; la différence est dans \code{m_calculate} en contexte & mesure directe (\code{mcalc})\\
+\F{} & Avec toutes les sondes (binaire instrumenté), le gain de MAYO-5 est 7,2\,\% ; sans, 1,3\,\% (résultat principal) & CT1\\
+\F{} & GCC~16.2.0 ajoute une écriture par accumulateur (32 octets pour un ymm, 16 pour un xmm) quand toutes les sondes ne sont pas actives, et pas de la même façon dans les deux versions & désassemblage E1\\
+\I{} & Les écritures en plus, inégales entre les deux versions (+60 pour A2, +36 pour l'officiel sur P1+P1t), expliquent l'essentiel de la perte de gain de MAYO-5 dans la signature & accord entre le code et les mesures\\
+\Hy{} & Le coût vient du nombre d'écritures que le processeur peut faire par cycle, plutôt que des dépendances entre écriture et lecture ou des conflits d'adresses & non testé\\
+\F{} & Dans le GIMPLE optimisé, sans toutes les sondes, des écritures \code{temp[i]=}/\code{tt[i]=} restent dans 8 blocs de travail (3 avec toutes les sondes) ; SRA ne touche à \code{temp} dans aucune construction & E1b (fichiers d'analyse \code{sra}, \code{optimized})\\
+\I{} & Les 30 (A2) ou 36 (officiel) écritures supplémentaires de l'assembleur sont ces écritures & décompte et forme des tableaux\\
+\Hy{} & Une passe du compilateur qui déplace les écritures (\code{lim}) décide de les sortir de la boucle ou non ; elle les sort seulement quand toutes les sondes sont actives & fichiers d'analyse non produits\\
+\Hy{} & Les sondes changent la structure du code, et donc la décision de GCC & cohérent avec E1 et E1b, non démontré\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Pourquoi le gain se dilue}
+Le gain d'un noyau ne se retrouve sur la signature qu'à proportion de son poids. Pour MAYO-5 sans sondes, \code{m_calculate} pèse environ $931\,453/1\,504\,741\approx62$\,\% de la signature, et son gain dans la signature est de $18\,406$ ticks, soit $1{,}2$\,\% de la signature : c'est, à la précision des mesures, le gain de 1,3\,\% observé. Pour MAYO-1, le rapport entre le gain de la signature (10,3\,\%) et celui de \code{m_calculate} (18,9\,\%) donne un poids d'environ 54\,\% \I{}. La vraie question n'est donc pas la part de la signature occupée par \code{m_calculate}, mais pourquoi son gain tombe de 11,7\,\% (isolé) à 2,0\,\% (dans la signature, sans sondes) pour MAYO-5, alors qu'il reste de 18,9\,\% pour MAYO-1 \F{}.
+
+\subsection{Ce que la concordance statique/dynamique prouve et ne prouve pas}
+Le désassemblage donne un fait solide : le nombre d'instructions de la boucle change selon la construction, et pas de la même façon dans les deux versions. Les temps varient dans le même sens. Il faut cependant trois précautions.
+\begin{enumerate}
+\item \textbf{Un modèle à un seul paramètre qui exagère le gain de 40\,\%} ne peut pas servir de validation. Le fait que le coût d'une écriture soit proche dans les deux versions (0,358 contre 0,346) est un contrôle de cohérence, pas une preuve.
+\item \textbf{Corrélation, pas cause} : les constructions qui diffèrent par l'écriture en double diffèrent aussi par la présence de \code{lfence} entre les sous-étapes, par la taille de la fonction et par la répartition de la pile. Seule une expérience qui supprime l'écriture en double \emph{sans autre changement du code} permettrait de conclure (voir la conclusion générale).
+\item \textbf{Ticks et non cycles} : un « coût par écriture » de 0,35 tick correspond à un ordre de grandeur de 0,5 à 0,65 cycle si la fréquence réelle est de 3,5 à 4,5 GHz (non mesurée) pour un TSC à 2,4 GHz. Que cela soit compatible avec une écriture par cycle est une remarque \Hy{}, pas un résultat.
+\end{enumerate}
+Plusieurs raisons peuvent expliquer que le modèle exagère le gain (toutes \Hy{}) : le coût des instructions n'est pas le même pour toutes (un \code{vpshufb} et une écriture ne coûtent pas pareil) ; d'autres boucles que P1/P1t ont aussi une écriture en double (\code{Ut_times_O}, \code{m_lambda_times_O}), sans que l'on connaisse ici leur nombre de tours ; et des chargements sur la même ligne de cache peuvent se recouvrir.
+
+\subsection{Pourquoi MAYO-1 et MAYO-5 se comportent différemment}
+\I{} Pour MAYO-1, l'écriture en double ne touche que \code{P1t_times_Vt}, dans les deux versions et à un rapport voisin (71/91 $=0{,}78$ contre 56/71 $=0{,}79$ dans le banc). L'avantage calculé sur le code est gardé (0,770 sur le banc, 0,774 dans le contexte), ce qui va avec un gain de signature qui ne s'effondre pas. Pour MAYO-5, l'écriture en double touche les deux noyaux d'A2 mais un seul noyau de l'officiel. Cette lecture est compatible avec les faits, mais elle reste une déduction, pour la raison donnée plus haut.
+
+\subsection{Pistes explorées puis écartées}
+Nous avons essayé les pistes suivantes dans la VM avant de passer à la machine physique. Nous les gardons ici comme des hypothèses éliminées, avec leurs limites.
+
+\paragraph{Fusion de \code{P1_times_Vt} et \code{P1t_times_Vt} en un seul parcours.} Idée : lire $\mathbf{P}_1$ une seule fois au lieu de deux. Le nombre de lectures d'entrées est bien divisé par deux (MAYO-1 : 6\,480 $\to$ 3\,240 ; MAYO-5 : 20\,306 $\to$ 10\,153). Mais, avec des accumulateurs simultanés (option 1), le temps de \code{mayo_sign} augmente de 4,9 à 10,4\,\% (MAYO-1) et de 5,3 à 7,0\,\% (MAYO-5). Avec fermeture immédiate (option 2), il augmente de 67 à 78\,\% (MAYO-1, MAYO-3, MAYO-5). L'option 1 demande $V_{\max}$ accumulateurs, soit de +49 Kio (MAYO-1) à +159 Kio (MAYO-5) de pile. La correction est vérifiée (KAT et 5\,000 essais indépendants par paramètre, sans écart). Interprétation : le travail SIMD ne change pas, et la pression sur la mémoire due aux accumulateurs dispersés l'emporte sur la baisse du nombre de lectures. Piste close ; mesures faites dans la VM seulement.
+
+\paragraph{Transposée de $\mathbf{P}_1$.} Un diagnostic sur la représentation de $\mathbf{P}_1$ et sur la façon d'y accéder conclut que la disposition en mémoire joue un rôle important dans le gain théorique maximal de 29 à 31\,\% observé sur MAYO-3 et MAYO-5. Nous ne pouvons pas dire quelle part vient du cache (pas de compteurs matériels). Le coût de construction de la transposée l'emporte sur le gain. Piste close.
+
+\paragraph{Traitement par lots dans EF.} Piste fermée ; le patch, le banc et les données sont archivés. Nous avons relevé une anomalie sur MAYO-2 : le rapport mesuré à un seul niveau change d'amplitude selon l'état du processus, ce qui impose de lire les rapports en tenant compte de la dérive de la phase concernée.
+
+\subsection{Limites de la validation}
+Une seule machine ; un seul compilateur sur la machine physique ; trois démarrages ; S2 sur cinq processus ; un gain de MAYO-5 proche du critère de 1\,\% ; des sondes complètes qui changent le comportement du code ; pas de cycles d'horloge ; pas de compteurs matériels ; Clang non examiné ; aucune preuve formelle de temps constant ; des propriétés de bourrage qui reposent sur une liste des utilisations de \code{Pv}. De plus, les mesures de l'article de référence ont été faites avec \code{clang-14} sur Skylake et Ice Lake, avec les paramètres du tour~1 : elles ne sont pas directement comparables aux nôtres (GCC~16.2.0, i9-9880H, paramètres du tour~2).
+
+\subsection{Sur l'intégration dans MAYO-C}
+Nous ne prenons ici aucune décision d'intégration. Voici ce qu'il faut peser : le gain de 10,3\,\% pour MAYO-1 (solide sur deux démarrages) ; le gain de 1,3\,\% pour MAYO-5 (proche du critère et dépendant du code produit par le compilateur) ; les conditions à respecter (deux voies égales, $m\in\{80,142\}$) ; l'état de la preuve de temps constant (des indices seulement) ; et la dépendance au compilateur. Pour décider avec plus de solidité, il faudrait au moins une deuxième machine ou un deuxième compilateur.

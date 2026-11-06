@@ -3,7 +3,7 @@
 \markboth{Conclusion générale et perspectives}{Conclusion générale et perspectives}
 
 \section*{Contributions effectives}
-Ce mémoire a étudié, dans MAYO-C, la façon dont les noyaux AVX2 \code{P1_times_Vt} et \code{P1t_times_Vt} traitent la fin des $m$-vecteurs. Les contributions établies sont les suivantes.
+Notre travail a étudié, dans MAYO-C, la façon dont les noyaux AVX2 \code{P1_times_Vt} et \code{P1t_times_Vt} traitent la fin des $m$-vecteurs. Les contributions établies sont les suivantes.
 \begin{enumerate}
 \item Un \textbf{comptage rigoureux} dans un modèle précis : le minimum est $\lceil m/32\rceil$ instructions \vpshufb{}, le schéma officiel en utilise $2\lceil m/64\rceil$, et un gain n'est possible que si $0<m\bmod64\le32$. MAYO-1 et MAYO-5 en profitent, pas MAYO-2 ni MAYO-3.
 \item Une \textbf{mise en œuvre} (A2) pour une fin de vecteur d'au plus 16 éléments, avec une variante SAFE qui ne lit rien au-delà de l'entrée de $P_1$. Les propriétés de lecture, d'écriture, de tables et de bourrage sont justifiées par le code et vérifiées par des tests.
@@ -17,10 +17,11 @@ Le gain sur la signature de MAYO-5 est faible et dépend du choix du compilateur
 
 \section*{Questions ouvertes et perspectives}\label{sec:persp}
 \begin{description}
-\item[Q1 -- Le choix du compilateur.] Comprendre pourquoi GCC~16.2.0 laisse ces écritures dans la boucle quand toutes les sondes ne sont pas actives, et les sort de la boucle quand elles le sont. L'analyse E1b a écarté SRA, DSE, PRE et IPA-SRA comme causes uniques (en les désactivant une à une, le doublon reste) et ne permet pas d'accuser FRE (le code change aussi ailleurs). La suite naturelle, toujours sans exécuter le programme, est de produire les fichiers d'analyse des passes qui déplacent les stockages et de PRE (\code{-fdump-tree-lim2-details}, \code{-fdump-tree-pre-details}). Ce n'a pas encore été fait : cela attend l'accord de l'encadrant.
-\item[Q2 -- La cause.] Si l'on trouve un moyen de supprimer le doublon sans toucher à autre chose dans le code, comparer alors les temps avec et sans doublon, sur le même code. Les expériences E2 à E5 prévues au départ restent en attente de la décision de l'encadrant.
+\item[Q1 -- Le choix du compilateur.] Comprendre pourquoi GCC~16.2.0 laisse ces écritures dans la boucle quand toutes les sondes ne sont pas actives, et les sort de la boucle quand elles le sont. L'analyse E1b a écarté SRA, DSE, PRE et IPA-SRA comme causes uniques (en les désactivant une à une, le doublon reste) et ne permet pas d'accuser FRE (le code change aussi ailleurs). Les fichiers d'analyse de \code{lim2} et de \code{pre} ont été produits (section~\ref{sec:lim2pre}) : \code{pre} ne touche pas à \code{temp[]} ni à \code{tt[]}, et \code{lim2} sort les écritures des boucles A2 dans \code{P_all} mais pas dans \code{P_none}. La cause de cette différence n'est pas établie : elle reste à chercher.
+\item[Q2 -- La cause.] Si l'on trouve un moyen de supprimer le doublon sans toucher à autre chose dans le code, comparer alors les temps avec et sans doublon, sur le même code. Les campagnes E2 à E5 prévues au départ sont réservées aux perspectives.
+\item[Q2bis -- Comparaison ciblée.] Faite (section~\ref{sec:iso}) : 10,1\,\% pour MAYO-1 et 1,5\,\% pour MAYO-5, avec des compilations séparées et sans sondes, sur une machine et une session. Reste à la répéter sur d'autres machines et d'autres sessions.
 \item[Q3 -- La solidité des résultats.] Refaire l'analyse avec Clang et d'autres versions de GCC, et mesurer sur une deuxième machine, si possible avec les compteurs du processeur et en cycles d'horloge (hypothèse de performance H-P).
-\item[Q4 -- L'extension.] Réaliser et valider la variante pour $16<r\le32$ ; examiner d'autres paramètres que ceux étudiés ici.
+\item[Q4 -- L'extension.] Réaliser et valider la variante pour $16<r\le32$ (autres tailles de fin de vecteur) ; examiner d'autres paramètres que ceux étudiés ici. Cette extension est réservée aux perspectives.
 \item[Q5 -- La garantie.] Vérifier, de façon formelle ou avec un outil, que le programme compilé s'exécute en temps indépendant du secret.
 \item[Q6 -- L'intégration.] Décider, en fonction des réponses précédentes et des critères de l'encadrant.
 \end{description}

@@ -1,0 +1,91 @@
+\let\textcircled=\pgftextcircled
+\chapter*{Introduction générale}
+\label{ch:intro}
+\addstarredchapter{Introduction générale}
+\markboth{Introduction générale}{}
+
+\usection{Contexte et motivation}
+\paragraph{À quoi sert une signature numérique ?} Quand on télécharge une mise à jour d'un logiciel ou qu'on ouvre un site sécurisé, il faut s'assurer que le fichier vient bien de son auteur et qu'il n'a pas été modifié en route. C'est le rôle de la \emph{signature numérique} : l'auteur signe avec une clé secrète, et tout le monde peut vérifier avec une clé publique. Les signatures utilisées aujourd'hui (RSA, ECDSA) reposent sur deux problèmes mathématiques réputés difficiles : la factorisation des grands nombres et le logarithme discret.
+
+\paragraph{La menace quantique.} En 1994, Shor~\cite{shor} a montré qu'un grand ordinateur quantique résoudrait ces deux problèmes rapidement. Ces signatures deviendraient alors faciles à falsifier. Un tel ordinateur n'existe pas encore, mais des documents signés aujourd'hui doivent parfois rester sûrs pendant de longues années. La \emph{cryptographie post-quantique} cherche donc des méthodes qui résistent aussi aux ordinateurs quantiques.
+
+\paragraph{Normes et NIST.} Une \emph{norme} (ou « standard ») est un document officiel qui fixe la façon de réaliser quelque chose, pour que tous les systèmes soient compatibles entre eux. Pour la sécurité informatique, une institution américaine très suivie dans le monde publie ces normes : le NIST (\emph{National Institute of Standards and Technology}, en français « Institut national américain des normes et de la technologie »). En 2024, le NIST a publié les trois premières normes post-quantiques, appelées FIPS~203, 204 et 205~\cite{nistfips} (FIPS signifie \emph{Federal Information Processing Standards}, « normes fédérales de traitement de l'information »). Il continue de chercher de nouvelles signatures~\cite{nistadd}, plus petites ou plus rapides. Plusieurs candidats sont des schémas dits « multivariés », car leur sécurité repose sur la résolution d'équations à plusieurs variables.
+
+Parmi eux, MAYO~\cite{mayo} est une signature de type Oil-and-Vinegar (OV)~\cite{patarin,kipnisshamir,uov}. Son intérêt est que ses clés et ses signatures sont petites. Pour cela, MAYO utilise un petit espace secret (l'« huile »), puis le « fouette » (\emph{whipping} en anglais) pour obtenir un système plus grand. Le calcul d'une signature consiste surtout à faire des opérations sur le corps $\mathbb{F}_{16}$, c'est-à-dire sur des nombres de 4 bits.
+
+Certains schémas multivariés ont déjà été cassés~\cite{beullensrainbow}. Il faut donc rester prudent quand on parle de leur sécurité. Notre travail ne traite pas de la sécurité mathématique de MAYO. Il traite de la \emph{vitesse du programme} et de ses \emph{qualités} (résultat correct, accès à la mémoire, temps d'exécution indépendant du secret). Il étudie une petite modification du code C officiel.
+
+\paragraph{Déroulement du travail et recentrage.} Le travail a commencé par une implémentation écrite par nous-même (arithmétique $\mathbb{F}_{16}$ par tables, étude d'une fuite d'information par le cache, élimination de Gauss--Jordan à temps constant). Cette étape était motivée par les attaques qui mesurent le temps d'exécution~\cite{kocher,bernstein}. Sur demande de l'encadrant, nous sommes ensuite passés au code C \emph{officiel} (MAYO-C), afin d'obtenir des gains comparables à ce qui existe déjà. Notre travail ne porte que sur cette seconde phase. La première n'est pas reprise, sauf quand un résultat négatif éclaire une décision (section~\ref{sec:discussion}).
+
+\usection{Ce que notre travail étudie, en termes simples}
+Un programme qui signe doit être \emph{rapide}, \emph{correct} et ne pas révéler d'information secrète par son temps d'exécution. Les concepteurs de MAYO ont écrit une \emph{implémentation} (c'est-à-dire un programme en langage C) très optimisée, qui utilise les instructions \emph{AVX2} des processeurs : ces instructions traitent 32 octets d'un seul coup. Dans ce programme, de petites fonctions appelées \emph{noyaux} font l'essentiel du travail. Nous étudions deux de ces noyaux et nous cherchons une façon de les accélérer. Nous vérifions ensuite, avec précaution, si cette accélération se retrouve sur la signature complète.
+
+Notre travail est organisé pour que l'on sache toujours où l'on va : le chapitre~\ref{ch:etat} explique tout ce qu'il faut savoir pour comprendre MAYO, son programme et les outils d'analyse ; le chapitre~\ref{ch:methodo} décrit notre proposition et la façon de la tester ; le chapitre~\ref{ch:resultats} donne les résultats ; la conclusion résume ce qui est établi et ce qui reste ouvert.
+
+\usection{Problématique}
+\paragraph{De quel écart part-on ?} MAYO est intéressante parce que ses clés sont petites. Mais une signature ne sert que si elle est aussi \emph{rapide} et \emph{sûre} sur les vrais processeurs. Ses concepteurs ont déjà beaucoup optimisé le programme. Il reste pourtant un endroit où ce programme fait des calculs en trop : la fin des vecteurs. Il y a donc un écart entre ce que le programme fait et ce qu'il pourrait faire, et c'est cet écart qui motive notre travail.
+
+Dans le code officiel pour AVX2, un $m$-vecteur de $\mathbb{F}_{16}$ (une suite de $m$ éléments) est rangé à deux éléments par octet, soit $m/2$ octets. Pour le multiplier par un nombre, le code utilise l'instruction \vpshufb{}. Cette instruction fait 32 recherches dans une table de 16 octets, et le code l'utilise pour obtenir, en une fois, les produits par \emph{deux} nombres. Un registre de 256 bits traite donc 64 éléments à la fois. Quand $m$ n'est pas un multiple de 64, il reste un petit morceau à la fin du vecteur. Le code officiel le traite en relisant les 32 derniers octets, ce qui \emph{recouvre} (relit) une partie déjà traitée. L'article d'optimisation~\cite{nibbling} décrit ce recouvrement pour $m=96$ (MAYO-3) : il fait des calculs en double.
+
+Pour les paramètres étudiés ici, le calcul en double est important : 48 éléments refaits sur 128 pour MAYO-1 ($m=80$, soit 37,5\,\%) et 50 sur 192 pour MAYO-5 ($m=142$, soit 26\,\%). La question centrale est :
+
+\begin{bidentidad}{QUESTION DE RECHERCHE}
+\centering Peut-on réduire ce calcul en double en traitant la fin du vecteur de façon spéciale ? Quelle est la limite exacte, en nombre d'instructions \vpshufb{} ? Et ce gain se retrouve-t-il, de façon sûre et démontrable, sur le temps de la signature complète ?
+\end{bidentidad}
+
+Cette question sépare trois choses que l'on confond souvent : (i) une \emph{limite de comptage} (un résultat mathématique, dans un modèle précis), (ii) sa \emph{mise en œuvre} par un algorithme (à montrer et à tester) et (iii) l'\emph{effet sur le temps} (un résultat d'expérience, qui dépend du compilateur et de la machine).
+
+\usection{Objectifs de l'étude}
+\begin{description}[leftmargin=2.2cm,labelwidth=2cm]
+\item[QR1] Quel est le plus petit nombre d'instructions \vpshufb{} par paire de nombres pour un $m$-vecteur, avec des tables de 16 octets ? Pour quelles valeurs de $m$ le code officiel est-il déjà optimal ?
+\item[QR2] Existe-t-il une mise en œuvre sûre de cette limite pour MAYO-1 et MAYO-5, c'est-à-dire sans lecture en dehors des données et sans adresse qui dépende du secret ?
+\item[QR3] Quel gain mesure-t-on sur les noyaux \code{P1_times_Vt} et \code{P1t_times_Vt}, puis sur \code{mayo_sign}, sur une machine physique, avec un protocole dont les limites sont chiffrées ?
+\item[QR4] Si le gain dans la signature complète est différent du gain sur le noyau seul, que montre l'analyse du code produit par le compilateur, et que reste-t-il à démontrer ?
+\end{description}
+
+\textbf{Objectif général.} Évaluer de façon rigoureuse et refaisable une modification des deux noyaux (A2), en séparant ce qui est démontré, ce qui est mesuré et ce qui reste ouvert.
+
+Cet objectif se décline en cinq objectifs spécifiques. Chacun répond à une question de recherche et correspond à une partie de notre travail :
+\begin{enumerate}[itemsep=1pt,label=\textbf{O\arabic*}]
+\item \emph{Formaliser le comptage} (limite, mise en œuvre, portée) : répond à QR1 ; chapitre~\ref{ch:methodo}, section~\ref{sec:a2}.
+\item \emph{Décrire la conception d'A2} et les propriétés dont dépend sa correction : répond à QR2 ; chapitre~\ref{ch:methodo}, section~\ref{sec:surete}.
+\item \emph{Mesurer avec un protocole que l'on peut refaire} : répond à QR3 ; chapitre~\ref{ch:methodo}, section~\ref{sec:protocole}, et chapitre~\ref{ch:resultats}.
+\item \emph{Expliquer l'écart} entre le gain sur le noyau seul et le gain dans la signature : répond à QR4 ; chapitres~\ref{ch:methodo} et~\ref{ch:resultats}.
+\item \emph{Situer le travail} par rapport aux implémentations existantes, sans affirmer plus que ce que les sources consultées permettent : chapitre~\ref{ch:etat}, section~\ref{sec:revue}.
+\end{enumerate}
+
+Notre travail est centré sur la variante \textbf{A2 SAFE}. Il faut dire clairement ce qui n'est pas nouveau : l'article \emph{Nibbling MAYO}~\cite{nibbling} (section~5.1) décrit déjà la représentation en quartets, l'utilisation de \code{vpshufb} et le recouvrement des registres. Notre apport est le traitement de la fin du vecteur par \emph{un seul} \code{vpshufb} sur 128 bits, pour MAYO-1 et MAYO-5, avec un chargement qui reste dans l'entrée de $\mathbf{P}_1$. Nous présentons séparément deux choses : l'\emph{économie d'instructions} dans notre modèle de comptage, et le \emph{gain mesuré} sur la signature complète. Le premier résultat à retenir est la réduction de 10,3\,\% pour MAYO-1 sur notre configuration ; pour MAYO-5, le résultat principal est 1,3\,\%, et les 7,2\,\% obtenus avec le binaire instrumenté servent seulement à expliquer pourquoi le protocole de mesure compte.
+
+Nous séparons ce qui est établi de ce qui reste ouvert. Le tableau~\ref{tab:contrib} donne le statut de chaque contribution.
+
+\begin{table}[ht]\centering\small
+\caption{Statut des contributions.}\label{tab:contrib}
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+ & Contribution & Statut\\\midrule
+C1 & Comptage : nombre minimal d'instructions $\lceil m/32\rceil$, schéma officiel $2\lceil m/64\rceil$, écart $\Delta(m)$ (prop.~\ref{prop:borne}--\ref{prop:real}) & établi (preuve)\\
+C2 & Réalisation d'A2 SAFE : fin de vecteur ($\le 16$ éléments) traitée par un seul \code{vpshufb} sur 128 bits pour MAYO-1 et MAYO-5, sans lecture en dehors de $\mathbf{P}_1$ (le reste vient de~\cite{nibbling}) & établi (code, KAT, tests)\\
+C3 & Gain mesuré sur \code{mayo_sign}, présenté à part du modèle de comptage : MAYO-1 10,3\,\%, MAYO-5 1,3\,\% (résultats principaux) ; gains de noyaux isolés 12--29\,\% ; 7,2\,\% pour MAYO-5 avec le binaire instrumenté, cité seulement pour expliquer l'effet du protocole ; une machine, un compilateur & établi, avec limites\\
+C4 & Localisation de la perte de gain de MAYO-5 dans \code{m_calculate}, quand on mesure la signature complète & établi (mesure directe)\\
+C5 & Écritures mémoire en plus, et inégales entre les deux versions, dans le code produit par GCC~16.2.0 ; elles correspondent à la perte de C4 ; l'analyse E1b les identifie à des stockages de \code{temp[]}/\code{tt[]} dans la boucle ; la passe SRA est écartée & constat établi sur le code ; lien avec le temps \emph{non} démontré\\
+C6 & Dépôt public (scripts, données brutes, empreintes) qui permet de refaire les 9 analyses & établi\\\midrule
+Q1 & Pourquoi GCC laisse ces écritures dans la boucle quand toutes les sondes de mesure ne sont pas actives : si les fichiers d'analyse \code{lim2} et \code{pre} ne permettent pas d'identifier la décision, la causalité reste une question ouverte & \emph{ouvert} (fichiers \code{lim2}/\code{pre} à produire en compilation seule, MAYO-5)\\
+Q2 & Lien de cause à effet entre ces écritures et la perte de gain, avec un modèle qui n'exagère pas leur effet & \emph{ouvert}\\
+Q3 & Variante pour une fin de vecteur de 17 à 32 éléments ; autres compilateurs et autres processeurs & \emph{ouvert} (non implémenté)\\
+Q4 & Temps d'exécution indépendant du secret, démontré formellement & \emph{non fourni}\\\bottomrule
+\end{tabularx}
+\end{table}
+
+\usection{Méthode de recherche}
+Trois étapes structurent la démarche, et chacune a son chapitre : \emph{concevoir et vérifier} (chapitre~\ref{ch:methodo}), \emph{mesurer} (chapitres~\ref{ch:methodo} et~\ref{ch:resultats}), puis \emph{analyser le code produit} par le compilateur (chapitres~\ref{ch:methodo} et~\ref{ch:resultats}).
+La démarche combine le raisonnement et l'expérience. Le comptage est démontré dans un modèle précis. La mise en œuvre est justifiée par le code et testée. Les gains sont mesurés sur une machine physique, en comparant les deux versions dans les mêmes conditions ; l'unité statistique est le processus (une exécution du programme). Le code produit par le compilateur est lu et analysé sans exécution (analyse « statique ») pour interpréter les écarts. Chaque résultat porte une étiquette qui dit s'il est un fait, une déduction ou une hypothèse. Les scripts, les données brutes et les empreintes sont publiés pour que l'on puisse tout refaire.
+
+Le travail se limite aux noyaux \code{P1_times_Vt} et \code{P1t_times_Vt} pour MAYO-1 et MAYO-5. MAYO-2 ($m=64$) et MAYO-3 ($m=108$) servent de témoins : pour eux, aucun gain n'est possible avec les tables de 16 octets (proposition~\ref{prop:borne}). Nous ne proposons aucune autre optimisation. Les noyaux optimisés ne sont pas modifiés pendant l'analyse, et la décision de les intégrer dans MAYO-C est volontairement repoussée. Le fait de ne pas trouver une technique dans les sources consultées ne prouve pas qu'elle n'existe pas ailleurs : nous ne prétendons pas à une nouveauté absolue.
+
+Les résultats sont étiquetés ainsi : \F{} \emph{fait} (lu dans le code produit ou dans des mesures publiées), \I{} \emph{déduction} tirée des faits, \Hy{} \emph{hypothèse} non testée. Pour les propriétés de sûreté de la section~\ref{sec:surete}, \Pc{} veut dire « justifiée par le code » et \Pe{} « vérifiée par des tests » ; une propriété \Pe{} seule n'est pas une démonstration. Les durées sont mesurées en « ticks » du compteur TSC du processeur (instruction rdtscp), et non en cycles d'horloge du cœur.
+
+\usection{Intérêt de l'étude}
+Pour ceux qui font évoluer ou utilisent MAYO-C, l'étude donne une limite précise de ce que l'on peut gagner en nombre d'instructions \vpshufb{}, une mise en œuvre vérifiée pour deux jeux de paramètres, et surtout un avertissement : un gain mesuré sur un noyau seul ne se retrouve pas automatiquement sur la signature complète, parce que le code produit par le compilateur change selon le contexte. Pour la méthode, notre travail propose un protocole de mesure et d'analyse qui sépare les faits des hypothèses et que l'on peut refaire.
+
+\usection{Plan du travail}
+Notre travail comprend trois chapitres, entourés par cette introduction et par une conclusion. Le chapitre~\ref{ch:etat} présente MAYO, le calcul par \vpshufb{} et les implémentations existantes, puis situe A2. Le chapitre~\ref{ch:methodo} formalise le comptage et décrit A2 (section~\ref{sec:a2}), établit ses propriétés de correction et de sûreté (section~\ref{sec:surete}) et détaille le protocole d'expérience (section~\ref{sec:protocole}). Le chapitre~\ref{ch:resultats} présente les résultats et les discute en séparant faits, déductions et hypothèses. La conclusion rappelle les contributions, les limites et les suites possibles.
