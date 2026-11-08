@@ -230,6 +230,19 @@ Une \emph{signature} d'un message $M$ est un couple $(\mathbf{S},\text{sel})$, a
 \[\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})=\mathbf{t},\]
 où $\mathbf{t}$ et $\boldsymbol{\Lambda}$ sont tirés d'un même haché : $\mathrm{SHAKE256}(\mathrm{SHAKE256}(M)\,\|\,\text{sel})$~\cite{mayospec}. Les paramètres $m,k,o,n$ définissent quatre jeux (MAYO-1, 2, 3 et 5), selon le niveau de sécurité demandé par le NIST~\cite{nistadd}. Les inconnues sont maintenant $k\cdot o$, ce qui donne assez d'inconnues pour les $m$ équations.
 
+\paragraph{Les quatre jeux de paramètres et leurs tailles.} Le tableau~\ref{tab:jeux} donne les paramètres et les tailles des clés et des signatures, tels que la spécification du troisième tour les fixe (tableau~2.1 de~\cite{mayospec}). Ce sont des chiffres de la spécification : nous ne les avons pas mesurés. Ils montrent l'intérêt de MAYO : une clé publique de 1\,456 à 5\,554 octets et une signature de 239 à 964 octets, avec une clé secrète réduite à une graine de 24 à 40 octets.
+\begin{table}[ht]\centering\small
+\caption{Paramètres de MAYO et tailles en octets (spécification du troisième tour, tableau~2.1). $q=16$ pour tous. « Clé publique » : clé publique compacte ; « Clé secrète » : clé secrète compacte (une graine).}\label{tab:jeux}
+\begin{tabular}{@{}lccccccrrr@{}}\toprule
+Jeu & Niveau NIST & $n$ & $m$ & $o$ & $k$ & Sel & Clé publique & Clé secrète & Signature\\\midrule
+MAYO-1 & 1 & 88 & 80 & 8 & 10 & 24 & 1\,456 & 24 & 464\\
+MAYO-2 & 1 & 86 & 64 & 13 & 5 & 24 & 2\,928 & 24 & 239\\
+MAYO-3 & 3 & 118 & 108 & 10 & 11 & 32 & 2\,986 & 32 & 681\\
+MAYO-5 & 5 & 154 & 142 & 12 & 12 & 40 & 5\,554 & 40 & 964\\\bottomrule
+\end{tabular}
+\end{table}
+\paragraph{Contrôle des tailles.} Une signature contient $k$ vecteurs de $n$ éléments de $\mathbb{F}_{16}$ (deux éléments par octet), plus le sel : $\lceil nk/2\rceil+\text{sel}$. Pour MAYO-1, $440+24=464$ ; pour MAYO-5, $924+40=964$. La clé publique compacte contient une graine de 16 octets et la matrice $\mathbf{P}^{(3)}$, soit $m\,o(o+1)/2$ éléments, donc $m\,o(o+1)/4$ octets : pour MAYO-1, $16+1\,440=1\,456$ ; pour MAYO-5, $16+5\,538=5\,554$. Les quatre lignes du tableau vérifient ces formules.
+
 \paragraph{Ce que « signer » veut dire ici.} Signer $M$, c'est trouver $\mathbf{S}$ tel que $\mathcal{P}^\star(\mathbf{S})+L(\boldsymbol{\Lambda},\mathbf{S})=\mathbf{t}$ (algorithme~7 de la spécification~\cite{mayospec}). Vérifier, c'est recalculer $\mathbf{t}$ et $\boldsymbol{\Lambda}$ à partir du message et du sel, calculer le membre de gauche avec la clé publique et comparer à $\mathbf{t}$ (algorithme~8). Les trois algorithmes ont la même forme que dans OV et UOV ; la différence est que l'on résout pour $k$ vecteurs à la fois, et que le terme linéaire s'ajoute à la fois dans la construction du système et dans la vérification.
 
 \paragraph{Où intervient le terme linéaire.} Avec $\mathbf{s}_i=(\mathbf{v}_i+\mathbf{O}\mathbf{x}_i,\ \mathbf{x}_i)$ et $\boldsymbol{\Lambda}=(\boldsymbol{\Lambda}_v\ \boldsymbol{\Lambda}_o)$ (les $n-o$ premières colonnes, puis les $o$ dernières), on a $\boldsymbol{\Lambda}\mathbf{s}_i=\boldsymbol{\Lambda}_v\mathbf{v}_i+(\boldsymbol{\Lambda}_v\mathbf{O}+\boldsymbol{\Lambda}_o)\,\mathbf{x}_i$. Le terme linéaire a donc deux effets pour la signature :
