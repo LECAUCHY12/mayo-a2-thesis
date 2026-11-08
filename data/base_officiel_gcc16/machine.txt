@@ -1,0 +1,10 @@
+dim. 08 nov. 2026 09:25:54 UTC
+Linux cauchy 7.1.5+kali-amd64 #1 SMP PREEMPT_DYNAMIC Kali 7.1.5-1kali1 (2026-07-29) x86_64 GNU/Linux
+gcc (Debian 16.2.0-3) 16.2.0
+cmake version 4.3.4
+Model name: Intel(R) Core(TM) i9-9880H CPU @ 2.30GHz (16 CPU logiques, 8 coeurs, 2 fils par coeur)
+governor: powersave
+no_turbo: 0
+arbre: 4b2849969e8d3392150cdf6ce4e69b5bf59e75b0
+arguments: coeur=1 essais=1000 repetitions=5
+(extrait du machine.txt colle par Marcel le 8 nov. 2026 ; les lignes lscpu non essentielles ont ete abregees)

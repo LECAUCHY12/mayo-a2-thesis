@@ -2,8 +2,6 @@
 \chapter[Résultats et discussion]{Résultats, interprétation et discussion}
 \label{ch:resultats}
 
-\mtcselectlanguage{english}
-\minitoc
 \bigskip
 
 \textit{\initial{C}e chapitre présente et interprète les résultats qui répondent à QR3 et à QR4 : d'abord la correction, puis les gains mesurés sur les noyaux et sur la signature complète, l'effet d'ordre, l'anomalie observée pour MAYO-5, et l'analyse du code produit (E1 et E1b). Il se termine par une discussion critique de ce qui est établi et de ce qui reste ouvert.}
@@ -53,6 +51,20 @@ MAYO-5 & \code{P1_times_Vt} & 0,8067 [0,8060 ; 0,8071] & 0,8049 [0,8043 ; 0,8076
 \paragraph{Variabilité à quatre niveaux.} Écart-type robuste entre les paires d'un même processus : 0,0015 (S1) et 0,0013 (S2) pour MAYO-1, 0,0114 et 0,0039 pour MAYO-5. Entre les processus d'une même session : 0,0009 (20 processus) et 0,0010 (5 processus) pour MAYO-1, 0,0008 et 0,0005 pour MAYO-5. Entre les campagnes de S1 : 0,0001 et 0,0002. C'est donc la dispersion entre processus, et non entre paires, qui fixe l'incertitude.
 
 \paragraph{Gain de MAYO-5 sur la signature.} \F{} Il est de 1,3\,\% dans S1, S2, PH1/CT1 et dans la mesure de référence, proche du critère d'environ 1\,\% fixé avant les mesures. C'est le seul chiffre de gain de signature de MAYO-5 à retenir (section~\ref{sec:anomalie}).
+
+\section{Temps de base du code officiel}\label{sec:base}
+Pour situer l'évaluation, nous avons mesuré le code C \emph{officiel} (AVX2, sans aucune de nos modifications) avec le programme de mesure fourni par MAYO-C, pour les quatre jeux de paramètres. Chaque programme fait 1\,000 essais par opération et on répète cinq fois, sur le c\oe ur~1 de la machine de la section suivante (portable i9-9880H, GCC~16.2.0), après la compilation du code officiel seul. Le tableau~\ref{tab:base} donne, pour chaque opération, la médiane des cinq médianes. Les durées sont en ticks du compteur TSC (instruction \code{rdtsc}), pas en cycles d'horloge du c\oe ur. \F{} Ce sont des valeurs mesurées, sur une machine et une session ; elles servent de point de repère, pas de comparaison entre machines.
+\begin{table}[ht]\centering\small
+\caption[Temps de base du code officiel (AVX2), en ticks TSC]{Temps de base du code officiel (AVX2), en ticks TSC : médiane des cinq médianes de 1\,000 essais. Clés : génération des clés ; Exp.\ sk et Exp.\ pk : expansion de la clé secrète et de la clé publique ; Signature : \code{mayo_sign}, à partir de la clé secrète compacte ; Vérif.\ : \code{mayo_verify}, avec la clé publique compacte.}\label{tab:base}
+\begin{tabular}{@{}lrrrrr@{}}\toprule
+Jeu & Clés & Exp.\ sk & Exp.\ pk & Signature & Vérif.\\\midrule
+MAYO-1 & 100\,322 & 127\,914 & 51\,276 & 281\,450 & 124\,566\\
+MAYO-2 & 80\,838 & 92\,934 & 38\,918 & 130\,280 & 60\,096\\
+MAYO-3 & 241\,412 & 323\,188 & 124\,516 & 608\,630 & 279\,252\\
+MAYO-5 & 646\,886 & 932\,800 & 277\,568 & 1\,489\,860 & 678\,022\\\bottomrule
+\end{tabular}
+\end{table}
+\F{} La signature est l'opération la plus coûteuse pour les quatre jeux, et c'est elle que touche notre modification pour MAYO-1 et MAYO-5. Pour MAYO-1, les cinq médianes de signature vont de 276\,406 à 282\,932 ; pour MAYO-5, de 1\,480\,710 à 1\,491\,080. La première répétition de MAYO-1 est plus basse que les autres sur plusieurs opérations (par exemple 91\,192 contre environ 100\,000 pour la génération des clés) : nous ne l'expliquons pas, et la médiane des cinq limite son effet. Ces valeurs ne se comparent pas directement à celles de la section suivante, qui mesure un autre programme (signature suivie d'une vérification, avec des messages de 32 octets).
 
 \section[Comparaison ciblée]{Comparaison ciblée : compilations séparées, sans sondes}\label{sec:iso}
 Cette comparaison a été demandée par l'encadrant pour savoir si le gain se maintient quand chaque version est compilée seule.

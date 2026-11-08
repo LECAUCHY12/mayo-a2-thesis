@@ -1,0 +1,178 @@
+─(cauchy㉿cauchy)-[~/MAYO-C-mesures]
+└─$ cd ~/MAYO-C-mesures
+cat > bench_base_4_parametres.sh <<'EOF'
+#!/bin/sh
+set -e
+ROOT=$(pwd); [ -f "$ROOT/CMakeLists.txt" ] && [ -d "$ROOT/src" ] || { echo "REFUS : lancer depuis le dossier MAYO-C"; exit 1; }
+CORE=${1:-1}; RUNS=${2:-1000}; REP=${3:-5}
+OUT=${OUT:-$ROOT/bench_base_$(hostname)_$(date +%Y%m%d_%H%M%S)}
+[ ! -e "$OUT" ] || { echo "REFUS : $OUT existe deja"; exit 1; }
+mkdir -p "$OUT/build" && cd "$OUT/build"
+{ date -u; uname -a; gcc --version | head -1; cmake --version | head -1; lscpu | head -20
+  echo "governor: $(cat /sys/devices/system/cpu/cpu$CORE/cpufreq/scaling_governor 2>/dev/null || echo n/a)"
+  echo "no_turbo: $(cat /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || echo n/a)"
+  echo "arbre: $(cd "$ROOT" && git rev-parse 'HEAD^{tree}' 2>/dev/null || echo n/a)"
+  echo "arguments: coeur=$CORE essais=$RUNS repetitions=$REP"; } > "$OUT/machine.txt" 2>&1
+cmake "$ROOT" -DMAYO_BUILD_TYPE=avx2 "-DMAYO_MARCH=-march=haswell -maes" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON > cmake.log 2>&1
+make -j"$(nproc)" mayo_bench_MAYO_1 mayo_bench_MAYO_2 mayo_bench_MAYO_3 mayo_bench_MAYO_5 > make.log 2>&1
+cd test
+for r in $(seq 1 "$REP"); do
+  for v in 1 2 3 5; do
+    taskset -c "$CORE" "./mayo_bench_MAYO_$v" "$RUNS" > "$OUT/sortie_MAYO${v}_$r.txt" 2>&1
+  done
+done
+{ echo "Mediane des ticks par operation, pour chaque repetition (code officiel AVX2, $RUNS essais)"; for v in 1 2 3 5; do echo "== MAYO-$v"; cat "$OUT"/sortie_MAYO${v}_*.txt | grep -E "median" ; done; } | tee "$OUT/resume.txt"
+EOF
+sh bench_base_4_parametres.sh 1 1000 5
+Mediane des ticks par operation, pour chaque repetition (code officiel AVX2, 1000 essais)
+== MAYO-1
+  mayo_keypair        -> median: 91192, average: 92399 cycles
+  mayo_expand_sk      -> median: 122164, average: 126351 cycles
+  mayo_expand_pk      -> median: 50128, average: 52788 cycles
+  mayo_sign_esk       -> median: 136676, average: 146386 cycles
+  mayo_open_epk       -> median: 70478, average: 71465 cycles
+  mayo_sign           -> median: 276406, average: 293946 cycles
+  mayo_verify         -> median: 124484, average: 126532 cycles
+  mayo_keypair        -> median: 100414, average: 101080 cycles
+  mayo_expand_sk      -> median: 127914, average: 129958 cycles
+  mayo_expand_pk      -> median: 51276, average: 53231 cycles
+  mayo_sign_esk       -> median: 137190, average: 145771 cycles
+  mayo_open_epk       -> median: 72674, average: 72859 cycles
+  mayo_sign           -> median: 281250, average: 302831 cycles
+  mayo_verify         -> median: 124970, average: 126069 cycles
+  mayo_keypair        -> median: 100322, average: 100622 cycles
+  mayo_expand_sk      -> median: 128144, average: 129216 cycles
+  mayo_expand_pk      -> median: 51274, average: 52528 cycles
+  mayo_sign_esk       -> median: 136754, average: 146952 cycles
+  mayo_open_epk       -> median: 72156, average: 72908 cycles
+  mayo_sign           -> median: 281450, average: 297827 cycles
+  mayo_verify         -> median: 124488, average: 126090 cycles
+  mayo_keypair        -> median: 100480, average: 102130 cycles
+  mayo_expand_sk      -> median: 127892, average: 130382 cycles
+  mayo_expand_pk      -> median: 51288, average: 53092 cycles
+  mayo_sign_esk       -> median: 139728, average: 148862 cycles
+  mayo_open_epk       -> median: 72678, average: 73622 cycles
+  mayo_sign           -> median: 282932, average: 306307 cycles
+  mayo_verify         -> median: 124566, average: 125899 cycles
+  mayo_keypair        -> median: 100300, average: 102316 cycles
+  mayo_expand_sk      -> median: 128250, average: 130159 cycles
+  mayo_expand_pk      -> median: 51306, average: 53020 cycles
+  mayo_sign_esk       -> median: 139562, average: 149557 cycles
+  mayo_open_epk       -> median: 72698, average: 72877 cycles
+  mayo_sign           -> median: 282326, average: 298112 cycles
+  mayo_verify         -> median: 124858, average: 126319 cycles
+== MAYO-2
+  mayo_keypair        -> median: 79176, average: 80741 cycles
+  mayo_expand_sk      -> median: 92934, average: 93755 cycles
+  mayo_expand_pk      -> median: 38884, average: 39436 cycles
+  mayo_sign_esk       -> median: 63498, average: 63462 cycles
+  mayo_open_epk       -> median: 21862, average: 21885 cycles
+  mayo_sign           -> median: 130656, average: 134524 cycles
+  mayo_verify         -> median: 59138, average: 61316 cycles
+  mayo_keypair        -> median: 79362, average: 81975 cycles
+  mayo_expand_sk      -> median: 93416, average: 94240 cycles
+  mayo_expand_pk      -> median: 38958, average: 39757 cycles
+  mayo_sign_esk       -> median: 63874, average: 63811 cycles
+  mayo_open_epk       -> median: 21806, average: 21834 cycles
+  mayo_sign           -> median: 129520, average: 131794 cycles
+  mayo_verify         -> median: 58748, average: 61290 cycles
+  mayo_keypair        -> median: 80838, average: 82407 cycles
+  mayo_expand_sk      -> median: 93296, average: 94647 cycles
+  mayo_expand_pk      -> median: 38918, average: 40039 cycles
+  mayo_sign_esk       -> median: 64270, average: 64601 cycles
+  mayo_open_epk       -> median: 21666, average: 21735 cycles
+  mayo_sign           -> median: 130356, average: 134242 cycles
+  mayo_verify         -> median: 60108, average: 64098 cycles
+  mayo_keypair        -> median: 80976, average: 81942 cycles
+  mayo_expand_sk      -> median: 92902, average: 93774 cycles
+  mayo_expand_pk      -> median: 38894, average: 39938 cycles
+  mayo_sign_esk       -> median: 63826, average: 64008 cycles
+  mayo_open_epk       -> median: 21580, average: 21992 cycles
+  mayo_sign           -> median: 130280, average: 133111 cycles
+  mayo_verify         -> median: 60096, average: 62291 cycles
+  mayo_keypair        -> median: 80926, average: 82674 cycles
+  mayo_expand_sk      -> median: 92882, average: 93241 cycles
+  mayo_expand_pk      -> median: 38998, average: 39802 cycles
+  mayo_sign_esk       -> median: 63922, average: 64386 cycles
+  mayo_open_epk       -> median: 22064, average: 22212 cycles
+  mayo_sign           -> median: 129904, average: 131378 cycles
+  mayo_verify         -> median: 60176, average: 61291 cycles
+== MAYO-3
+  mayo_keypair        -> median: 241130, average: 241894 cycles
+  mayo_expand_sk      -> median: 323188, average: 335136 cycles
+  mayo_expand_pk      -> median: 124498, average: 127210 cycles
+  mayo_sign_esk       -> median: 262000, average: 263077 cycles
+  mayo_open_epk       -> median: 149474, average: 150470 cycles
+  mayo_sign           -> median: 608998, average: 613069 cycles
+  mayo_verify         -> median: 278584, average: 280239 cycles
+  mayo_keypair        -> median: 241862, average: 243294 cycles
+  mayo_expand_sk      -> median: 320684, average: 324705 cycles
+  mayo_expand_pk      -> median: 124606, average: 126991 cycles
+  mayo_sign_esk       -> median: 264968, average: 265500 cycles
+  mayo_open_epk       -> median: 151508, average: 152208 cycles
+  mayo_sign           -> median: 608630, average: 611814 cycles
+  mayo_verify         -> median: 279020, average: 281442 cycles
+  mayo_keypair        -> median: 240874, average: 244315 cycles
+  mayo_expand_sk      -> median: 330648, average: 330339 cycles
+  mayo_expand_pk      -> median: 124516, average: 127361 cycles
+  mayo_sign_esk       -> median: 265822, average: 265145 cycles
+  mayo_open_epk       -> median: 151122, average: 151609 cycles
+  mayo_sign           -> median: 608050, average: 615190 cycles
+  mayo_verify         -> median: 279348, average: 283646 cycles
+  mayo_keypair        -> median: 241412, average: 245605 cycles
+  mayo_expand_sk      -> median: 330000, average: 331831 cycles
+  mayo_expand_pk      -> median: 124458, average: 127443 cycles
+  mayo_sign_esk       -> median: 265078, average: 265219 cycles
+  mayo_open_epk       -> median: 151072, average: 151565 cycles
+  mayo_sign           -> median: 608162, average: 616573 cycles
+  mayo_verify         -> median: 279252, average: 280672 cycles
+  mayo_keypair        -> median: 243376, average: 246083 cycles
+  mayo_expand_sk      -> median: 321350, average: 326833 cycles
+  mayo_expand_pk      -> median: 124516, average: 127921 cycles
+  mayo_sign_esk       -> median: 265540, average: 264951 cycles
+  mayo_open_epk       -> median: 151420, average: 151898 cycles
+  mayo_sign           -> median: 610844, average: 617341 cycles
+  mayo_verify         -> median: 279732, average: 280936 cycles
+== MAYO-5
+  mayo_keypair        -> median: 644132, average: 655249 cycles
+  mayo_expand_sk      -> median: 935446, average: 939279 cycles
+  mayo_expand_pk      -> median: 277578, average: 280940 cycles
+  mayo_sign_esk       -> median: 597586, average: 603389 cycles
+  mayo_open_epk       -> median: 396426, average: 398041 cycles
+  mayo_sign           -> median: 1480710, average: 1491135 cycles
+  mayo_verify         -> median: 678022, average: 682671 cycles
+  mayo_keypair        -> median: 644288, average: 650656 cycles
+  mayo_expand_sk      -> median: 932376, average: 937557 cycles
+  mayo_expand_pk      -> median: 277568, average: 282710 cycles
+  mayo_sign_esk       -> median: 600250, average: 605606 cycles
+  mayo_open_epk       -> median: 398430, average: 400966 cycles
+  mayo_sign           -> median: 1490946, average: 1501578 cycles
+  mayo_verify         -> median: 677992, average: 682939 cycles
+  mayo_keypair        -> median: 647124, average: 649565 cycles
+  mayo_expand_sk      -> median: 938496, average: 942667 cycles
+  mayo_expand_pk      -> median: 277530, average: 282422 cycles
+  mayo_sign_esk       -> median: 600716, average: 608438 cycles
+  mayo_open_epk       -> median: 397244, average: 397556 cycles
+  mayo_sign           -> median: 1489860, average: 1500322 cycles
+  mayo_verify         -> median: 679748, average: 686512 cycles
+  mayo_keypair        -> median: 647358, average: 652427 cycles
+  mayo_expand_sk      -> median: 926668, average: 937253 cycles
+  mayo_expand_pk      -> median: 277586, average: 283971 cycles
+  mayo_sign_esk       -> median: 603894, average: 608904 cycles
+  mayo_open_epk       -> median: 397736, average: 400089 cycles
+  mayo_sign           -> median: 1488568, average: 1495069 cycles
+  mayo_verify         -> median: 677700, average: 681578 cycles
+  mayo_keypair        -> median: 646886, average: 649950 cycles
+  mayo_expand_sk      -> median: 932800, average: 938219 cycles
+  mayo_expand_pk      -> median: 277502, average: 283587 cycles
+  mayo_sign_esk       -> median: 602494, average: 611135 cycles
+  mayo_open_epk       -> median: 396788, average: 398822 cycles
+  mayo_sign           -> median: 1491080, average: 1498199 cycles
+  mayo_verify         -> median: 678198, average: 681130 cycles
+
+┌──(cauchy㉿cauchy)-[~/MAYO-C-mesures]
+└─$ D=$(ls -d bench_base_* | tail -1)                                                                              
+cp $D/machine.txt $D/resume.txt ~/Téléchargements/
+
+┌──(cauchy㉿cauchy)-[~/MAYO-C-mesures]
+└─$               
