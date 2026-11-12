@@ -1,0 +1,4 @@
+Sources LaTeX de notre travail (version ENSPY, v16).
+Compiler : pdflatex memoire.tex  (3 fois de suite, pour les références et la table des matières).
+Chapitres : dossier chapters/ ; pages avant le texte (couverture, résumé, remerciements, dédicace) : dossier frontmatter/ ; logos : logos/.
+A compléter : date de soutenance (frontmatter/title*.tex), dédicace (frontmatter/dedication.tex), remerciements (frontmatter/declaration.tex).

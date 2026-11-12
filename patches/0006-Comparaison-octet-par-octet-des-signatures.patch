@@ -1,0 +1,107 @@
+From d9007a56a34d9dcf888ff7e00d237d3b9c51784c Mon Sep 17 00:00:00 2001
+From: Marcel Eric Angoah <marcelericangoah@gmail.com>
+Date: Thu, 12 Nov 2026 13:35:28 +0100
+Subject: [PATCH] Comparaison directe octet par octet des signatures (officiel
+ et A2 SAFE), en plus des empreintes
+
+---
+ test/CMakeLists.txt            |  7 +++++++
+ test/run_comparaison_octets.sh | 26 ++++++++++++++++++++++++++
+ test/sign_dump.c               | 34 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 67 insertions(+)
+ create mode 100755 test/run_comparaison_octets.sh
+ create mode 100644 test/sign_dump.c
+
+diff --git a/test/CMakeLists.txt b/test/CMakeLists.txt
+index a8a464c..306b070 100644
+--- a/test/CMakeLists.txt
++++ b/test/CMakeLists.txt
+@@ -62,6 +62,13 @@ else()
+         add_executable(mayo_sign_iso_a2_${MVARIANT} sign_isolated.c)
+         target_link_libraries(mayo_sign_iso_a2_${MVARIANT} ${MVARIANT_LOWER}_tailxmm)
+         target_include_directories(mayo_sign_iso_a2_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
++        # Test direct octet par octet : ecrit toutes les signatures (officiel / A2 SAFE), comparees ensuite avec cmp
++        add_executable(mayo_sign_dump_official_${MVARIANT} sign_dump.c)
++        target_link_libraries(mayo_sign_dump_official_${MVARIANT} ${MVARIANT_LOWER}_test)
++        target_include_directories(mayo_sign_dump_official_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
++        add_executable(mayo_sign_dump_a2_${MVARIANT} sign_dump.c)
++        target_link_libraries(mayo_sign_dump_a2_${MVARIANT} ${MVARIANT_LOWER}_tailxmm)
++        target_include_directories(mayo_sign_dump_a2_${MVARIANT} PUBLIC ../src/common ${INC_PLATFORM})
+         add_executable(mayo_tail_ab_${MVARIANT} tail_ab.c)
+         target_link_libraries(mayo_tail_ab_${MVARIANT} ${MVARIANT_LOWER}_tailab)
+         target_link_libraries(mayo_tail_ab_${MVARIANT} m)
+diff --git a/test/run_comparaison_octets.sh b/test/run_comparaison_octets.sh
+new file mode 100755
+index 0000000..1089021
+--- /dev/null
++++ b/test/run_comparaison_octets.sh
+@@ -0,0 +1,26 @@
++#!/bin/sh
++# Comparaison DIRECTE octet par octet des signatures : MAYO-C officiel et A2 SAFE, MAYO-1 et MAYO-5.
++# Pour chaque graine : un fichier contient cle publique, cle secrete et TOUTES les signatures ; les deux fichiers sont compares avec cmp.
++# Usage : sh test/run_comparaison_octets.sh [graines=20] [nsign=50]      (OUT=<dossier inexistant> pour choisir la sortie)
++set -e
++ROOT=$(cd "$(dirname "$0")/.." && pwd)
++SEEDS=${1:-20}; NSIGN=${2:-50}
++OUT=${OUT:-$ROOT/comparaison_octets_$(hostname)_$(date +%Y%m%d_%H%M%S)}
++[ ! -e "$OUT" ] || { echo "REFUS : $OUT existe deja"; exit 1; }
++mkdir -p "$OUT/build" && cd "$OUT/build"
++{ date -u; gcc --version | head -1; cmake --version | head -1; echo "graines=$SEEDS nsign=$NSIGN"; } > "$OUT/machine.txt" 2>&1
++cmake "$ROOT" -DMAYO_BUILD_TYPE=avx2 "-DMAYO_MARCH=-march=haswell -maes" -DMAYO_TAIL_SAFE=ON -DMAYO_TAIL_CHECK=OFF > cmake.log 2>&1
++T=""; for v in 1 5; do T="$T mayo_sign_dump_official_MAYO_$v mayo_sign_dump_a2_MAYO_$v"; done
++make -j"$(nproc)" $T > make.log 2>&1
++cd test; tot=0; bad=0
++for v in 1 5; do
++  for s in $(seq 1 "$SEEDS"); do
++    ./mayo_sign_dump_official_MAYO_$v "$NSIGN" "$s" "$OUT/off_${v}_$s.bin"
++    ./mayo_sign_dump_a2_MAYO_$v       "$NSIGN" "$s" "$OUT/a2_${v}_$s.bin"
++    tot=$((tot + 1))
++    if cmp -s "$OUT/off_${v}_$s.bin" "$OUT/a2_${v}_$s.bin"; then :; else bad=$((bad + 1)); echo "DIFFERENCE : MAYO-$v graine $s"; fi
++  done
++  echo "MAYO-$v : $SEEDS graines x $NSIGN signatures comparees octet par octet (cmp), fichiers ecrits dans $OUT"
++done
++echo "Fichiers comparés : $tot ; fichiers différents : $bad" | tee "$OUT/resultat_octets.txt"
++[ "$bad" -eq 0 ]
+diff --git a/test/sign_dump.c b/test/sign_dump.c
+new file mode 100644
+index 0000000..67d3772
+--- /dev/null
++++ b/test/sign_dump.c
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: Apache-2.0
++// Test direct (octet par octet) : ecrit dans un fichier TOUTES les signatures produites par un executable.
++// Meme entrees que sign_isolated.c (graine -> cles, messages de 32 octets). Compile deux fois (officiel / A2 SAFE),
++// puis les deux fichiers sont compares avec cmp (voir test/run_comparaison_octets.sh).
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdint.h>
++#include <randombytes.h>
++#include <mayo.h>
++
++int main(int argc, char **argv) {
++    if (argc < 4) { fprintf(stderr, "usage : %s <nsign> <graine> <fichier_sortie>\n", argv[0]); return 2; }
++    int nsign = atoi(argv[1]); unsigned seedv = (unsigned)atoi(argv[2]);
++    const mayo_params_t *p = 0;
++    unsigned char seed[48];
++    for (int i = 0; i < 48; i++) seed[i] = (unsigned char)(seedv * 131u + i * 7u + 1u);
++    randombytes_init(seed, NULL, 256);
++    unsigned char pk[PARAM_cpk_bytes(p)], sk[PARAM_csk_bytes(p)];
++    if (mayo_keypair(p, pk, sk) != 0) { fprintf(stderr, "keypair echec\n"); return 1; }
++    enum { MLEN = 32 };
++    unsigned char m[MLEN], sm[MLEN + PARAM_sig_bytes(p)];
++    FILE *f = fopen(argv[3], "wb"); if (!f) { perror("fopen"); return 1; }
++    fwrite(pk, 1, sizeof pk, f); fwrite(sk, 1, sizeof sk, f);
++    uint32_t x = seedv * 2654435761u + 1u;
++    for (int i = 0; i < nsign; i++) {
++        for (int j = 0; j < MLEN; j++) { x = x * 1664525u + 1013904223u; m[j] = (unsigned char)(x >> 24); }
++        size_t smlen = 0;
++        if (mayo_sign(p, sm, &smlen, m, MLEN, sk) != 0) { fprintf(stderr, "sign echec\n"); return 1; }
++        fwrite(sm, 1, smlen, f);
++    }
++    fclose(f);
++    return 0;
++}
+-- 
+2.43.0
+

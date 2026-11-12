@@ -1,0 +1,5 @@
+jeu. 12 nov. 2026 14:04:45 UTC
+gcc (Debian 16.2.0-3) 16.2.0
+cmake version 4.3.4
+graines=20 nsign=50
+Fichiers comparés : 40 ; fichiers différents : 0

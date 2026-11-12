@@ -46,9 +46,9 @@ Les patchs modifient `PQCMayo/MAYO-C` (Apache-2.0) ; ils sont publiés sous la m
 
 ## Mémoire
 
-**Lire le mémoire (PDF révisé, format ENSPY) : [`memoire/memoire_ENSP_v16.pdf`](https://github.com/LECAUCHY12/mayo-a2-thesis/blob/main/memoire/memoire_ENSP_v16.pdf)**
+**Lire notre travail (PDF révisé v18, format ENSPY) : [`memoire/memoire_ENSP_v18.pdf`](https://github.com/LECAUCHY12/mayo-a2-thesis/blob/main/memoire/memoire_ENSP_v18.pdf)**
 
-Sources LaTeX : `memoire/sources_ENSP_v16/` (compiler `memoire.tex` avec pdflatex, trois fois) ; version xelatex du même texte dans `memoire/` (`main.tex`). Les logos sont dans `memoire/logos/`.
+Sources LaTeX : `memoire/sources_ENSP_v18/` (compiler `memoire.tex` avec pdflatex, trois fois) ; version xelatex du même texte dans `memoire/` (`main.tex`). Les logos sont dans `memoire/logos/`.
 
 ## Comparaison ciblée (GCC 16.2.0, 6 nov. 2026)
 Demandée par l'encadrant : MAYO-C officiel et A2 SAFE compilés séparément, sans sondes ni `MAYO_TAIL_AB`, signature complète, MAYO-1 et MAYO-5, mêmes entrées, ordre alterné, le processus comme unité statistique.
@@ -69,3 +69,7 @@ Demandée par l'encadrant : MAYO-C officiel et A2 SAFE compilés séparément, s
 - `data/e1b_gcc16/` : archive des sorties (dumps GCC, désassemblages) et SHA-256.
 - `scripts/e1b_dumps_analyse.py` → `analyses/analyse_e1b_dumps.txt` ; `analyses/rapport_E1b.txt`.
 - `analyses/identification_noyaux_gcc16.txt` : identification des noyaux par le pas d'adresse.
+
+## Test direct octet par octet des signatures (12 nov. 2026)
+
+Patch `patches/0006-Comparaison-octet-par-octet-des-signatures.patch` (s'applique après 0005) : `test/sign_dump.c` et `test/run_comparaison_octets.sh`. Pour chaque graine, les versions officielle et A2 SAFE écrivent dans un fichier la clé publique, la clé secrète et 50 signatures ; les fichiers sont comparés avec `cmp`. Résultat (MAYO-1 et MAYO-5, 20 graines, GCC 16.2.0) : 40 paires de fichiers, 0 différence (`data/comparaison_octets_gcc16/`). Dans les campagnes de mesure, l'égalité des signatures est contrôlée par une empreinte FNV-1a de 64 bits, pas octet par octet. Ces tests portent sur les entrées essayées ; ils ne prouvent pas l'égalité pour toutes les entrées.

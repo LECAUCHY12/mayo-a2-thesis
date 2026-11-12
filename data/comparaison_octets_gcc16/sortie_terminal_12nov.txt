@@ -1,0 +1,6 @@
+(sortie du terminal de Marcel, Kali, 12 nov. 2026 ; commande : sh test/run_comparaison_octets.sh 20 50)
+CMakeLists mis a jour
+MAYO-1 : 20 graines x 50 signatures comparees octet par octet (cmp)
+MAYO-5 : 20 graines x 50 signatures comparees octet par octet (cmp)
+Fichiers comparés : 40 ; fichiers différents : 0
+(GCC confirmé : 16.2.0, voir machine.txt)
